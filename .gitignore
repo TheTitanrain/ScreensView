@@ -1,0 +1,30 @@
+# Build output
+bin/
+obj/
+
+# Visual Studio
+.vs/
+*.user
+*.suo
+*.userosscache
+*.sln.docview
+
+# Rider
+.idea/
+
+# NuGet
+*.nupkg
+packages/
+project.lock.json
+project.fragment.lock.json
+
+# User secrets & local config
+appsettings.local.json
+secrets.json
+
+# OS
+Thumbs.db
+.DS_Store
+
+.claude/
+.vs/

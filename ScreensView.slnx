@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="ScreensView.Agent/ScreensView.Agent.csproj" />
+  <Project Path="ScreensView.Agent.Legacy/ScreensView.Agent.Legacy.csproj" />
+  <Project Path="ScreensView.Shared/ScreensView.Shared.csproj" />
+  <Project Path="ScreensView.Viewer/ScreensView.Viewer.csproj" />
+  <Project Path="ScreensView.Tests/ScreensView.Tests.csproj" />
+</Solution>

@@ -1,0 +1,20 @@
+<Window x:Class="ScreensView.Viewer.Views.InstallProgressWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="Установка агента" Height="480" Width="600"
+        WindowStartupLocation="CenterOwner" ResizeMode="CanResize">
+    <DockPanel Margin="8">
+        <Button DockPanel.Dock="Bottom" Content="Закрыть" Width="80" HorizontalAlignment="Right"
+                Margin="0,8,0,0" Click="Close_Click" x:Name="CloseButton" IsEnabled="False"/>
+
+        <ListView x:Name="LogList" SelectionMode="Single">
+            <ListView.View>
+                <GridView>
+                    <GridViewColumn Header="Компьютер" Width="140" DisplayMemberBinding="{Binding Computer}"/>
+                    <GridViewColumn Header="Статус" Width="120" DisplayMemberBinding="{Binding Status}"/>
+                    <GridViewColumn Header="Сообщение" Width="300" DisplayMemberBinding="{Binding Message}"/>
+                </GridView>
+            </ListView.View>
+        </ListView>
+    </DockPanel>
+</Window>

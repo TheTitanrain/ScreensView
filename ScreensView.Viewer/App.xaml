@@ -1,0 +1,9 @@
+<Application x:Class="ScreensView.Viewer.App"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:ScreensView.Viewer"
+             StartupUri="MainWindow.xaml">
+    <Application.Resources>
+        <local:NullToBoolConverter x:Key="NullToBool"/>
+    </Application.Resources>
+</Application>

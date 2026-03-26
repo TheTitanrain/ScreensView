@@ -1,0 +1,60 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <ItemGroup>
+    <ProjectReference Include="..\ScreensView.Shared\ScreensView.Shared.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
+      <_Parameter1>ScreensView.Tests</_Parameter1>
+    </AssemblyAttribute>
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="System.Management" Version="8.0.0" />
+  </ItemGroup>
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <UseWPF>true</UseWPF>
+  </PropertyGroup>
+
+  <Target Name="BuildAgentPayloads" BeforeTargets="CopyAgentPayloads">
+    <MSBuild Projects="$(MSBuildThisFileDirectory)..\ScreensView.Agent\ScreensView.Agent.csproj;$(MSBuildThisFileDirectory)..\ScreensView.Agent.Legacy\ScreensView.Agent.Legacy.csproj"
+             Targets="Restore;Build"
+             Properties="Configuration=$(Configuration)" />
+  </Target>
+
+  <Target Name="CopyAgentPayloads" AfterTargets="Build">
+    <ItemGroup>
+      <ModernAgentFiles Include="$(MSBuildThisFileDirectory)..\ScreensView.Agent\bin\$(Configuration)\net8.0-windows\*.*"
+                        Exclude="**\*.pdb" />
+      <LegacyAgentFiles Include="$(MSBuildThisFileDirectory)..\ScreensView.Agent.Legacy\bin\$(Configuration)\net48\*.*"
+                        Exclude="**\*.pdb" />
+    </ItemGroup>
+
+    <Copy SourceFiles="@(ModernAgentFiles)"
+          DestinationFolder="$(OutputPath)AgentPayloads\Modern"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(LegacyAgentFiles)"
+          DestinationFolder="$(OutputPath)AgentPayloads\Legacy"
+          SkipUnchangedFiles="true" />
+  </Target>
+
+  <Target Name="ValidateAgentPayloads" AfterTargets="CopyAgentPayloads">
+    <ItemGroup>
+      <_ModernExe Include="$(OutputPath)AgentPayloads\Modern\*.exe" />
+      <_LegacyExe Include="$(OutputPath)AgentPayloads\Legacy\*.exe" />
+    </ItemGroup>
+    <Error Text="Modern agent payload is missing in $(OutputPath)AgentPayloads\Modern"
+           Condition="'@(_ModernExe)' == ''" />
+    <Error Text="Legacy agent payload is missing in $(OutputPath)AgentPayloads\Legacy"
+           Condition="'@(_LegacyExe)' == ''" />
+  </Target>
+
+</Project>
+
