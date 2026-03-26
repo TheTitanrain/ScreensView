@@ -1,18 +1,37 @@
 <Window x:Class="ScreensView.Viewer.Views.InstallProgressWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Установка агента" Height="480" Width="600"
+        xmlns:svc="clr-namespace:ScreensView.Viewer.Services"
+        Title="Установка агента" Height="480" Width="660"
         WindowStartupLocation="CenterOwner" ResizeMode="CanResize">
     <DockPanel Margin="8">
         <Button DockPanel.Dock="Bottom" Content="Закрыть" Width="80" HorizontalAlignment="Right"
                 Margin="0,8,0,0" Click="Close_Click" x:Name="CloseButton" IsEnabled="False"/>
 
         <ListView x:Name="LogList" SelectionMode="Single">
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem">
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding Level}" Value="{x:Static svc:AgentLogLevel.Success}">
+                            <Setter Property="Background" Value="#CCE8CC"/>
+                            <Setter Property="Foreground" Value="#1A5C1A"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Level}" Value="{x:Static svc:AgentLogLevel.Error}">
+                            <Setter Property="Background" Value="#F9CCCC"/>
+                            <Setter Property="Foreground" Value="#8B0000"/>
+                        </DataTrigger>
+                        <DataTrigger Binding="{Binding Level}" Value="{x:Static svc:AgentLogLevel.Warning}">
+                            <Setter Property="Background" Value="#FFF3CD"/>
+                            <Setter Property="Foreground" Value="#7B5800"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </ListView.ItemContainerStyle>
             <ListView.View>
                 <GridView>
-                    <GridViewColumn Header="Компьютер" Width="140" DisplayMemberBinding="{Binding Computer}"/>
-                    <GridViewColumn Header="Статус" Width="120" DisplayMemberBinding="{Binding Status}"/>
-                    <GridViewColumn Header="Сообщение" Width="300" DisplayMemberBinding="{Binding Message}"/>
+                    <GridViewColumn Header="Компьютер" Width="130" DisplayMemberBinding="{Binding Computer}"/>
+                    <GridViewColumn Header="Статус"    Width="160" DisplayMemberBinding="{Binding Status}"/>
+                    <GridViewColumn Header="Сообщение" Width="320" DisplayMemberBinding="{Binding Message}"/>
                 </GridView>
             </ListView.View>
         </ListView>

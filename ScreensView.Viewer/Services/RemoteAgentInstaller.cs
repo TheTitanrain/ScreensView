@@ -12,7 +12,7 @@ public class RemoteAgentInstaller
 {
     private const string PayloadsRootFolderName = "AgentPayloads";
     private const uint HKeyLocalMachine = 0x80000002;
-    private readonly Action<string, string, string> _log;
+    private readonly Action<string, string, string, AgentLogLevel> _log;
 
     [DllImport("mpr.dll", CharSet = CharSet.Unicode)]
     private static extern int WNetAddConnection2(ref NETRESOURCE netResource, string? password, string? username, int flags);
@@ -27,7 +27,7 @@ public class RemoteAgentInstaller
         public string? lpLocalName, lpRemoteName, lpComment, lpProvider;
     }
 
-    public RemoteAgentInstaller(Action<string, string, string> log)
+    public RemoteAgentInstaller(Action<string, string, string, AgentLogLevel> log)
     {
         _log = log;
     }
@@ -46,11 +46,14 @@ public class RemoteAgentInstaller
             try
             {
                 Directory.CreateDirectory(targetDir);
-                _log(computer.Name, "Копирование файлов", string.Empty);
+                _log(computer.Name, "Остановка службы (если запущена)", string.Empty, AgentLogLevel.Info);
+                try { StopService(computer); }
+                catch (Exception ex) { _log(computer.Name, "Предупреждение: остановка службы", ex.Message, AgentLogLevel.Warning); }
+                _log(computer.Name, "Копирование файлов", string.Empty, AgentLogLevel.Info);
                 CopyAgentFiles(targetDir, computer, plan);
-                _log(computer.Name, "Создание службы", string.Empty);
+                _log(computer.Name, "Создание службы", string.Empty, AgentLogLevel.Info);
                 CreateService(computer, plan);
-                _log(computer.Name, "Запуск службы", string.Empty);
+                _log(computer.Name, "Запуск службы", string.Empty, AgentLogLevel.Info);
                 StartService(computer);
             }
             finally
@@ -75,11 +78,12 @@ public class RemoteAgentInstaller
             try
             {
                 Directory.CreateDirectory(targetDir);
-                _log(computer.Name, "Остановка службы", string.Empty);
-                StopService(computer);
-                _log(computer.Name, "Обновление файлов", string.Empty);
+                _log(computer.Name, "Остановка службы", string.Empty, AgentLogLevel.Info);
+                try { StopService(computer); }
+                catch (Exception ex) { _log(computer.Name, "Предупреждение: остановка службы", ex.Message, AgentLogLevel.Warning); }
+                _log(computer.Name, "Обновление файлов", string.Empty, AgentLogLevel.Info);
                 CopyAgentFiles(targetDir, computer, plan);
-                _log(computer.Name, "Запуск службы", string.Empty);
+                _log(computer.Name, "Запуск службы", string.Empty, AgentLogLevel.Info);
                 StartService(computer);
             }
             finally
@@ -102,13 +106,14 @@ public class RemoteAgentInstaller
                 ConnectSmb(unc, username, password);
             try
             {
-                _log(computer.Name, "Остановка службы", string.Empty);
-                StopService(computer);
-                _log(computer.Name, "Удаление службы", string.Empty);
+                _log(computer.Name, "Остановка службы", string.Empty, AgentLogLevel.Info);
+                try { StopService(computer); }
+                catch (Exception ex) { _log(computer.Name, "Предупреждение: остановка службы", ex.Message, AgentLogLevel.Warning); }
+                _log(computer.Name, "Удаление службы", string.Empty, AgentLogLevel.Info);
                 DeleteService(computer);
                 if (Directory.Exists(targetDir))
                 {
-                    _log(computer.Name, "Удаление файлов", string.Empty);
+                    _log(computer.Name, "Удаление файлов", string.Empty, AgentLogLevel.Info);
                     Directory.Delete(targetDir, recursive: true);
                 }
             }
@@ -257,6 +262,7 @@ public class RemoteAgentInstaller
         inParams["ErrorControl"] = 1;
         inParams["StartMode"] = "Automatic";
         inParams["DesktopInteract"] = false;
+        inParams["StartName"] = "LocalSystem";
 
         var result = mc.InvokeMethod("Create", inParams, null);
         var returnVal = Convert.ToInt32(result["ReturnValue"]);

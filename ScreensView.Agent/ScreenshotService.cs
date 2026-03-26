@@ -1,38 +1,81 @@
-using System.Drawing;
-using System.Drawing.Imaging;
+using System.Diagnostics;
+using System.IO.Pipes;
 using System.Runtime.InteropServices;
+using System.Security.AccessControl;
+using System.Security.Principal;
 
 namespace ScreensView.Agent;
 
 public class ScreenshotService
 {
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern IntPtr OpenWindowStation(string lpszWinSta, bool fInherit, uint dwDesiredAccess);
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool CloseWindowStation(IntPtr hWinSta);
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool SetProcessWindowStation(IntPtr hWinSta);
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern IntPtr GetProcessWindowStation();
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern IntPtr OpenDesktop(string lpszDesktop, uint dwFlags, bool fInherit, uint dwDesiredAccess);
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool CloseDesktop(IntPtr hDesktop);
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern bool SetThreadDesktop(IntPtr hDesktop);
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern IntPtr GetThreadDesktop(uint dwThreadId);
-    [DllImport("kernel32.dll")]
-    private static extern uint GetCurrentThreadId();
-    [DllImport("user32.dll")]
-    private static extern int GetSystemMetrics(int nIndex);
+    // wtsapi32.dll
+    [DllImport("wtsapi32.dll", SetLastError = true)]
+    private static extern bool WTSQueryUserToken(uint sessionId, out IntPtr phToken);
 
-    private const uint WINSTA_ALL_ACCESS = 0x37F;
-    private const uint DESKTOP_ALL_ACCESS = 0x01FF;
-    private const int SM_XVIRTUALSCREEN = 76;
-    private const int SM_YVIRTUALSCREEN = 77;
-    private const int SM_CXVIRTUALSCREEN = 78;
-    private const int SM_CYVIRTUALSCREEN = 79;
+    // advapi32.dll — correct for Win7; Win8+ kernel32 forwards transparently
+    [DllImport("advapi32.dll", SetLastError = true)]
+    private static extern bool DuplicateTokenEx(
+        IntPtr hExistingToken,
+        uint dwDesiredAccess,
+        IntPtr lpTokenAttributes,
+        SECURITY_IMPERSONATION_LEVEL impersonationLevel,
+        TOKEN_TYPE tokenType,
+        out IntPtr phNewToken);
+
+    // kernel32.dll
+    [DllImport("kernel32.dll")]
+    private static extern uint WTSGetActiveConsoleSessionId();
+
+    [DllImport("kernel32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
+    private static extern bool CreateProcessAsUser(
+        IntPtr hToken,
+        string? lpApplicationName,
+        string lpCommandLine,
+        IntPtr lpProcessAttributes,
+        IntPtr lpThreadAttributes,
+        bool bInheritHandles,
+        uint dwCreationFlags,
+        IntPtr lpEnvironment,
+        string? lpCurrentDirectory,
+        ref STARTUPINFO lpStartupInfo,
+        out PROCESS_INFORMATION lpProcessInformation);
+
+    [DllImport("kernel32.dll")]
+    private static extern uint WaitForSingleObject(IntPtr hHandle, uint dwMilliseconds);
+
+    [DllImport("kernel32.dll")]
+    private static extern bool CloseHandle(IntPtr hObject);
+
+    private enum SECURITY_IMPERSONATION_LEVEL { SecurityImpersonation = 2 }
+    private enum TOKEN_TYPE { TokenPrimary = 1 }
+
+    private const uint TOKEN_ALL_ACCESS      = 0x000F01FF;
+    private const uint CREATE_NO_WINDOW      = 0x08000000;
+    private const uint STARTF_USESHOWWINDOW  = 0x00000001;
+    private const short SW_HIDE              = 0;
+
+    [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
+    private struct STARTUPINFO
+    {
+        public int    cb;
+        public string? lpReserved;
+        public string? lpDesktop;
+        public string? lpTitle;
+        public uint   dwX, dwY, dwXSize, dwYSize;
+        public uint   dwXCountChars, dwYCountChars, dwFillAttribute;
+        public uint   dwFlags;
+        public short  wShowWindow;
+        public short  cbReserved2;
+        public IntPtr lpReserved2;
+        public IntPtr hStdInput, hStdOutput, hStdError;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
+    private struct PROCESS_INFORMATION
+    {
+        public IntPtr hProcess, hThread;
+        public uint   dwProcessId, dwThreadId;
+    }
 
     private readonly AgentOptions _options;
 
@@ -40,60 +83,118 @@ public class ScreenshotService
 
     public byte[] CaptureJpeg()
     {
-        var hWinSta = OpenWindowStation("WinSta0", false, WINSTA_ALL_ACCESS);
-        if (hWinSta == IntPtr.Zero)
-            throw new InvalidOperationException($"OpenWindowStation failed: {Marshal.GetLastWin32Error()}");
+        uint sessionId = WTSGetActiveConsoleSessionId();
+        if (sessionId == 0xFFFFFFFF)
+            throw new NoActiveSessionException();
 
-        var hOldWinSta = GetProcessWindowStation();
-        SetProcessWindowStation(hWinSta);
-
-        var hDesktop = OpenDesktop("Default", 0, false, DESKTOP_ALL_ACCESS);
-        if (hDesktop == IntPtr.Zero)
-        {
-            SetProcessWindowStation(hOldWinSta);
-            CloseWindowStation(hWinSta);
-            throw new InvalidOperationException($"OpenDesktop failed: {Marshal.GetLastWin32Error()}");
-        }
-
-        var hOldDesktop = GetThreadDesktop(GetCurrentThreadId());
-        SetThreadDesktop(hDesktop);
+        if (!WTSQueryUserToken(sessionId, out var hImpToken))
+            throw new InvalidOperationException(
+                $"WTSQueryUserToken failed: {Marshal.GetLastWin32Error()} — service must run as LocalSystem.");
 
         try
         {
-            return CaptureAllScreens();
+            if (!DuplicateTokenEx(hImpToken, TOKEN_ALL_ACCESS, IntPtr.Zero,
+                    SECURITY_IMPERSONATION_LEVEL.SecurityImpersonation,
+                    TOKEN_TYPE.TokenPrimary, out var hPrimToken))
+                throw new InvalidOperationException(
+                    $"DuplicateTokenEx failed: {Marshal.GetLastWin32Error()}");
+            try
+            {
+                return CaptureViaHelper(hPrimToken);
+            }
+            finally
+            {
+                CloseHandle(hPrimToken);
+            }
         }
         finally
         {
-            SetThreadDesktop(hOldDesktop);
-            CloseDesktop(hDesktop);
-            SetProcessWindowStation(hOldWinSta);
-            CloseWindowStation(hWinSta);
+            CloseHandle(hImpToken);
         }
     }
 
-    private byte[] CaptureAllScreens()
+    private byte[] CaptureViaHelper(IntPtr hToken)
     {
-        int left   = GetSystemMetrics(SM_XVIRTUALSCREEN);
-        int top    = GetSystemMetrics(SM_YVIRTUALSCREEN);
-        int width  = GetSystemMetrics(SM_CXVIRTUALSCREEN);
-        int height = GetSystemMetrics(SM_CYVIRTUALSCREEN);
+        var pipeName = "ScreensViewShot-" + Guid.NewGuid().ToString("N");
 
-        if (width <= 0 || height <= 0)
-            throw new InvalidOperationException("GetSystemMetrics returned zero screen dimensions — no interactive desktop available.");
+        var ps = new PipeSecurity();
+        ps.AddAccessRule(new PipeAccessRule(
+            new SecurityIdentifier(WellKnownSidType.AuthenticatedUserSid, null),
+            PipeAccessRights.ReadWrite,
+            AccessControlType.Allow));
 
-        using var bitmap = new Bitmap(width, height, PixelFormat.Format32bppArgb);
-        using var g = Graphics.FromImage(bitmap);
-        g.CopyFromScreen(left, top, 0, 0, new Size(width, height), CopyPixelOperation.SourceCopy);
-        return EncodeJpeg(bitmap);
+        using var pipeServer = NamedPipeServerStreamAcl.Create(
+            pipeName,
+            PipeDirection.In,
+            maxNumberOfServerInstances: 1,
+            PipeTransmissionMode.Byte,
+            PipeOptions.Asynchronous,
+            inBufferSize: 0,
+            outBufferSize: 0,
+            ps);
+
+        var exePath = Process.GetCurrentProcess().MainModule?.FileName
+            ?? throw new InvalidOperationException("Cannot determine current executable path.");
+
+        var cmdLine = $"\"{exePath}\" --screenshot-helper {pipeName} {_options.ScreenshotQuality}";
+
+        var si = new STARTUPINFO
+        {
+            cb         = Marshal.SizeOf<STARTUPINFO>(),
+            lpDesktop  = "winsta0\\default",
+            dwFlags    = STARTF_USESHOWWINDOW,
+            wShowWindow = SW_HIDE
+        };
+
+        if (!CreateProcessAsUser(hToken, null, cmdLine,
+                IntPtr.Zero, IntPtr.Zero, false,
+                CREATE_NO_WINDOW, IntPtr.Zero, null,
+                ref si, out var pi))
+            throw new InvalidOperationException(
+                $"CreateProcessAsUser failed: {Marshal.GetLastWin32Error()}");
+
+        try
+        {
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
+            try
+            {
+                pipeServer.WaitForConnectionAsync(cts.Token).Wait();
+            }
+            catch (AggregateException ae) when (ae.InnerException is OperationCanceledException)
+            {
+                WaitForSingleObject(pi.hProcess, 0);
+                throw new TimeoutException(
+                    "Screenshot helper did not connect within 15 seconds.");
+            }
+
+            var lenBuf = new byte[4];
+            ReadExact(pipeServer, lenBuf, 0, 4);
+            int jpegLen = BitConverter.ToInt32(lenBuf, 0);
+
+            if (jpegLen <= 0 || jpegLen > 50 * 1024 * 1024)
+                throw new InvalidDataException($"Invalid JPEG length from helper: {jpegLen}");
+
+            var jpeg = new byte[jpegLen];
+            ReadExact(pipeServer, jpeg, 0, jpegLen);
+            return jpeg;
+        }
+        finally
+        {
+            WaitForSingleObject(pi.hProcess, 5_000);
+            CloseHandle(pi.hProcess);
+            CloseHandle(pi.hThread);
+        }
     }
 
-    private byte[] EncodeJpeg(Bitmap bitmap)
+    private static void ReadExact(Stream stream, byte[] buf, int offset, int count)
     {
-        var encoder = ImageCodecInfo.GetImageEncoders().First(e => e.FormatID == ImageFormat.Jpeg.Guid);
-        var encoderParams = new EncoderParameters(1);
-        encoderParams.Param[0] = new EncoderParameter(Encoder.Quality, (long)_options.ScreenshotQuality);
-        using var ms = new MemoryStream();
-        bitmap.Save(ms, encoder, encoderParams);
-        return ms.ToArray();
+        while (count > 0)
+        {
+            int read = stream.Read(buf, offset, count);
+            if (read == 0)
+                throw new EndOfStreamException("Helper closed pipe before sending all data.");
+            offset += read;
+            count  -= read;
+        }
     }
 }

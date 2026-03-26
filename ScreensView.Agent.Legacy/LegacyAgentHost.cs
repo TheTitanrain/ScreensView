@@ -101,14 +101,21 @@ internal sealed class LegacyAgentHost : IDisposable
                     WriteJson(context.Response, 200, AgentJsonSerializer.SerializeHealthResponse(Environment.MachineName));
                     return;
                 case "/screenshot":
-                    var jpeg = _screenshotService.CaptureJpeg();
-                    var response = new ScreenshotResponse
+                    try
                     {
-                        ImageBase64 = Convert.ToBase64String(jpeg),
-                        Timestamp = DateTime.UtcNow,
-                        MachineName = Environment.MachineName
-                    };
-                    WriteJson(context.Response, 200, AgentJsonSerializer.SerializeScreenshotResponse(response));
+                        var jpeg = _screenshotService.CaptureJpeg();
+                        var response = new ScreenshotResponse
+                        {
+                            ImageBase64 = Convert.ToBase64String(jpeg),
+                            Timestamp = DateTime.UtcNow,
+                            MachineName = Environment.MachineName
+                        };
+                        WriteJson(context.Response, 200, AgentJsonSerializer.SerializeScreenshotResponse(response));
+                    }
+                    catch (NoActiveSessionException ex)
+                    {
+                        WriteText(context.Response, 503, ex.Message);
+                    }
                     return;
                 default:
                     WriteText(context.Response, 404, "Not Found");

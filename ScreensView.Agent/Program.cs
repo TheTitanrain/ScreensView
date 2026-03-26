@@ -1,6 +1,12 @@
 using ScreensView.Agent;
 using ScreensView.Shared.Models;
 
+if (args is ["--screenshot-helper", var pipe, var qualStr])
+{
+    ScreenshotHelper.Run(pipe, int.TryParse(qualStr, out var q) ? q : 75);
+    return;
+}
+
 var builder = WebApplication.CreateBuilder(args);
 
 builder.Host.UseWindowsService();
@@ -30,14 +36,21 @@ app.UseMiddleware<ApiKeyMiddleware>();
 
 app.MapGet("/screenshot", (ScreenshotService screenshotService) =>
 {
-    var jpeg = screenshotService.CaptureJpeg();
-    var response = new ScreenshotResponse
+    try
     {
-        ImageBase64 = Convert.ToBase64String(jpeg),
-        Timestamp = DateTime.UtcNow,
-        MachineName = Environment.MachineName
-    };
-    return Results.Ok(response);
+        var jpeg = screenshotService.CaptureJpeg();
+        var response = new ScreenshotResponse
+        {
+            ImageBase64 = Convert.ToBase64String(jpeg),
+            Timestamp = DateTime.UtcNow,
+            MachineName = Environment.MachineName
+        };
+        return Results.Ok(response);
+    }
+    catch (NoActiveSessionException ex)
+    {
+        return Results.Problem(ex.Message, statusCode: 503);
+    }
 });
 
 app.MapGet("/health", () => Results.Ok(new { status = "ok", machine = Environment.MachineName }));

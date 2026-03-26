@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using System.ComponentModel;
+using System.Runtime.CompilerServices;
 using System.Windows;
 using ScreensView.Shared.Models;
 using ScreensView.Viewer.Services;
@@ -26,7 +28,7 @@ public partial class InstallProgressWindow : Window
 
         Title = mode switch
         {
-            Mode.Install => "Установка агента",
+            Mode.Install   => "Установка агента",
             Mode.Uninstall => "Удаление агента",
             Mode.UpdateAll => "Обновление агентов",
             _ => Title
@@ -43,57 +45,82 @@ public partial class InstallProgressWindow : Window
             new ParallelOptions { MaxDegreeOfParallelism = 4 },
             async (computer, ct) =>
             {
-                AddLog(computer.Name, "Выполняется...", string.Empty);
+                AddLog(computer.Name, "Выполняется...", string.Empty, AgentLogLevel.Info);
                 try
                 {
                     switch (_mode)
                     {
                         case Mode.Install:
                             await installer.InstallAsync(computer, _username, _password);
-                            AddLog(computer.Name, "Успешно", "Агент установлен и запущен");
+                            AddLog(computer.Name, "Успешно", "Агент установлен и запущен", AgentLogLevel.Success);
                             break;
                         case Mode.Uninstall:
                             await installer.UninstallAsync(computer, _username, _password);
-                            AddLog(computer.Name, "Успешно", "Агент удалён");
+                            AddLog(computer.Name, "Успешно", "Агент удалён", AgentLogLevel.Success);
                             break;
                         case Mode.UpdateAll:
                             await installer.UpdateAsync(computer, _username, _password);
-                            AddLog(computer.Name, "Успешно", "Агент обновлён");
+                            AddLog(computer.Name, "Успешно", "Агент обновлён", AgentLogLevel.Success);
                             break;
                     }
                 }
                 catch (Exception ex)
                 {
-                    AddLog(computer.Name, "Ошибка", ex.Message);
+                    AddLog(computer.Name, "Ошибка", ex.Message, AgentLogLevel.Error);
                 }
             });
 
         Dispatcher.Invoke(() => CloseButton.IsEnabled = true);
     }
 
-    private void AddLog(string computer, string status, string message)
+    private void AddLog(string computer, string status, string message, AgentLogLevel level)
     {
         Dispatcher.Invoke(() =>
         {
             var existing = _log.FirstOrDefault(e => e.Computer == computer);
             if (existing != null)
             {
-                existing.Status = status;
+                existing.Status  = status;
                 existing.Message = message;
+                existing.Level   = level;
             }
             else
             {
-                _log.Add(new LogEntry { Computer = computer, Status = status, Message = message });
+                _log.Add(new LogEntry { Computer = computer, Status = status, Message = message, Level = level });
             }
         });
     }
 
     private void Close_Click(object sender, RoutedEventArgs e) => Close();
 
-    public class LogEntry
+    public class LogEntry : INotifyPropertyChanged
     {
-        public string Computer { get; set; } = string.Empty;
-        public string Status { get; set; } = string.Empty;
-        public string Message { get; set; } = string.Empty;
+        private string _status  = string.Empty;
+        private string _message = string.Empty;
+        private AgentLogLevel _level = AgentLogLevel.Info;
+
+        public string Computer { get; init; } = string.Empty;
+
+        public string Status
+        {
+            get => _status;
+            set { _status = value; OnPropertyChanged(); }
+        }
+
+        public string Message
+        {
+            get => _message;
+            set { _message = value; OnPropertyChanged(); }
+        }
+
+        public AgentLogLevel Level
+        {
+            get => _level;
+            set { _level = value; OnPropertyChanged(); }
+        }
+
+        public event PropertyChangedEventHandler? PropertyChanged;
+        private void OnPropertyChanged([CallerMemberName] string? name = null)
+            => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(name));
     }
 }
