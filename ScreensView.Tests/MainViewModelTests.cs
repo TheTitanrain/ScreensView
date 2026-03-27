@@ -73,4 +73,65 @@ public class MainViewModelTests : IDisposable
         var ex = Record.Exception(() => vm.AddComputers([]));
         Assert.Null(ex);
     }
+
+    [Fact]
+    public void RemoveComputers_RemovesAllFromCollection()
+    {
+        var vm = CreateVm();
+        vm.AddComputers([
+            new ComputerConfig { Name = "A", Host = "10.0.0.1", Port = 5443, ApiKey = "k1" },
+            new ComputerConfig { Name = "B", Host = "10.0.0.2", Port = 5443, ApiKey = "k2" },
+            new ComputerConfig { Name = "C", Host = "10.0.0.3", Port = 5443, ApiKey = "k3" },
+        ]);
+        var toRemove = vm.Computers.Take(2).ToList();
+
+        vm.RemoveComputers(toRemove);
+
+        Assert.Single(vm.Computers);
+    }
+
+    [Fact]
+    public void RemoveComputers_PersistsAfterReload()
+    {
+        var storage = new ComputerStorageService(_tempFile);
+        using (var vm = new MainViewModel(storage, new ScreenshotPollerService(new AgentHttpClient())))
+        {
+            vm.AddComputers([
+                new ComputerConfig { Name = "A", Host = "10.0.0.1", Port = 5443, ApiKey = "k1" },
+                new ComputerConfig { Name = "B", Host = "10.0.0.2", Port = 5443, ApiKey = "k2" },
+                new ComputerConfig { Name = "C", Host = "10.0.0.3", Port = 5443, ApiKey = "k3" },
+            ]);
+            vm.RemoveComputers(vm.Computers.Take(2).ToList());
+        }
+
+        using var vm2 = new MainViewModel(storage, new ScreenshotPollerService(new AgentHttpClient()));
+        Assert.Single(vm2.Computers);
+    }
+
+    [Fact]
+    public void RemoveComputers_SavesOnce()
+    {
+        var storage = new ComputerStorageService(_tempFile);
+        var vm = new CountingSaveViewModel(storage, new ScreenshotPollerService(new AgentHttpClient()));
+        var configs = new[]
+        {
+            new ComputerConfig { Name = "A", Host = "10.0.0.1", Port = 5443, ApiKey = "k1" },
+            new ComputerConfig { Name = "B", Host = "10.0.0.2", Port = 5443, ApiKey = "k2" },
+            new ComputerConfig { Name = "C", Host = "10.0.0.3", Port = 5443, ApiKey = "k3" },
+        };
+        // Add directly to bypass SaveComputers (avoid counting setup saves)
+        foreach (var c in configs)
+            vm.Computers.Add(new ScreensView.Viewer.ViewModels.ComputerViewModel(c));
+
+        vm.RemoveComputers(vm.Computers.ToList());
+
+        Assert.Equal(1, vm.SaveCount);
+    }
+
+    private class CountingSaveViewModel(ComputerStorageService s, ScreenshotPollerService p)
+        : MainViewModel(s, p)
+    {
+        public int SaveCount { get; private set; }
+        public override void SaveComputers() => SaveCount++;
+    }
 }

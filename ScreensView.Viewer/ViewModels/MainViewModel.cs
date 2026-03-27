@@ -78,7 +78,14 @@ public partial class MainViewModel : ObservableObject, IDisposable
         SaveComputers();
     }
 
-    public void SaveComputers()
+    public void RemoveComputers(IEnumerable<ComputerViewModel> vms)
+    {
+        foreach (var vm in vms)
+            Computers.Remove(vm);
+        SaveComputers();
+    }
+
+    public virtual void SaveComputers()
     {
         _storage.Save(Computers.Select(c => c.ToConfig()));
     }
