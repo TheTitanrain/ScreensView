@@ -32,6 +32,16 @@ public partial class ComputersManagerWindow : Window
             _mainVm.AddComputer(win.Result);
     }
 
+    private void AddMultiple_Click(object sender, RoutedEventArgs e)
+    {
+        var existingHosts = _mainVm.Computers
+            .Select(c => c.Host)
+            .ToHashSet(StringComparer.OrdinalIgnoreCase);
+        var win = new AddMultipleComputersWindow(existingHosts) { Owner = this };
+        if (win.ShowDialog() == true && win.Results.Count > 0)
+            _mainVm.AddComputers(win.Results);
+    }
+
     private void Edit_Click(object sender, RoutedEventArgs e)
     {
         if (Selected == null) return;
