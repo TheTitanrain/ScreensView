@@ -3,16 +3,15 @@ using System.IO.Pipes;
 using System.Runtime.InteropServices;
 using System.Security.AccessControl;
 using System.Security.Principal;
+using ScreensView.Shared;
 
 namespace ScreensView.Agent;
 
 public class ScreenshotService
 {
-    // wtsapi32.dll
     [DllImport("wtsapi32.dll", SetLastError = true)]
     private static extern bool WTSQueryUserToken(uint sessionId, out IntPtr phToken);
 
-    // advapi32.dll — correct for Win7; Win8+ kernel32 forwards transparently
     [DllImport("advapi32.dll", SetLastError = true)]
     private static extern bool DuplicateTokenEx(
         IntPtr hExistingToken,
@@ -22,7 +21,6 @@ public class ScreenshotService
         TOKEN_TYPE tokenType,
         out IntPtr phNewToken);
 
-    // kernel32.dll
     [DllImport("kernel32.dll")]
     private static extern uint WTSGetActiveConsoleSessionId();
 
@@ -49,23 +47,23 @@ public class ScreenshotService
     private enum SECURITY_IMPERSONATION_LEVEL { SecurityImpersonation = 2 }
     private enum TOKEN_TYPE { TokenPrimary = 1 }
 
-    private const uint TOKEN_ALL_ACCESS      = 0x000F01FF;
-    private const uint CREATE_NO_WINDOW      = 0x08000000;
-    private const uint STARTF_USESHOWWINDOW  = 0x00000001;
-    private const short SW_HIDE              = 0;
+    private const uint TOKEN_ALL_ACCESS = 0x000F01FF;
+    private const uint CREATE_NO_WINDOW = 0x08000000;
+    private const uint STARTF_USESHOWWINDOW = 0x00000001;
+    private const short SW_HIDE = 0;
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     private struct STARTUPINFO
     {
-        public int    cb;
+        public int cb;
         public string? lpReserved;
         public string? lpDesktop;
         public string? lpTitle;
-        public uint   dwX, dwY, dwXSize, dwYSize;
-        public uint   dwXCountChars, dwYCountChars, dwFillAttribute;
-        public uint   dwFlags;
-        public short  wShowWindow;
-        public short  cbReserved2;
+        public uint dwX, dwY, dwXSize, dwYSize;
+        public uint dwXCountChars, dwYCountChars, dwFillAttribute;
+        public uint dwFlags;
+        public short wShowWindow;
+        public short cbReserved2;
         public IntPtr lpReserved2;
         public IntPtr hStdInput, hStdOutput, hStdError;
     }
@@ -74,7 +72,7 @@ public class ScreenshotService
     private struct PROCESS_INFORMATION
     {
         public IntPtr hProcess, hThread;
-        public uint   dwProcessId, dwThreadId;
+        public uint dwProcessId, dwThreadId;
     }
 
     private readonly AgentOptions _options;
@@ -88,8 +86,13 @@ public class ScreenshotService
             throw new NoActiveSessionException();
 
         if (!WTSQueryUserToken(sessionId, out var hImpToken))
-            throw new InvalidOperationException(
-                $"WTSQueryUserToken failed: {Marshal.GetLastWin32Error()} — service must run as LocalSystem.");
+        {
+            int err = Marshal.GetLastWin32Error();
+            if (err == 1314)
+                throw new InvalidOperationException(
+                    $"WTSQueryUserToken failed: {err} — service must run as LocalSystem.");
+            throw new NoActiveSessionException();
+        }
 
         try
         {
@@ -140,9 +143,9 @@ public class ScreenshotService
 
         var si = new STARTUPINFO
         {
-            cb         = Marshal.SizeOf<STARTUPINFO>(),
-            lpDesktop  = "winsta0\\default",
-            dwFlags    = STARTF_USESHOWWINDOW,
+            cb = Marshal.SizeOf<STARTUPINFO>(),
+            lpDesktop = "winsta0\\default",
+            dwFlags = STARTF_USESHOWWINDOW,
             wShowWindow = SW_HIDE
         };
 
@@ -167,34 +170,20 @@ public class ScreenshotService
                     "Screenshot helper did not connect within 15 seconds.");
             }
 
-            var lenBuf = new byte[4];
-            ReadExact(pipeServer, lenBuf, 0, 4);
-            int jpegLen = BitConverter.ToInt32(lenBuf, 0);
+            var result = ScreenshotTransferProtocol.Read(pipeServer);
+            if (result.Status == ScreenshotTransferStatus.Locked)
+                throw new NoActiveSessionException(result.Message);
 
-            if (jpegLen <= 0 || jpegLen > 50 * 1024 * 1024)
-                throw new InvalidDataException($"Invalid JPEG length from helper: {jpegLen}");
+            if (result.JpegBytes == null || result.JpegBytes.Length == 0)
+                throw new InvalidDataException("Screenshot helper returned an empty JPEG payload.");
 
-            var jpeg = new byte[jpegLen];
-            ReadExact(pipeServer, jpeg, 0, jpegLen);
-            return jpeg;
+            return result.JpegBytes;
         }
         finally
         {
             WaitForSingleObject(pi.hProcess, 5_000);
             CloseHandle(pi.hProcess);
             CloseHandle(pi.hThread);
-        }
-    }
-
-    private static void ReadExact(Stream stream, byte[] buf, int offset, int count)
-    {
-        while (count > 0)
-        {
-            int read = stream.Read(buf, offset, count);
-            if (read == 0)
-                throw new EndOfStreamException("Helper closed pipe before sending all data.");
-            offset += read;
-            count  -= read;
         }
     }
 }

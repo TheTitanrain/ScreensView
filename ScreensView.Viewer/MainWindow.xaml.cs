@@ -56,7 +56,8 @@ public partial class MainWindow : Window
     private void Card_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (e.ClickCount != 2) return;
-        if (((System.Windows.Controls.Border)sender).DataContext is ComputerViewModel vm)
+        if (((System.Windows.Controls.Border)sender).DataContext is ComputerViewModel vm
+            && vm.Status != ComputerStatus.Locked)
             new ScreenshotZoomWindow(vm) { Owner = this }.Show();
         e.Handled = true;
     }

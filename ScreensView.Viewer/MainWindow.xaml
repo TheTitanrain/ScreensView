@@ -83,6 +83,24 @@
                                     </TextBlock.Style>
                                 </TextBlock>
 
+                                <!-- Lock overlay -->
+                                <Grid Grid.Row="0">
+                                    <Grid.Style>
+                                        <Style TargetType="Grid">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding Status}" Value="Locked">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </Grid.Style>
+                                    <Rectangle Fill="#80000000"/>
+                                    <TextBlock Text="🔒" FontSize="32"
+                                               HorizontalAlignment="Center" VerticalAlignment="Center"
+                                               Foreground="White"/>
+                                </Grid>
+
                                 <!-- Bottom bar -->
                                 <Border Grid.Row="1" Background="#2D2D2D">
                                     <Grid>
@@ -106,6 +124,9 @@
                                                         </DataTrigger>
                                                         <DataTrigger Binding="{Binding Status}" Value="Error">
                                                             <Setter Property="Fill" Value="#CCAA00"/>
+                                                        </DataTrigger>
+                                                        <DataTrigger Binding="{Binding Status}" Value="Locked">
+                                                            <Setter Property="Fill" Value="#CCAA44"/>
                                                         </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>

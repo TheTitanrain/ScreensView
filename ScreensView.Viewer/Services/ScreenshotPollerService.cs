@@ -51,6 +51,10 @@ public class ScreenshotPollerService : IDisposable
             if (response != null)
                 System.Windows.Application.Current.Dispatcher.Invoke(() => vm.UpdateScreenshot(response));
         }
+        catch (SessionLockedException ex)
+        {
+            System.Windows.Application.Current.Dispatcher.Invoke(() => vm.SetLocked(ex.Message));
+        }
         catch (Exception ex)
         {
             System.Windows.Application.Current.Dispatcher.Invoke(() => vm.SetError(ex.Message));

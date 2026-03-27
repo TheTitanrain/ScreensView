@@ -1,6 +1,7 @@
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Security.Cryptography.X509Certificates;
+using System.Text.Json;
 using ScreensView.Shared;
 using ScreensView.Shared.Models;
 
@@ -29,6 +30,11 @@ public class AgentHttpClient : IDisposable
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         request.Headers.Add(Constants.ApiKeyHeader, computer.ApiKey);
         var response = await client.SendAsync(request, ct);
+        if (response.StatusCode == System.Net.HttpStatusCode.ServiceUnavailable)
+        {
+            var body = await response.Content.ReadAsStringAsync(ct);
+            throw new SessionLockedException(ExtractMessage(body));
+        }
         response.EnsureSuccessStatusCode();
         return await response.Content.ReadFromJsonAsync<ScreenshotResponse>(ct);
     }
@@ -75,6 +81,20 @@ public class AgentHttpClient : IDisposable
         }
 
         return handler;
+    }
+
+    // Extracts the human-readable message from either a RFC 7807 ProblemDetails JSON body
+    // (modern agent: Results.Problem) or a plain-text body (legacy agent).
+    private static string ExtractMessage(string body)
+    {
+        try
+        {
+            using var doc = JsonDocument.Parse(body);
+            if (doc.RootElement.TryGetProperty("detail", out var detail))
+                return detail.GetString() ?? body;
+        }
+        catch (JsonException) { }
+        return body;
     }
 
     public void Dispose() => _client.Dispose();

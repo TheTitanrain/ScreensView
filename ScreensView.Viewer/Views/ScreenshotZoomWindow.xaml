@@ -34,6 +34,24 @@
             </TextBlock.Style>
         </TextBlock>
 
+        <!-- Lock overlay -->
+        <Grid Grid.Row="0">
+            <Grid.Style>
+                <Style TargetType="Grid">
+                    <Setter Property="Visibility" Value="Collapsed"/>
+                    <Style.Triggers>
+                        <DataTrigger Binding="{Binding Status}" Value="Locked">
+                            <Setter Property="Visibility" Value="Visible"/>
+                        </DataTrigger>
+                    </Style.Triggers>
+                </Style>
+            </Grid.Style>
+            <Rectangle Fill="#80000000"/>
+            <TextBlock Text="🔒" FontSize="64"
+                       HorizontalAlignment="Center" VerticalAlignment="Center"
+                       Foreground="White"/>
+        </Grid>
+
         <!-- Close button -->
         <Button Grid.Row="0" Content="✕" Width="36" Height="36"
                 HorizontalAlignment="Right" VerticalAlignment="Top"
@@ -66,6 +84,9 @@
                                 </DataTrigger>
                                 <DataTrigger Binding="{Binding Status}" Value="Error">
                                     <Setter Property="Fill" Value="#CCAA00"/>
+                                </DataTrigger>
+                                <DataTrigger Binding="{Binding Status}" Value="Locked">
+                                    <Setter Property="Fill" Value="#CCAA44"/>
                                 </DataTrigger>
                             </Style.Triggers>
                         </Style>

@@ -2,11 +2,27 @@ using System.IO.Pipes;
 using System.Security.AccessControl;
 using System.Security.Principal;
 using ScreensView.Agent;
+using ScreensView.Shared;
 
 namespace ScreensView.Tests;
 
 public class ScreenshotPipelineTests
 {
+    [Fact]
+    public void ScreenshotTransferProtocol_RoundTripsLockedMessage()
+    {
+        using var stream = new MemoryStream();
+
+        ScreenshotTransferProtocol.WriteLocked(stream, "Workstation is locked.");
+        stream.Position = 0;
+
+        var result = ScreenshotTransferProtocol.Read(stream);
+
+        Assert.Equal(ScreenshotTransferStatus.Locked, result.Status);
+        Assert.Equal("Workstation is locked.", result.Message);
+        Assert.Null(result.JpegBytes);
+    }
+
     [Fact]
     public void NoActiveSessionException_IsInvalidOperationException()
     {
@@ -26,12 +42,12 @@ public class ScreenshotPipelineTests
 
     /// <summary>
     /// Verifies the named pipe protocol used by ScreenshotHelper:
-    /// 4-byte LE Int32 length prefix followed by JPEG bytes (FF D8 magic).
+    /// 1-byte transfer status + 4-byte LE payload length + payload bytes.
     ///
-    /// Skipped on headless machines (no display → GetSystemMetrics returns 0).
+    /// Skipped on headless machines (no display -> GetSystemMetrics returns 0).
     /// </summary>
     [Fact]
-    public async Task ScreenshotHelper_PipeProtocol_WritesLengthPrefixedJpeg()
+    public async Task ScreenshotHelper_PipeProtocol_WritesSuccessPacketWithJpeg()
     {
         var pipeName = "ScreensViewTest-" + Guid.NewGuid().ToString("N");
 
@@ -60,34 +76,21 @@ public class ScreenshotPipelineTests
         }
         catch (OperationCanceledException)
         {
-            return; // headless — no display, helper exited; skip silently
+            return; // headless - no display, helper exited; skip silently
         }
 
-        var lenBuf = new byte[4];
-        ReadExact(server, lenBuf, 0, 4);
-        int jpegLen = BitConverter.ToInt32(lenBuf, 0);
+        var result = ScreenshotTransferProtocol.Read(server);
 
-        Assert.True(jpegLen > 0, $"Expected positive JPEG length, got {jpegLen}");
-        Assert.True(jpegLen < 50 * 1024 * 1024, "JPEG length sanity check failed (> 50 MB)");
+        Assert.Equal(ScreenshotTransferStatus.Success, result.Status);
+        Assert.NotNull(result.JpegBytes);
 
-        var jpeg = new byte[jpegLen];
-        ReadExact(server, jpeg, 0, jpegLen);
+        var jpeg = result.JpegBytes!;
+        Assert.True(jpeg.Length > 0, $"Expected positive JPEG length, got {jpeg.Length}");
+        Assert.True(jpeg.Length < 50 * 1024 * 1024, "JPEG length sanity check failed (> 50 MB)");
 
-        // JPEG magic bytes: FF D8
         Assert.Equal(0xFF, jpeg[0]);
         Assert.Equal(0xD8, jpeg[1]);
 
         await helperTask.WaitAsync(TimeSpan.FromSeconds(5));
-    }
-
-    private static void ReadExact(Stream stream, byte[] buf, int offset, int count)
-    {
-        while (count > 0)
-        {
-            int read = stream.Read(buf, offset, count);
-            if (read == 0) throw new EndOfStreamException();
-            offset += read;
-            count -= read;
-        }
     }
 }

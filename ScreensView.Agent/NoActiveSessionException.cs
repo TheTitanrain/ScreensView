@@ -2,6 +2,11 @@ namespace ScreensView.Agent;
 
 public sealed class NoActiveSessionException : InvalidOperationException
 {
+    private const string DefaultMessage = "No active console session — nobody is logged in at the console.";
+
     public NoActiveSessionException()
-        : base("No active console session — nobody is logged in at the console.") { }
+        : base(DefaultMessage) { }
+
+    public NoActiveSessionException(string message)
+        : base(string.IsNullOrWhiteSpace(message) ? DefaultMessage : message) { }
 }

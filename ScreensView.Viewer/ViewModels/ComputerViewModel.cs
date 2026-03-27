@@ -4,7 +4,7 @@ using ScreensView.Shared.Models;
 
 namespace ScreensView.Viewer.ViewModels;
 
-public enum ComputerStatus { Unknown, Online, Offline, Error }
+public enum ComputerStatus { Unknown, Online, Offline, Error, Locked }
 
 public partial class ComputerViewModel : ObservableObject
 {
@@ -62,6 +62,12 @@ public partial class ComputerViewModel : ObservableObject
     public void SetError(string message)
     {
         Status = ComputerStatus.Offline;
+        StatusMessage = message;
+    }
+
+    public void SetLocked(string message)
+    {
+        Status = ComputerStatus.Locked;
         StatusMessage = message;
     }
 }
