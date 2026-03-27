@@ -92,7 +92,8 @@ Each non-empty trimmed line becomes one `ComputerConfig`.
 
 - Port: `int.TryParse` + range 1–65535; show `MessageBox` on OK click if invalid (both tabs).
 - Hosts tab: at least one non-empty line required; show `MessageBox` on OK click if zero hosts.
-- IP range tab: errors from `ParseIpRange` shown inline (label) as user types; **Добавить** button disabled when `error != null`.
+- IP range tab: errors from `ParseIpRange` shown inline (label) as user types; **Добавить** button disabled when `error != null`. Port validity on this tab is checked only on OK click (same as hosts tab) — the button-disabled state is tied exclusively to IP parse/range errors, not to port validity.
+- IP range tab — counter label: when `error != null`, N is shown as 0.
 - Duplicates: before building `Results`, hosts already present in the current computer collection (matched by `Host` value, case-insensitive) are silently removed from the result list.
 
 ## Integration
