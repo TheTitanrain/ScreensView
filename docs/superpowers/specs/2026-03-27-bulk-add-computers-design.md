@@ -5,7 +5,7 @@
 
 ## Overview
 
-Add functionality to add multiple computers at once in `ComputersManagerWindow`. Two input modes: by host list (one per line) and by IP range. Each added computer gets a unique auto-generated API key; the name equals the host/IP value.
+Add functionality to add multiple computers at once in `ComputersManagerWindow`. Two input modes: by host list (one per line) and by IP range. Each added computer gets a unique auto-generated API key; the name equals the host/IP value. Duplicate hosts (already present in the collection) are silently skipped.
 
 ## UI Changes
 
@@ -30,7 +30,7 @@ Single dialog (`Height=380`, `Width=460`) with a `TabControl` containing two tab
 - `TextBox` for end IP
 - `TextBox` for port (default: `Constants.DefaultPort`)
 - Read-only note: same as above
-- Live counter/preview label: "N компьютеров будет добавлено (x.x.x.x … x.x.x.x)" — updates on input change; shows error text if IPs are invalid or range exceeds 256
+- Live counter/preview label: "N компьютеров будет добавлено (x.x.x.x … x.x.x.x)" — updates on input change; shows inline error text when IPs are invalid, non-IPv4, or range exceeds 255 addresses
 
 **Buttons (shared footer)**
 
@@ -53,50 +53,75 @@ Each `ComputerConfig` in `Results`:
 | `Name` | host string (trimmed) |
 | `Host` | host string (trimmed) |
 | `Port` | value from port field |
-| `ApiKey` | `GenerateApiKey()` — same method as in `AddEditComputerWindow` |
+| `ApiKey` | `BulkComputerParser.GenerateApiKey()` |
 | `IsEnabled` | `true` |
 | `CertThumbprint` | `""` |
 
 ## Parsing Logic
 
-### By hosts
+All parsing logic lives in a new static class `BulkComputerParser` (in `ScreensView.Viewer/Services/BulkComputerParser.cs`). The window's code-behind calls it; no parsing logic lives in the XAML code-behind.
+
+`BulkComputerParser` exposes:
+- `ParseHosts(string text, int port) → IReadOnlyList<ComputerConfig>`
+- `ParseIpRange(string startText, string endText, int port, out string? error) → IReadOnlyList<ComputerConfig>`
+- `GenerateApiKey() → string` (extracted from `AddEditComputerWindow`, same implementation: 32 random bytes as lowercase hex)
+
+### By hosts (`ParseHosts`)
 
 ```
-lines = TextBox.Text.Split('\n')
+lines = text.Split('\n')
 hosts = lines.Select(l => l.Trim()).Where(l => l != "")
 ```
 
-Each non-empty trimmed line becomes one `ComputerConfig`. No further format validation — invalid hostnames will simply fail to connect at poll time (same as single-add).
+Each non-empty trimmed line becomes one `ComputerConfig`.
+ No further format validation — invalid hostnames will simply fail to connect at poll time (same as single-add).
 
-### By IP range
+### By IP range (`ParseIpRange`)
 
-1. Parse `startIp` and `endIp` via `IPAddress.Parse()` — show error label if either is invalid.
-2. Convert both to `uint` (big-endian byte order).
-3. If `endUint < startUint` — show error "Конечный IP меньше начального".
-4. If `endUint - startUint >= 256` — show error "Диапазон не должен превышать 255 адресов".
-5. Iterate `uint` from `startUint` to `endUint` inclusive; convert each back to `IPAddress`, use `.ToString()` as both `Name` and `Host`.
+1. Parse `startText` and `endText` via `IPAddress.TryParse()`.
+2. If either fails to parse — return `error = "Некорректный IP-адрес"`, empty list.
+3. If either address is not `AddressFamily.InterNetwork` (i.e. IPv6) — return `error = "Поддерживается только IPv4"`, empty list.
+4. Convert both to `uint` via big-endian byte order (`GetAddressBytes()`).
+5. If `endUint < startUint` — return `error = "Конечный IP меньше начального"`, empty list.
+6. If `endUint - startUint >= 255` — return `error = "Диапазон не должен превышать 255 адресов"`, empty list.
+7. Iterate `uint` from `startUint` to `endUint` inclusive; convert each back to `IPAddress`, use `.ToString()` as both `Name` and `Host`.
+
+> **Boundary**: maximum 255 addresses (when `endUint - startUint == 254`, count = 255). The condition `>= 255` rejects 255 or more addresses.
 
 ## Validation
 
-- Port: `int.TryParse` + range 1–65535; show `MessageBox` on OK click if invalid.
+- Port: `int.TryParse` + range 1–65535; show `MessageBox` on OK click if invalid (both tabs).
 - Hosts tab: at least one non-empty line required; show `MessageBox` on OK click if zero hosts.
-- IP range tab: errors shown inline (label) as user types; OK button disabled when errors exist.
+- IP range tab: errors from `ParseIpRange` shown inline (label) as user types; **Добавить** button disabled when `error != null`.
+- Duplicates: before building `Results`, hosts already present in the current computer collection (matched by `Host` value, case-insensitive) are silently removed from the result list.
 
 ## Integration
+
+`MainViewModel` gets a new method to batch-add and save once:
+
+```csharp
+public void AddComputers(IEnumerable<ComputerConfig> configs)
+{
+    foreach (var config in configs)
+        Computers.Add(new ComputerViewModel(config));
+    SaveComputers();
+}
+```
 
 `ComputersManagerWindow.AddMultiple_Click`:
 
 ```csharp
 private void AddMultiple_Click(object sender, RoutedEventArgs e)
 {
-    var win = new AddMultipleComputersWindow { Owner = this };
-    if (win.ShowDialog() == true)
-        foreach (var config in win.Results)
-            _mainVm.AddComputer(config);
+    var win = new AddMultipleComputersWindow(
+        _mainVm.Computers.Select(c => c.Host).ToHashSet(StringComparer.OrdinalIgnoreCase))
+    { Owner = this };
+    if (win.ShowDialog() == true && win.Results.Count > 0)
+        _mainVm.AddComputers(win.Results);
 }
 ```
 
-`MainViewModel.AddComputer` is called once per result — no changes to `MainViewModel` required.
+The existing `Host` values are passed in so the window can exclude duplicates without depending on `MainViewModel` directly.
 
 ## Files Affected
 
@@ -104,7 +129,9 @@ private void AddMultiple_Click(object sender, RoutedEventArgs e)
 |---|---|
 | `Views/AddMultipleComputersWindow.xaml` | **New** |
 | `Views/AddMultipleComputersWindow.xaml.cs` | **New** |
+| `Services/BulkComputerParser.cs` | **New** — parsing + `GenerateApiKey()` |
 | `Views/ComputersManagerWindow.xaml` | Add `BtnAddMultiple` button to toolbar |
-| `Views/ComputersManagerWindow.xaml.cs` | Add `AddMultiple_Click` handler + wire button |
-
-No changes to `MainViewModel`, `ComputerStorageService`, shared models, or agent projects.
+| `Views/ComputersManagerWindow.xaml.cs` | Add `AddMultiple_Click` handler |
+| `ViewModels/MainViewModel.cs` | Add `AddComputers(IEnumerable<ComputerConfig>)` |
+| `ScreensView.Tests/BulkComputerParserTests.cs` | **New** — unit tests for parse logic |
+| `Views/AddEditComputerWindow.xaml.cs` | Replace private `GenerateApiKey()` with call to `BulkComputerParser.GenerateApiKey()` |
