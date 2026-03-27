@@ -37,18 +37,33 @@ public class MainViewModelTests : IDisposable
     public void AddComputers_PersistsAfterReload()
     {
         var storage = new ComputerStorageService(_tempFile);
-        var vm = new MainViewModel(storage, new ScreenshotPollerService(new AgentHttpClient()));
         var configs = new[]
         {
             new ComputerConfig { Name = "PC-1", Host = "10.0.0.1", Port = 5443, ApiKey = "k1" },
             new ComputerConfig { Name = "PC-2", Host = "10.0.0.2", Port = 5443, ApiKey = "k2" },
         };
 
-        vm.AddComputers(configs);
+        using (var vm = new MainViewModel(storage, new ScreenshotPollerService(new AgentHttpClient())))
+            vm.AddComputers(configs);
 
-        // reload from the same file
-        var vm2 = new MainViewModel(storage, new ScreenshotPollerService(new AgentHttpClient()));
+        using var vm2 = new MainViewModel(storage, new ScreenshotPollerService(new AgentHttpClient()));
         Assert.Equal(2, vm2.Computers.Count);
+    }
+
+    [Fact]
+    public void AddComputers_AppendsToExistingCollection()
+    {
+        var vm = CreateVm();
+        vm.AddComputer(new ComputerConfig { Name = "Existing", Host = "10.0.0.100", Port = 5443, ApiKey = "e1" });
+        var newConfigs = new[]
+        {
+            new ComputerConfig { Name = "PC-1", Host = "10.0.0.1", Port = 5443, ApiKey = "k1" },
+            new ComputerConfig { Name = "PC-2", Host = "10.0.0.2", Port = 5443, ApiKey = "k2" },
+        };
+
+        vm.AddComputers(newConfigs);
+
+        Assert.Equal(3, vm.Computers.Count);
     }
 
     [Fact]
