@@ -1,7 +1,7 @@
-using System.Security.Cryptography;
 using System.Windows;
 using ScreensView.Shared;
 using ScreensView.Shared.Models;
+using ScreensView.Viewer.Services;
 
 namespace ScreensView.Viewer.Views;
 
@@ -55,9 +55,5 @@ public partial class AddEditComputerWindow : Window
         DialogResult = true;
     }
 
-    private static string GenerateApiKey()
-    {
-        var bytes = RandomNumberGenerator.GetBytes(32);
-        return Convert.ToHexString(bytes).ToLower();
-    }
+    private static string GenerateApiKey() => BulkComputerParser.GenerateApiKey();
 }
