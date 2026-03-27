@@ -1,5 +1,6 @@
 using System.Windows;
 using System.Windows.Controls;
+using ScreensView.Viewer.Helpers;
 
 namespace ScreensView.Viewer.Views;
 
@@ -16,13 +17,17 @@ public partial class ComputersManagerWindow : Window
 
     private ViewModels.ComputerViewModel? Selected => ComputersList.SelectedItem as ViewModels.ComputerViewModel;
 
+    private List<Shared.Models.ComputerConfig> SelectedConfigs =>
+        ComputersList.SelectedItems.Cast<ViewModels.ComputerViewModel>()
+            .Select(vm => vm.ToConfig()).ToList();
+
     private void ComputersList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        var hasSelection = Selected != null;
-        BtnEdit.IsEnabled = hasSelection;
-        BtnDelete.IsEnabled = hasSelection;
-        BtnInstall.IsEnabled = hasSelection;
-        BtnUninstall.IsEnabled = hasSelection;
+        var count = ComputersList.SelectedItems.Count;
+        BtnEdit.IsEnabled      = count == 1;
+        BtnDelete.IsEnabled    = count >= 1;
+        BtnInstall.IsEnabled   = count >= 1;
+        BtnUninstall.IsEnabled = count >= 1;
     }
 
     private void Add_Click(object sender, RoutedEventArgs e)
@@ -38,8 +43,14 @@ public partial class ComputersManagerWindow : Window
             .Select(c => c.Host)
             .ToHashSet(StringComparer.OrdinalIgnoreCase);
         var win = new AddMultipleComputersWindow(existingHosts) { Owner = this };
-        if (win.ShowDialog() == true && win.Results.Count > 0)
-            _mainVm.AddComputers(win.Results);
+        if (win.ShowDialog() != true || win.Results.Count == 0) return;
+
+        var added = win.Results;
+        _mainVm.AddComputers(added);
+
+        if (MessageBox.Show($"Установить агент на {added.Count} добавленных компьютеров?",
+                "Установка агента", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+            LaunchInstall(added);
     }
 
     private void Edit_Click(object sender, RoutedEventArgs e)
@@ -52,27 +63,50 @@ public partial class ComputersManagerWindow : Window
 
     private void Delete_Click(object sender, RoutedEventArgs e)
     {
-        if (Selected == null) return;
-        if (MessageBox.Show($"Удалить компьютер '{Selected.Name}'?", "Подтверждение",
-                MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
-            _mainVm.RemoveComputer(Selected);
+        var selected = ComputersList.SelectedItems.Cast<ViewModels.ComputerViewModel>().ToList();
+        if (selected.Count == 0) return;
+
+        var message = selected.Count == 1
+            ? $"Удалить компьютер '{selected[0].Name}'?"
+            : $"Удалить компьютеры: {ComputerListHelpers.FormatNames(selected.Select(vm => vm.Name))}?";
+
+        if (MessageBox.Show(message, "Подтверждение",
+                MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+
+        _mainVm.RemoveComputers(selected);
     }
 
     private void Install_Click(object sender, RoutedEventArgs e)
     {
-        if (Selected == null) return;
-        var creds = new CredentialsDialog { Owner = this };
-        if (creds.ShowDialog() != true) return;
-        new InstallProgressWindow(InstallProgressWindow.Mode.Install, [Selected.ToConfig()], creds.Username, creds.Password) { Owner = this }.ShowDialog();
+        LaunchInstall(SelectedConfigs);
     }
 
     private void Uninstall_Click(object sender, RoutedEventArgs e)
     {
-        if (Selected == null) return;
-        if (MessageBox.Show($"Удалить агент с '{Selected.Name}'?", "Подтверждение",
+        var configs = SelectedConfigs;
+        if (configs.Count == 0) return;
+
+        var message = configs.Count == 1
+            ? $"Удалить агент с '{configs[0].Name}'?"
+            : $"Удалить агент с компьютеров: {ComputerListHelpers.FormatNames(configs.Select(c => c.Name))}?";
+
+        if (MessageBox.Show(message, "Подтверждение",
                 MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+
+        LaunchUninstall(configs);
+    }
+
+    private void LaunchInstall(List<Shared.Models.ComputerConfig> configs)
+    {
         var creds = new CredentialsDialog { Owner = this };
         if (creds.ShowDialog() != true) return;
-        new InstallProgressWindow(InstallProgressWindow.Mode.Uninstall, [Selected.ToConfig()], creds.Username, creds.Password) { Owner = this }.ShowDialog();
+        new InstallProgressWindow(InstallProgressWindow.Mode.Install, configs, creds.Username, creds.Password) { Owner = this }.ShowDialog();
+    }
+
+    private void LaunchUninstall(List<Shared.Models.ComputerConfig> configs)
+    {
+        var creds = new CredentialsDialog { Owner = this };
+        if (creds.ShowDialog() != true) return;
+        new InstallProgressWindow(InstallProgressWindow.Mode.Uninstall, configs, creds.Username, creds.Password) { Owner = this }.ShowDialog();
     }
 }
