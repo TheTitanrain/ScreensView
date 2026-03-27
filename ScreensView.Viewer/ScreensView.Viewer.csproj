@@ -5,6 +5,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <Resource Include="screensview.ico" />
+  </ItemGroup>
+
+  <ItemGroup>
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleToAttribute">
       <_Parameter1>ScreensView.Tests</_Parameter1>
     </AssemblyAttribute>
@@ -21,6 +25,7 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <UseWPF>true</UseWPF>
+    <ApplicationIcon>screensview.ico</ApplicationIcon>
   </PropertyGroup>
 
   <Target Name="BuildAgentPayloads" BeforeTargets="CopyAgentPayloads">

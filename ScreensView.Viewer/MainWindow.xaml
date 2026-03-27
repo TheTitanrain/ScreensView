@@ -4,6 +4,7 @@
         xmlns:vm="clr-namespace:ScreensView.Viewer.ViewModels"
         Title="ScreensView" Height="700" Width="1100"
         WindowState="Maximized"
+        Icon="/screensview.ico"
         Closing="Window_Closing">
 
     <Window.Resources>
