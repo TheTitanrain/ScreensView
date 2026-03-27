@@ -187,9 +187,20 @@ Three new tests for `RemoveComputers`:
 
 **`RemoveComputers_PersistsAfterReload`** — add 3, remove 2, reload storage into a new VM, assert 1 survives.
 
-**`RemoveComputers_SavesOnce`** — subclass/wrap `ComputerStorageService` with a save counter; add 3, remove all 3 via `RemoveComputers`, assert `Save` was called exactly once.
+**`RemoveComputers_SavesOnce`** — requires `SaveComputers()` to be `virtual` (see `MainViewModel` changes below). Test creates a `CountingSaveViewModel` subclass that overrides `SaveComputers()` to increment a counter; adds 3 computers, removes all 3 via `RemoveComputers`, asserts counter equals 1.
 
-## Tests — `ComputersManagerWindowTests.cs` (unit, no WPF)
+```csharp
+private class CountingSaveViewModel(ComputerStorageService s, ScreenshotPollerService p)
+    : MainViewModel(s, p)
+{
+    public int SaveCount { get; private set; }
+    public override void SaveComputers() => SaveCount++;
+}
+```
+
+> **Required `MainViewModel` change**: mark `SaveComputers()` as `virtual` — one additional word to the existing method declaration. No interface or other structural change needed.
+
+## Tests — `ComputerListHelpersTests.cs` (unit, no WPF)
 
 **`FormatNames_UpTo10_ReturnsAllJoined`** — pass 5 names, assert output equals `"A, B, C, D, E"`.
 
