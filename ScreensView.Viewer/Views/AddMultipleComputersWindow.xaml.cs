@@ -58,7 +58,7 @@ public partial class AddMultipleComputersWindow : Window
             return;
         }
 
-        BulkComputerParser.ParseIpRange(
+        var result = BulkComputerParser.ParseIpRange(
             StartIpBox.Text, EndIpBox.Text,
             int.TryParse(RangePortBox.Text, out var p) ? p : 0,
             _existingHosts, out var error);
@@ -72,8 +72,6 @@ public partial class AddMultipleComputersWindow : Window
         }
         else
         {
-            var result = BulkComputerParser.ParseIpRange(
-                StartIpBox.Text, EndIpBox.Text, p, _existingHosts, out _);
             RangeStatusLabel.Text = $"{result.Count} компьютер(а/ов) будет добавлено";
             RangeStatusLabel.Foreground = System.Windows.Media.Brushes.Gray;
             BtnAdd.IsEnabled = true;
