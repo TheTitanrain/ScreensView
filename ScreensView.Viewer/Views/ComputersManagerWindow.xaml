@@ -18,7 +18,7 @@
         </ToolBarTray>
 
         <!-- List -->
-        <ListView x:Name="ComputersList" SelectionMode="Single" SelectionChanged="ComputersList_SelectionChanged" Margin="4">
+        <ListView x:Name="ComputersList" SelectionMode="Extended" SelectionChanged="ComputersList_SelectionChanged" Margin="4">
             <ListView.View>
                 <GridView>
                     <GridViewColumn Header="Имя" Width="160" DisplayMemberBinding="{Binding Name}"/>
