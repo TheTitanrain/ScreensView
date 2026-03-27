@@ -8,6 +8,7 @@ namespace ScreensView.Viewer.Services;
 public class ComputerStorageService
 {
     private readonly string _filePath;
+    private readonly object _fileLock = new();
 
     private static readonly JsonSerializerOptions JsonOptions = new() { WriteIndented = true };
 
@@ -27,21 +28,24 @@ public class ComputerStorageService
 
     public List<ComputerConfig> Load()
     {
-        if (!File.Exists(_filePath))
-            return [];
-
-        var json = File.ReadAllText(_filePath);
-        var items = JsonSerializer.Deserialize<List<StoredComputer>>(json) ?? [];
-
-        return items.Select(s => new ComputerConfig
+        lock (_fileLock)
         {
-            Id = s.Id,
-            Name = s.Name,
-            Host = s.Host,
-            Port = s.Port,
-            IsEnabled = s.IsEnabled,
-            ApiKey = TryDecrypt(s.ApiKeyEncrypted)
-        }).ToList();
+            if (!File.Exists(_filePath))
+                return [];
+
+            var json = File.ReadAllText(_filePath);
+            var items = JsonSerializer.Deserialize<List<StoredComputer>>(json) ?? [];
+
+            return items.Select(s => new ComputerConfig
+            {
+                Id = s.Id,
+                Name = s.Name,
+                Host = s.Host,
+                Port = s.Port,
+                IsEnabled = s.IsEnabled,
+                ApiKey = TryDecrypt(s.ApiKeyEncrypted)
+            }).ToList();
+        }
     }
 
     public void Save(IEnumerable<ComputerConfig> computers)
@@ -57,7 +61,8 @@ public class ComputerStorageService
         }).ToList();
 
         var json = JsonSerializer.Serialize(items, JsonOptions);
-        File.WriteAllText(_filePath, json);
+        lock (_fileLock)
+            File.WriteAllText(_filePath, json);
     }
 
     private static string TryDecrypt(string encrypted)
