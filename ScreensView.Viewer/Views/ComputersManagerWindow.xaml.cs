@@ -78,7 +78,9 @@ public partial class ComputersManagerWindow : Window
 
     private void Install_Click(object sender, RoutedEventArgs e)
     {
-        LaunchInstall(SelectedConfigs);
+        var configs = SelectedConfigs;
+        if (configs.Count == 0) return;
+        LaunchOperation(InstallProgressWindow.Mode.Install, configs);
     }
 
     private void Uninstall_Click(object sender, RoutedEventArgs e)
@@ -93,20 +95,16 @@ public partial class ComputersManagerWindow : Window
         if (MessageBox.Show(message, "Подтверждение",
                 MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
 
-        LaunchUninstall(configs);
+        LaunchOperation(InstallProgressWindow.Mode.Uninstall, configs);
     }
 
-    private void LaunchInstall(List<Shared.Models.ComputerConfig> configs)
+    private void LaunchInstall(List<Shared.Models.ComputerConfig> configs) =>
+        LaunchOperation(InstallProgressWindow.Mode.Install, configs);
+
+    private void LaunchOperation(InstallProgressWindow.Mode mode, List<Shared.Models.ComputerConfig> configs)
     {
         var creds = new CredentialsDialog { Owner = this };
         if (creds.ShowDialog() != true) return;
-        new InstallProgressWindow(InstallProgressWindow.Mode.Install, configs, creds.Username, creds.Password) { Owner = this }.ShowDialog();
-    }
-
-    private void LaunchUninstall(List<Shared.Models.ComputerConfig> configs)
-    {
-        var creds = new CredentialsDialog { Owner = this };
-        if (creds.ShowDialog() != true) return;
-        new InstallProgressWindow(InstallProgressWindow.Mode.Uninstall, configs, creds.Username, creds.Password) { Owner = this }.ShowDialog();
+        new InstallProgressWindow(mode, configs, creds.Username, creds.Password) { Owner = this }.ShowDialog();
     }
 }
