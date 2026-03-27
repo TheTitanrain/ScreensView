@@ -28,6 +28,23 @@ Button names in XAML (confirmed): `BtnAdd`, `BtnAddMultiple`, `BtnEdit`, `BtnDel
 
 `BtnAdd` and `BtnAddMultiple` remain `IsEnabled="True"` in XAML and are never set in code. `SelectionChanged` updates the other four.
 
+## Code Changes — `MainViewModel.cs`
+
+### New `RemoveComputers` batch method
+
+`RemoveComputer(vm)` calls `SaveComputers()` after every removal. For bulk delete, all VMs must be removed first and saved once.
+
+```csharp
+public void RemoveComputers(IEnumerable<ComputerViewModel> vms)
+{
+    foreach (var vm in vms)
+        Computers.Remove(vm);
+    SaveComputers();
+}
+```
+
+`RemoveComputer(vm)` (single-item) is unchanged.
+
 ## Code Changes — `ComputersManagerWindow.xaml.cs`
 
 ### Keep `Selected` property
@@ -36,7 +53,10 @@ The existing `private ComputerViewModel? Selected => ComputersList.SelectedItem 
 
 ### Name list helper
 
-Confirmation dialogs truncate long selections: show up to 10 names, then append `и ещё N` (no leading comma) for the remainder. Example for 12 names: `PC-01, PC-02, …, PC-10 и ещё 2`.
+Confirmation dialogs truncate long selections: show all names joined with `, ` when count ≤ 10; when count > 10, show the first 10 joined with `, ` followed by ` и ещё N` (no comma before `и ещё`).
+
+- 5 selected → `PC-01, PC-02, PC-03, PC-04, PC-05`
+- 12 selected → `PC-01, PC-02, PC-03, PC-04, PC-05, PC-06, PC-07, PC-08, PC-09, PC-10 и ещё 2`
 
 ```csharp
 private static string FormatNames(IEnumerable<string> names)
@@ -89,12 +109,10 @@ BtnInstall.IsEnabled   = count >= 1;
 BtnUninstall.IsEnabled = count >= 1;
 ```
 
-**`Delete_Click`** — capture selection first; confirmation depends on count:
+**`Delete_Click`** — capture selection first; confirmation depends on count; delegates to `RemoveComputers` for one save:
 
 - 1 selected: `«Удалить компьютер 'PC-01'?»`
-- > 1 selected: `«Удалить компьютеры: PC-01, PC-02, и ещё 3?»` (via `FormatNames`)
-
-On confirmation: call `_mainVm.RemoveComputer(vm)` for each `ComputerViewModel` in the captured selection.
+- > 1 selected: `«Удалить компьютеры: PC-01, PC-02, PC-03, PC-04, PC-05?»` (via `FormatNames`; for > 10: `…, PC-10 и ещё 2?`)
 
 ```csharp
 private void Delete_Click(object sender, RoutedEventArgs e)
@@ -109,8 +127,7 @@ private void Delete_Click(object sender, RoutedEventArgs e)
     if (MessageBox.Show(message, "Подтверждение",
             MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
 
-    foreach (var vm in selected)
-        _mainVm.RemoveComputer(vm);
+    _mainVm.RemoveComputers(selected);
 }
 ```
 
@@ -123,7 +140,7 @@ LaunchInstall(SelectedConfigs);
 **`Uninstall_Click`** — capture selection, show confirmation first, then credentials:
 
 - 1 selected: `«Удалить агент с 'PC-01'?»`
-- > 1 selected: `«Удалить агент с компьютеров: PC-01, PC-02, и ещё 3?»` (via `FormatNames`)
+- > 1 selected: `«Удалить агент с компьютеров: PC-01, PC-02, …?»` (via `FormatNames`; same truncation rule)
 
 ```csharp
 private void Uninstall_Click(object sender, RoutedEventArgs e)
@@ -142,7 +159,7 @@ private void Uninstall_Click(object sender, RoutedEventArgs e)
 }
 ```
 
-**`AddMultiple_Click`** — `win.Results` is `List<ComputerConfig>`. Capture it in a local variable before calling `AddComputers` to ensure stability:
+**`AddMultiple_Click`** — `win.Results` is `List<ComputerConfig>`. Capture it in a local variable before calling `AddComputers`:
 
 ```csharp
 private void AddMultiple_Click(object sender, RoutedEventArgs e)
@@ -162,23 +179,44 @@ private void AddMultiple_Click(object sender, RoutedEventArgs e)
 }
 ```
 
+## Tests — `MainViewModelTests.cs`
+
+Three new tests for `RemoveComputers`:
+
+**`RemoveComputers_RemovesAllFromCollection`** — add 3, remove 2 by calling `RemoveComputers`, assert 1 remains.
+
+**`RemoveComputers_PersistsAfterReload`** — add 3, remove 2, reload storage into a new VM, assert 1 survives.
+
+**`RemoveComputers_SavesOnce`** — subclass/wrap `ComputerStorageService` with a save counter; add 3, remove all 3 via `RemoveComputers`, assert `Save` was called exactly once.
+
+## Tests — `ComputersManagerWindowTests.cs` (unit, no WPF)
+
+**`FormatNames_UpTo10_ReturnsAllJoined`** — pass 5 names, assert output equals `"A, B, C, D, E"`.
+
+**`FormatNames_Over10_TruncatesWithSuffix`** — pass 12 names, assert output equals `"N1, N2, N3, N4, N5, N6, N7, N8, N9, N10 и ещё 2"`.
+
+> `FormatNames` is `private static` — extract it to a new `internal static` helper class `ComputerListHelpers` in `ScreensView.Viewer/Helpers/` so it is testable without instantiating the window. `ComputersManagerWindow` calls `ComputerListHelpers.FormatNames(...)`.
+
 ## Files Affected
 
 | File | Change |
 |---|---|
 | `Views/ComputersManagerWindow.xaml` | `SelectionMode="Extended"` |
-| `Views/ComputersManagerWindow.xaml.cs` | Keep `Selected` (used by `Edit_Click`); add `SelectedConfigs`, `FormatNames`, `LaunchInstall`, `LaunchUninstall`; update `SelectionChanged`, `Delete_Click`, `Install_Click`, `Uninstall_Click`, `AddMultiple_Click` |
+| `Views/ComputersManagerWindow.xaml.cs` | Keep `Selected`; add `SelectedConfigs`, `LaunchInstall`, `LaunchUninstall`; update `SelectionChanged`, `Delete_Click`, `Install_Click`, `Uninstall_Click`, `AddMultiple_Click`; call `ComputerListHelpers.FormatNames` |
+| `Helpers/ComputerListHelpers.cs` | **New** — `internal static FormatNames(IEnumerable<string>) → string` |
+| `ViewModels/MainViewModel.cs` | Add `RemoveComputers(IEnumerable<ComputerViewModel>)` |
+| `ScreensView.Tests/MainViewModelTests.cs` | Add 3 tests for `RemoveComputers` |
+| `ScreensView.Tests/ComputerListHelpersTests.cs` | **New** — 2 tests for `FormatNames` |
 
-No changes to `InstallProgressWindow`, `RemoteAgentInstaller`, or tests.
+No changes to `InstallProgressWindow`, `RemoteAgentInstaller`.
 
 ## Confirmed existing APIs
 
 - `ComputerConfig.Name` — `string` property, exists in `ScreensView.Shared/Models/ComputerConfig.cs`
 - `MainViewModel.AddComputers(IEnumerable<ComputerConfig>)` — exists, adds items and calls `SaveComputers()` once
-- `MainViewModel.RemoveComputer(ComputerViewModel)` — exists
+- `MainViewModel.RemoveComputer(ComputerViewModel)` — exists (unchanged)
 - `InstallProgressWindow.Mode` enum — exists with values `Install`, `Uninstall`, `UpdateAll`
 
 ## Notes
 
 - **Stale selection after CredentialsDialog**: acceptable. `LaunchInstall`/`LaunchUninstall` receive the list captured before the dialog opens; they do not re-read the UI selection.
-- **`Delete_Click` prose example** uses `FormatNames` output format: `PC-01, PC-02, PC-10 и ещё 2` (no comma before `и ещё`). Matches the helper exactly.
