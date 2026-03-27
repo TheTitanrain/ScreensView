@@ -15,7 +15,7 @@ public static class BulkComputerParser
 
         foreach (var line in text.Split('\n'))
         {
-            var host = line.Trim().TrimEnd('\r');
+            var host = line.TrimEnd('\r').Trim();
             if (string.IsNullOrEmpty(host)) continue;
             if (!seen.Add(host)) continue;
 

@@ -1,5 +1,3 @@
-using System.Net.Sockets;
-using ScreensView.Shared;
 using ScreensView.Viewer.Services;
 
 namespace ScreensView.Tests;
@@ -7,7 +5,7 @@ namespace ScreensView.Tests;
 public class BulkComputerParserTests
 {
     private static readonly ISet<string> NoExisting =
-        new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        new ReadOnlySetWrapper<string>(new HashSet<string>(StringComparer.OrdinalIgnoreCase));
 
     [Fact]
     public void ParseHosts_SingleLine_ReturnsOneConfig()
@@ -185,4 +183,29 @@ public class BulkComputerParserTests
         var key2 = BulkComputerParser.GenerateApiKey();
         Assert.NotEqual(key1, key2);
     }
+}
+
+/// <summary>Read-only wrapper around an ISet — mutation methods throw NotSupportedException.</summary>
+file sealed class ReadOnlySetWrapper<T>(ISet<T> inner) : ISet<T>
+{
+    public int Count => inner.Count;
+    public bool IsReadOnly => true;
+    public bool Contains(T item) => inner.Contains(item);
+    public void CopyTo(T[] array, int arrayIndex) => inner.CopyTo(array, arrayIndex);
+    public IEnumerator<T> GetEnumerator() => inner.GetEnumerator();
+    System.Collections.IEnumerator System.Collections.IEnumerable.GetEnumerator() => ((System.Collections.IEnumerable)inner).GetEnumerator();
+    public bool IsSubsetOf(IEnumerable<T> other) => inner.IsSubsetOf(other);
+    public bool IsSupersetOf(IEnumerable<T> other) => inner.IsSupersetOf(other);
+    public bool IsProperSubsetOf(IEnumerable<T> other) => inner.IsProperSubsetOf(other);
+    public bool IsProperSupersetOf(IEnumerable<T> other) => inner.IsProperSupersetOf(other);
+    public bool Overlaps(IEnumerable<T> other) => inner.Overlaps(other);
+    public bool SetEquals(IEnumerable<T> other) => inner.SetEquals(other);
+    public void Add(T item) => throw new NotSupportedException();
+    bool ISet<T>.Add(T item) => throw new NotSupportedException();
+    public void UnionWith(IEnumerable<T> other) => throw new NotSupportedException();
+    public void IntersectWith(IEnumerable<T> other) => throw new NotSupportedException();
+    public void ExceptWith(IEnumerable<T> other) => throw new NotSupportedException();
+    public void SymmetricExceptWith(IEnumerable<T> other) => throw new NotSupportedException();
+    public bool Remove(T item) => throw new NotSupportedException();
+    public void Clear() => throw new NotSupportedException();
 }
