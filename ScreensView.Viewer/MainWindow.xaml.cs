@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Input;
 using ScreensView.Viewer.Services;
 using ScreensView.Viewer.ViewModels;
 using ScreensView.Viewer.Views;
@@ -50,6 +51,14 @@ public partial class MainWindow : Window
         var win = new InstallProgressWindow(InstallProgressWindow.Mode.UpdateAll, computers, creds.Username, creds.Password);
         win.Owner = this;
         win.ShowDialog();
+    }
+
+    private void Card_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
+    {
+        if (e.ClickCount != 2) return;
+        if (((System.Windows.Controls.Border)sender).DataContext is ComputerViewModel vm)
+            new ScreenshotZoomWindow(vm) { Owner = this }.Show();
+        e.Handled = true;
     }
 
     private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
