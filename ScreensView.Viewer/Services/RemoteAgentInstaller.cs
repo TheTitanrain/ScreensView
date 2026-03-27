@@ -318,7 +318,18 @@ public class RemoteAgentInstaller
     private static void StopService(ComputerConfig computer)
     {
         using var service = GetServiceObject(computer.Host);
-        service?.InvokeMethod("StopService", null);
+        if (service == null) return;
+
+        service.InvokeMethod("StopService", null);
+
+        for (var i = 0; i < 30; i++)
+        {
+            service.Get();
+            var state = Convert.ToString(service["State"]);
+            if (string.Equals(state, "Stopped", StringComparison.OrdinalIgnoreCase))
+                return;
+            Thread.Sleep(1000);
+        }
     }
 
     private static void DeleteService(ComputerConfig computer)
