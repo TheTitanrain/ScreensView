@@ -34,6 +34,8 @@ public class ComputerStorageService
                 return [];
 
             var json = File.ReadAllText(_filePath);
+            if (string.IsNullOrWhiteSpace(json))
+                return [];
             var items = JsonSerializer.Deserialize<List<StoredComputer>>(json) ?? [];
 
             return items.Select(s => new ComputerConfig

@@ -55,6 +55,13 @@ public partial class MainViewModel : ObservableObject, IDisposable
         SaveComputers();
     }
 
+    public void AddComputers(IEnumerable<ComputerConfig> configs)
+    {
+        foreach (var config in configs)
+            Computers.Add(new ComputerViewModel(config));
+        SaveComputers();
+    }
+
     public void UpdateComputer(ComputerViewModel vm, ComputerConfig config)
     {
         vm.Name = config.Name;
