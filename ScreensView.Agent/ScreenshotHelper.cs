@@ -99,7 +99,7 @@ internal static class ScreenshotHelper
     {
         var desktop = OpenInputDesktop(0, false, DESKTOP_READOBJECTS | READ_CONTROL);
         if (desktop == IntPtr.Zero)
-            return false;
+            return true;   // can't open active input desktop → it's not the user's desktop → treat as locked
 
         try
         {
