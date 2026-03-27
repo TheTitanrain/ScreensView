@@ -62,9 +62,14 @@ Each `ComputerConfig` in `Results`:
 All parsing logic lives in a new static class `BulkComputerParser` (in `ScreensView.Viewer/Services/BulkComputerParser.cs`). The window's code-behind calls it; no parsing logic lives in the XAML code-behind.
 
 `BulkComputerParser` exposes:
-- `ParseHosts(string text, int port) → IReadOnlyList<ComputerConfig>`
-- `ParseIpRange(string startText, string endText, int port, out string? error) → IReadOnlyList<ComputerConfig>`
+
+- `ParseHosts(string text, int port, ISet<string> existingHosts) → IReadOnlyList<ComputerConfig>`
+- `ParseIpRange(string startText, string endText, int port, ISet<string> existingHosts, out string? error) → IReadOnlyList<ComputerConfig>`
 - `GenerateApiKey() → string` (extracted from `AddEditComputerWindow`, same implementation: 32 random bytes as lowercase hex)
+
+Both parse methods handle all deduplication: intra-list duplicates (case-insensitive by host) are collapsed to the first occurrence; hosts present in `existingHosts` are silently dropped.
+
+---
 
 ### By hosts (`ParseHosts`)
 
@@ -94,7 +99,7 @@ Each non-empty trimmed line becomes one `ComputerConfig`.
 - Hosts tab: at least one non-empty line required; show `MessageBox` on OK click if zero hosts.
 - IP range tab: errors from `ParseIpRange` shown inline (label) as user types; **Добавить** button disabled when `error != null`. Port validity on this tab is checked only on OK click (same as hosts tab) — the button-disabled state is tied exclusively to IP parse/range errors, not to port validity.
 - IP range tab — counter label: when `error != null`, N is shown as 0.
-- Duplicates: before building `Results`, hosts already present in the current computer collection (matched by `Host` value, case-insensitive) are silently removed from the result list.
+- Duplicates: handled entirely inside `BulkComputerParser` — intra-list duplicates (first occurrence wins) and hosts present in `existingHosts` are both silently dropped before `Results` is built.
 
 ## Integration
 
@@ -134,5 +139,6 @@ The existing `Host` values are passed in so the window can exclude duplicates wi
 | `Views/ComputersManagerWindow.xaml` | Add `BtnAddMultiple` button to toolbar |
 | `Views/ComputersManagerWindow.xaml.cs` | Add `AddMultiple_Click` handler |
 | `ViewModels/MainViewModel.cs` | Add `AddComputers(IEnumerable<ComputerConfig>)` |
-| `ScreensView.Tests/BulkComputerParserTests.cs` | **New** — unit tests for parse logic |
+| `ScreensView.Tests/BulkComputerParserTests.cs` | **New** — unit tests: host parsing, IP range parsing, IPv4-only check, boundary (255 addresses), intra-list dedup, cross-collection dedup |
+| `ScreensView.Tests/MainViewModelTests.cs` | **New** — unit tests: `AddComputers` adds all items, calls `SaveComputers` exactly once |
 | `Views/AddEditComputerWindow.xaml.cs` | Replace private `GenerateApiKey()` with call to `BulkComputerParser.GenerateApiKey()` |
