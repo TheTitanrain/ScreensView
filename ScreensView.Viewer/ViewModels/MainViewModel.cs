@@ -80,7 +80,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     public void RemoveComputers(IEnumerable<ComputerViewModel> vms)
     {
-        foreach (var vm in vms)
+        foreach (var vm in vms.ToList())
             Computers.Remove(vm);
         SaveComputers();
     }
