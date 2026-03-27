@@ -21,6 +21,7 @@
                         <RowDefinition Height="*"/>
                         <RowDefinition Height="Auto"/>
                         <RowDefinition Height="Auto"/>
+                        <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
                     <Label Grid.Row="0" Content="Хосты (по одному на строку):"/>
@@ -37,7 +38,9 @@
                         <TextBox Grid.Column="1" x:Name="HostsPortBox"
                                  TextChanged="HostsBox_TextChanged"/>
                     </Grid>
-                    <TextBlock Grid.Row="3" x:Name="HostsCountLabel"
+                    <TextBlock Grid.Row="3" Foreground="Gray" FontStyle="Italic" Margin="0,0,0,2"
+                               Text="API-ключ генерируется автоматически для каждого"/>
+                    <TextBlock Grid.Row="4" x:Name="HostsCountLabel"
                                Foreground="Gray" FontStyle="Italic"/>
                 </Grid>
             </TabItem>
@@ -78,7 +81,9 @@
                                  TextChanged="IpRange_TextChanged"/>
                     </Grid>
 
-                    <TextBlock Grid.Row="2" x:Name="RangeStatusLabel"
+                    <TextBlock Grid.Row="2" Foreground="Gray" FontStyle="Italic" Margin="0,0,0,2"
+                               Text="API-ключ генерируется автоматически для каждого"/>
+                    <TextBlock Grid.Row="3" x:Name="RangeStatusLabel"
                                Foreground="Gray" FontStyle="Italic" TextWrapping="Wrap"/>
                 </Grid>
             </TabItem>
