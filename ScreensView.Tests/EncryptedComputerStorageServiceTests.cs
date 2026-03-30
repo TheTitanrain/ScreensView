@@ -44,7 +44,7 @@ public class EncryptedComputerStorageServiceTests : IDisposable
         var service = CreateService("correct-password");
         InvokeSave(service, computers);
 
-        var loaded = InvokeLoad(service);
+        var loaded = InvokeLoad(CreateService("correct-password"));
 
         Assert.Equal(2, loaded.Count);
         AssertComputerConfigsEqual(computers[0], loaded[0]);
@@ -119,10 +119,7 @@ public class EncryptedComputerStorageServiceTests : IDisposable
         var type = Type.GetType("ScreensView.Viewer.Services.EncryptedComputerStorageService, ScreensView.Viewer", throwOnError: false);
         Assert.NotNull(type);
 
-        var ctor = type!.GetConstructor(new[] { typeof(string), typeof(string) });
-        Assert.NotNull(ctor);
-
-        return ctor!.Invoke([_filePath, password]);
+        return Activator.CreateInstance(type!, _filePath, password)!;
     }
 
     private static void InvokeSave(object service, IEnumerable<ComputerConfig> computers)
