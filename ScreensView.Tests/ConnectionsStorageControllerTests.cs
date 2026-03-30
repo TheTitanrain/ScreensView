@@ -1,0 +1,383 @@
+using System.Reflection;
+using System.Runtime.ExceptionServices;
+using ScreensView.Shared.Models;
+using ScreensView.Viewer.Services;
+
+namespace ScreensView.Tests;
+
+public class ConnectionsStorageControllerTests
+{
+    [Fact]
+    public void ResolveStartup_WhenConnectionsFilePathIsEmpty_UsesLocalStorage()
+    {
+        var expectedComputers = CreateComputers("Local workstation");
+        var settings = new FakeViewerSettingsService(new ViewerSettings
+        {
+            ConnectionsFilePath = string.Empty,
+            ConnectionsFilePasswordEncrypted = string.Empty
+        });
+        var localStorage = new FakeComputerStorageService { LoadResult = Clone(expectedComputers) };
+        var externalFactoryCalls = new List<(string Path, string Password)>();
+        var controller = CreateController(
+            settings,
+            () => localStorage,
+            (path, password) =>
+            {
+                externalFactoryCalls.Add((path, password));
+                return new FakeComputerStorageService();
+            });
+
+        var result = InvokeResolveStartup(controller);
+
+        Assert.Same(localStorage, GetStorage(result));
+        Assert.Equal(expectedComputers.Select(x => x.Name), GetComputers(result).Select(x => x.Name));
+        Assert.False(GetBoolean(result, "UsesExternalFile"));
+        Assert.False(GetBoolean(result, "NeedsPassword"));
+        Assert.Equal(1, localStorage.LoadCalls);
+        Assert.Empty(externalFactoryCalls);
+        Assert.Same(localStorage, GetActiveStorage(controller));
+    }
+
+    [Fact]
+    public void ResolveStartup_WithRememberedPassword_OpensEncryptedExternalFileWithoutPromptingAgain()
+    {
+        const string externalPath = @"C:\Shared\connections.svc";
+        const string rememberedPassword = "remembered-password";
+
+        var expectedComputers = CreateComputers("Shared workstation");
+        var settings = new FakeViewerSettingsService(new ViewerSettings
+        {
+            ConnectionsFilePath = externalPath,
+            ConnectionsFilePasswordEncrypted = rememberedPassword
+        });
+        var externalStorage = new FakeComputerStorageService { LoadResult = Clone(expectedComputers) };
+        var externalFactoryCalls = new List<(string Path, string Password)>();
+        var controller = CreateController(
+            settings,
+            () => new FakeComputerStorageService(),
+            (path, password) =>
+            {
+                externalFactoryCalls.Add((path, password));
+                return externalStorage;
+            });
+
+        var result = InvokeResolveStartup(controller);
+
+        Assert.True(GetBoolean(result, "UsesExternalFile"));
+        Assert.False(GetBoolean(result, "NeedsPassword"));
+        Assert.Same(externalStorage, GetStorage(result));
+        Assert.Equal(expectedComputers.Select(x => x.Name), GetComputers(result).Select(x => x.Name));
+        Assert.Equal([(externalPath, rememberedPassword)], externalFactoryCalls);
+        Assert.Equal(0, settings.SaveCalls);
+        Assert.Same(externalStorage, GetActiveStorage(controller));
+    }
+
+    [Fact]
+    public void ResolveStartup_WithBadRememberedPassword_ClearsItAndRequiresManualPassword()
+    {
+        const string externalPath = @"C:\Shared\connections.svc";
+        const string badRememberedPassword = "bad-remembered-password";
+
+        var settings = new FakeViewerSettingsService(new ViewerSettings
+        {
+            ConnectionsFilePath = externalPath,
+            ConnectionsFilePasswordEncrypted = badRememberedPassword
+        });
+        var controller = CreateController(
+            settings,
+            () => new FakeComputerStorageService(),
+            (_, _) => new FakeComputerStorageService
+            {
+                LoadException = new EncryptedComputerStoragePasswordException("Password is invalid.")
+            });
+
+        var result = InvokeResolveStartup(controller);
+
+        Assert.True(GetBoolean(result, "UsesExternalFile"));
+        Assert.True(GetBoolean(result, "NeedsPassword"));
+        Assert.Null(GetStorage(result));
+        Assert.Empty(GetComputers(result));
+        Assert.Equal(externalPath, settings.Current.ConnectionsFilePath);
+        Assert.Equal(string.Empty, settings.Current.ConnectionsFilePasswordEncrypted);
+        Assert.Equal(1, settings.SaveCalls);
+        Assert.Null(GetActiveStorage(controller));
+    }
+
+    [Fact]
+    public void SwitchToExternalFile_ExportsCurrentConnectionsBeforePersistingPath()
+    {
+        const string externalPath = @"C:\Shared\new-connections.svc";
+        const string password = "new-password";
+
+        var currentConnections = CreateComputers("PC-1", "PC-2");
+        var settings = new FakeViewerSettingsService(new ViewerSettings());
+        var localStorage = new FakeComputerStorageService();
+        var events = new List<string>();
+        settings.OnSave = _ => events.Add("settings-save");
+
+        var externalStorage = new FakeComputerStorageService();
+        externalStorage.OnSave = computers =>
+        {
+            events.Add("external-save");
+            Assert.Equal(string.Empty, settings.Current.ConnectionsFilePath);
+            Assert.Equal(string.Empty, settings.Current.ConnectionsFilePasswordEncrypted);
+            Assert.Equal(currentConnections.Select(x => x.Name), computers.Select(x => x.Name));
+        };
+
+        var controller = CreateController(settings, () => localStorage, (_, _) => externalStorage);
+        InvokeResolveStartup(controller);
+
+        var result = InvokeSwitchToExternalFile(controller, externalPath, password, rememberPassword: true, currentConnections);
+
+        Assert.True(GetBoolean(result, "Succeeded"));
+        Assert.True(GetBoolean(result, "UsesExternalFile"));
+        Assert.Same(externalStorage, GetStorage(result));
+        Assert.Equal(["external-save", "settings-save"], events);
+        Assert.Equal(externalPath, settings.Current.ConnectionsFilePath);
+        Assert.Equal(password, settings.Current.ConnectionsFilePasswordEncrypted);
+        Assert.Same(externalStorage, GetActiveStorage(controller));
+        Assert.Single(externalStorage.SavedSnapshots);
+    }
+
+    [Fact]
+    public void SwitchToLocalStorage_ClearsExternalPathAndRememberedPassword()
+    {
+        const string externalPath = @"C:\Shared\connections.svc";
+        const string rememberedPassword = "remembered-password";
+
+        var currentConnections = CreateComputers("Shared workstation");
+        var settings = new FakeViewerSettingsService(new ViewerSettings
+        {
+            ConnectionsFilePath = externalPath,
+            ConnectionsFilePasswordEncrypted = rememberedPassword
+        });
+        var localStorage = new FakeComputerStorageService();
+        var externalStorage = new FakeComputerStorageService { LoadResult = Clone(currentConnections) };
+        var controller = CreateController(settings, () => localStorage, (_, _) => externalStorage);
+        InvokeResolveStartup(controller);
+
+        var result = InvokeSwitchToLocalStorage(controller, currentConnections);
+
+        Assert.True(GetBoolean(result, "Succeeded"));
+        Assert.False(GetBoolean(result, "UsesExternalFile"));
+        Assert.Same(localStorage, GetStorage(result));
+        Assert.Equal(string.Empty, settings.Current.ConnectionsFilePath);
+        Assert.Equal(string.Empty, settings.Current.ConnectionsFilePasswordEncrypted);
+        Assert.Single(localStorage.SavedSnapshots);
+        Assert.Equal(currentConnections.Select(x => x.Name), localStorage.SavedSnapshots[0].Select(x => x.Name));
+        Assert.Same(localStorage, GetActiveStorage(controller));
+    }
+
+    [Fact]
+    public void SwitchToExternalFile_WhenExportFails_LeavesSettingsAndActiveSourceUnchanged()
+    {
+        const string originalPath = "";
+        const string targetPath = @"C:\Shared\broken-connections.svc";
+
+        var settings = new FakeViewerSettingsService(new ViewerSettings
+        {
+            ConnectionsFilePath = originalPath,
+            ConnectionsFilePasswordEncrypted = string.Empty
+        });
+        var localStorage = new FakeComputerStorageService { LoadResult = CreateComputers("Local workstation") };
+        var failingExternalStorage = new FakeComputerStorageService
+        {
+            SaveException = new InvalidOperationException("disk full")
+        };
+        var controller = CreateController(settings, () => localStorage, (_, _) => failingExternalStorage);
+        var startup = InvokeResolveStartup(controller);
+
+        var result = InvokeSwitchToExternalFile(
+            controller,
+            targetPath,
+            "new-password",
+            rememberPassword: true,
+            CreateComputers("Export me"));
+
+        Assert.False(GetBoolean(result, "Succeeded"));
+        Assert.Same(localStorage, GetStorage(startup));
+        Assert.Same(localStorage, GetActiveStorage(controller));
+        Assert.Equal(originalPath, settings.Current.ConnectionsFilePath);
+        Assert.Equal(string.Empty, settings.Current.ConnectionsFilePasswordEncrypted);
+        Assert.Equal(0, settings.SaveCalls);
+    }
+
+    private static object CreateController(
+        IViewerSettingsService settingsService,
+        Func<IComputerStorageService> createLocalStorage,
+        Func<string, string, IComputerStorageService> createEncryptedStorage)
+    {
+        var type = Type.GetType("ScreensView.Viewer.Services.ConnectionsStorageController, ScreensView.Viewer", throwOnError: false);
+        Assert.NotNull(type);
+
+        return Activator.CreateInstance(
+                   type!,
+                   BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic,
+                   binder: null,
+                   args: [settingsService, createLocalStorage, createEncryptedStorage],
+                   culture: null)
+               ?? throw new InvalidOperationException("Unable to create ConnectionsStorageController.");
+    }
+
+    private static object InvokeResolveStartup(object controller)
+    {
+        var method = GetRequiredMethod(controller.GetType(), "ResolveStartup", parameterCount: 0);
+        return Invoke(controller, method, []);
+    }
+
+    private static object InvokeSwitchToExternalFile(
+        object controller,
+        string filePath,
+        string password,
+        bool rememberPassword,
+        IReadOnlyList<ComputerConfig> currentConnections)
+    {
+        var method = GetRequiredMethod(controller.GetType(), "SwitchToExternalFile", parameterCount: 4);
+        return Invoke(controller, method, [filePath, password, rememberPassword, currentConnections]);
+    }
+
+    private static object InvokeSwitchToLocalStorage(object controller, IReadOnlyList<ComputerConfig> currentConnections)
+    {
+        var method = GetRequiredMethod(controller.GetType(), "SwitchToLocalStorage", parameterCount: 1);
+        return Invoke(controller, method, [currentConnections]);
+    }
+
+    private static object Invoke(object target, MethodInfo method, object?[] arguments)
+    {
+        try
+        {
+            return method.Invoke(target, arguments)
+                   ?? throw new InvalidOperationException($"{method.Name} returned null.");
+        }
+        catch (TargetInvocationException exception) when (exception.InnerException is not null)
+        {
+            ExceptionDispatchInfo.Capture(exception.InnerException).Throw();
+            throw;
+        }
+    }
+
+    private static MethodInfo GetRequiredMethod(Type type, string name, int parameterCount)
+    {
+        var method = type
+            .GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic)
+            .SingleOrDefault(candidate => candidate.Name == name && candidate.GetParameters().Length == parameterCount);
+
+        Assert.NotNull(method);
+        return method!;
+    }
+
+    private static IComputerStorageService? GetActiveStorage(object controller)
+    {
+        var property = controller.GetType().GetProperty("ActiveStorage", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        Assert.NotNull(property);
+        return (IComputerStorageService?)property!.GetValue(controller);
+    }
+
+    private static IComputerStorageService? GetStorage(object result)
+    {
+        var property = result.GetType().GetProperty("Storage", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        Assert.NotNull(property);
+        return (IComputerStorageService?)property!.GetValue(result);
+    }
+
+    private static IReadOnlyList<ComputerConfig> GetComputers(object result)
+    {
+        var property = result.GetType().GetProperty("Computers", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        Assert.NotNull(property);
+        var value = property!.GetValue(result);
+        Assert.NotNull(value);
+        var typed = Assert.IsAssignableFrom<IEnumerable<ComputerConfig>>(value);
+        return typed.ToList();
+    }
+
+    private static bool GetBoolean(object result, string propertyName)
+    {
+        var property = result.GetType().GetProperty(propertyName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        Assert.NotNull(property);
+        var value = property!.GetValue(result);
+        Assert.IsType<bool>(value);
+        return (bool)value!;
+    }
+
+    private static List<ComputerConfig> CreateComputers(params string[] names)
+    {
+        return names.Select((name, index) => new ComputerConfig
+        {
+            Name = name,
+            Host = $"10.0.0.{index + 1}",
+            Port = 5443 + index,
+            ApiKey = $"key-{index + 1}",
+            CertThumbprint = $"THUMB-{index + 1}"
+        }).ToList();
+    }
+
+    private static List<ComputerConfig> Clone(IEnumerable<ComputerConfig> computers)
+    {
+        return computers.Select(computer => new ComputerConfig
+        {
+            Id = computer.Id,
+            Name = computer.Name,
+            Host = computer.Host,
+            Port = computer.Port,
+            ApiKey = computer.ApiKey,
+            IsEnabled = computer.IsEnabled,
+            CertThumbprint = computer.CertThumbprint
+        }).ToList();
+    }
+
+    private sealed class FakeViewerSettingsService(ViewerSettings initialSettings) : IViewerSettingsService
+    {
+        public ViewerSettings Current { get; private set; } = CloneSettings(initialSettings);
+        public int SaveCalls { get; private set; }
+        public Action<ViewerSettings>? OnSave { get; set; }
+
+        public ViewerSettings Load() => CloneSettings(Current);
+
+        public void Save(ViewerSettings settings)
+        {
+            SaveCalls++;
+            Current = CloneSettings(settings);
+            OnSave?.Invoke(CloneSettings(Current));
+        }
+
+        private static ViewerSettings CloneSettings(ViewerSettings settings)
+        {
+            return new ViewerSettings
+            {
+                LaunchAtStartup = settings.LaunchAtStartup,
+                RefreshIntervalSeconds = settings.RefreshIntervalSeconds,
+                ConnectionsFilePath = settings.ConnectionsFilePath,
+                ConnectionsFilePasswordEncrypted = settings.ConnectionsFilePasswordEncrypted
+            };
+        }
+    }
+
+    private sealed class FakeComputerStorageService : IComputerStorageService
+    {
+        public List<ComputerConfig> LoadResult { get; set; } = [];
+        public Exception? LoadException { get; set; }
+        public Exception? SaveException { get; set; }
+        public int LoadCalls { get; private set; }
+        public List<IReadOnlyList<ComputerConfig>> SavedSnapshots { get; } = [];
+        public Action<IReadOnlyList<ComputerConfig>>? OnSave { get; set; }
+
+        public List<ComputerConfig> Load()
+        {
+            LoadCalls++;
+            if (LoadException is not null)
+                throw LoadException;
+
+            return Clone(LoadResult);
+        }
+
+        public void Save(IEnumerable<ComputerConfig> computers)
+        {
+            var snapshot = Clone(computers);
+            OnSave?.Invoke(snapshot);
+            if (SaveException is not null)
+                throw SaveException;
+
+            SavedSnapshots.Add(snapshot);
+        }
+    }
+}
