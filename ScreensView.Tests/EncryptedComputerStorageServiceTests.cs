@@ -81,9 +81,10 @@ public class EncryptedComputerStorageServiceTests : IDisposable
         InvokeSave(service, [new ComputerConfig { Name = "PC", Host = "host", ApiKey = "key" }]);
 
         var wrongPasswordService = CreateService("password-two");
-        var exception = Assert.ThrowsAny<Exception>(() => InvokeLoad(wrongPasswordService));
+        var exception = Assert.Throws<TargetInvocationException>(() => InvokeLoad(wrongPasswordService));
 
-        Assert.Equal("ScreensView.Viewer.Services.EncryptedComputerStoragePasswordException", exception.GetType().FullName);
+        Assert.NotNull(exception.InnerException);
+        Assert.Equal("ScreensView.Viewer.Services.EncryptedComputerStoragePasswordException", exception.InnerException!.GetType().FullName);
     }
 
     [Fact]
