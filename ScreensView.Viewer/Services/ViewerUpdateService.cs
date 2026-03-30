@@ -73,15 +73,7 @@ public class ViewerUpdateService
                 "Обновление ScreensView", MessageBoxButton.YesNo, MessageBoxImage.Information);
             if (result != MessageBoxResult.Yes) return;
 
-            var originalPath = Environment.ProcessPath!;
-            var tempPath     = originalPath + ".download.exe";
-
-            var bytes = await http.GetByteArrayAsync(downloadUrl);
-            await File.WriteAllBytesAsync(tempPath, bytes);
-
-            var launchArgs = $"--update-from \"{tempPath}\" --install-to \"{originalPath}\"";
-            Process.Start(new ProcessStartInfo(tempPath, launchArgs) { UseShellExecute = true });
-            Application.Current.Shutdown();
+            await DownloadAndLaunchUpdateAsync(http, downloadUrl);
         }
         catch
         {
@@ -129,21 +121,26 @@ public class ViewerUpdateService
                 "Обновление ScreensView", MessageBoxButton.YesNo, MessageBoxImage.Information);
             if (result != MessageBoxResult.Yes) return;
 
-            var originalPath = Environment.ProcessPath!;
-            var tempPath     = originalPath + ".download.exe";
-
-            var bytes = await http.GetByteArrayAsync(downloadUrl);
-            await File.WriteAllBytesAsync(tempPath, bytes);
-
-            var launchArgs = $"--update-from \"{tempPath}\" --install-to \"{originalPath}\"";
-            Process.Start(new ProcessStartInfo(tempPath, launchArgs) { UseShellExecute = true });
-            Application.Current.Shutdown();
+            await DownloadAndLaunchUpdateAsync(http, downloadUrl);
         }
         catch
         {
             MessageBox.Show(owner, "Не удалось проверить обновления.", "Обновление ScreensView",
                 MessageBoxButton.OK, MessageBoxImage.Warning);
         }
+    }
+
+    private static async Task DownloadAndLaunchUpdateAsync(HttpClient http, string downloadUrl)
+    {
+        var originalPath = Environment.ProcessPath!;
+        var tempPath     = originalPath + ".download.exe";
+
+        var bytes = await http.GetByteArrayAsync(downloadUrl);
+        await File.WriteAllBytesAsync(tempPath, bytes);
+
+        var launchArgs = $"--update-from \"{tempPath}\" --install-to \"{originalPath}\"";
+        Process.Start(new ProcessStartInfo(tempPath, launchArgs) { UseShellExecute = true });
+        Application.Current.Shutdown();
     }
 
     internal static Version ParseVersion(string tag)
