@@ -85,7 +85,14 @@ public class EncryptedComputerStorageServiceTests : IDisposable
 
         var wrongPasswordService = CreateService("password-two");
         var exception = Assert.ThrowsAny<Exception>(() => InvokeLoad(wrongPasswordService));
+        var exceptionType = exception.GetType();
 
+        Assert.NotNull(exceptionType.Namespace);
+        Assert.StartsWith("ScreensView.", exceptionType.Namespace!, StringComparison.Ordinal);
+        Assert.EndsWith("Exception", exceptionType.Name, StringComparison.Ordinal);
+        Assert.True(
+            exceptionType.Name.Contains("Domain", StringComparison.OrdinalIgnoreCase) ||
+            exceptionType.Name.Contains("Password", StringComparison.OrdinalIgnoreCase));
         Assert.Contains("password", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
