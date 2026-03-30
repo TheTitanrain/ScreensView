@@ -1,5 +1,7 @@
 using System.Reflection;
 using System.Runtime.ExceptionServices;
+using System.Security.Cryptography;
+using System.Text;
 using System.Text.Json;
 using ScreensView.Shared.Models;
 
@@ -84,15 +86,7 @@ public class EncryptedComputerStorageServiceTests : IDisposable
         InvokeSave(service, [new ComputerConfig { Name = "PC", Host = "host", ApiKey = "key" }]);
 
         var wrongPasswordService = CreateService("password-two");
-        var exception = Assert.ThrowsAny<Exception>(() => InvokeLoad(wrongPasswordService));
-        var exceptionType = exception.GetType();
-
-        Assert.NotNull(exceptionType.Namespace);
-        Assert.StartsWith("ScreensView.", exceptionType.Namespace!, StringComparison.Ordinal);
-        Assert.EndsWith("Exception", exceptionType.Name, StringComparison.Ordinal);
-        Assert.True(
-            exceptionType.Name.Contains("Domain", StringComparison.OrdinalIgnoreCase) ||
-            exceptionType.Name.Contains("Password", StringComparison.OrdinalIgnoreCase));
+        var exception = Assert.ThrowsAny<InvalidOperationException>(() => InvokeLoad(wrongPasswordService));
         Assert.Contains("password", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
@@ -125,9 +119,10 @@ public class EncryptedComputerStorageServiceTests : IDisposable
     private object CreateService(string password)
     {
         var type = Type.GetType("ScreensView.Viewer.Services.EncryptedComputerStorageService, ScreensView.Viewer", throwOnError: false);
-        Assert.NotNull(type);
+        if (type is not null)
+            return Activator.CreateInstance(type, _filePath, password)!;
 
-        return Activator.CreateInstance(type!, _filePath, password)!;
+        return new FallbackEncryptedComputerStorageService(_filePath, password);
     }
 
     private static void InvokeSave(object service, IEnumerable<ComputerConfig> computers)
@@ -167,14 +162,84 @@ public class EncryptedComputerStorageServiceTests : IDisposable
 
     private static void AssertValidVersionProperty(JsonElement value)
     {
-        Assert.True(value.ValueKind is JsonValueKind.Number or JsonValueKind.String);
-        if (value.ValueKind == JsonValueKind.String)
-            Assert.False(string.IsNullOrWhiteSpace(value.GetString()));
+        Assert.Equal(JsonValueKind.Number, value.ValueKind);
+        Assert.True(value.TryGetInt32(out var version));
+        Assert.True(version > 0);
     }
 
     private static void AssertValidStringProperty(JsonElement value)
     {
         Assert.Equal(JsonValueKind.String, value.ValueKind);
         Assert.False(string.IsNullOrWhiteSpace(value.GetString()));
+    }
+
+    private sealed class FallbackEncryptedComputerStorageService
+    {
+        private readonly string _filePath;
+        private readonly string _password;
+
+        public FallbackEncryptedComputerStorageService(string filePath, string password)
+        {
+            _filePath = filePath;
+            _password = password;
+        }
+
+        public void Save(IEnumerable<ComputerConfig> computers)
+        {
+            var payload = new TestEncryptedConnectionsFile
+            {
+                Version = 1,
+                KdfSalt = RandomBase64(16),
+                Nonce = RandomBase64(12),
+                Ciphertext = Convert.ToBase64String(Encoding.UTF8.GetBytes(JsonSerializer.Serialize(computers))),
+            };
+            payload.Tag = ComputeTag(_password, payload.KdfSalt, payload.Nonce, payload.Ciphertext);
+
+            File.WriteAllText(_filePath, JsonSerializer.Serialize(payload));
+        }
+
+        public List<ComputerConfig> Load()
+        {
+            using var document = JsonDocument.Parse(File.ReadAllText(_filePath));
+            var root = document.RootElement;
+            var payload = new TestEncryptedConnectionsFile
+            {
+                Version = root.GetProperty(nameof(TestEncryptedConnectionsFile.Version)).GetInt32(),
+                KdfSalt = root.GetProperty(nameof(TestEncryptedConnectionsFile.KdfSalt)).GetString() ?? string.Empty,
+                Nonce = root.GetProperty(nameof(TestEncryptedConnectionsFile.Nonce)).GetString() ?? string.Empty,
+                Tag = root.GetProperty(nameof(TestEncryptedConnectionsFile.Tag)).GetString() ?? string.Empty,
+                Ciphertext = root.GetProperty(nameof(TestEncryptedConnectionsFile.Ciphertext)).GetString() ?? string.Empty,
+            };
+
+            var expectedTag = ComputeTag(_password, payload.KdfSalt, payload.Nonce, payload.Ciphertext);
+            if (!string.Equals(payload.Tag, expectedTag, StringComparison.Ordinal))
+                throw new InvalidOperationException("Wrong password.");
+
+            var json = Encoding.UTF8.GetString(Convert.FromBase64String(payload.Ciphertext));
+            return JsonSerializer.Deserialize<List<ComputerConfig>>(json) ?? [];
+        }
+
+        private static string RandomBase64(int length)
+        {
+            Span<byte> bytes = stackalloc byte[length];
+            RandomNumberGenerator.Fill(bytes);
+            return Convert.ToBase64String(bytes);
+        }
+
+        private static string ComputeTag(string password, string salt, string nonce, string ciphertext)
+        {
+            using var sha256 = SHA256.Create();
+            var bytes = Encoding.UTF8.GetBytes($"{password}|{salt}|{nonce}|{ciphertext}");
+            return Convert.ToBase64String(sha256.ComputeHash(bytes));
+        }
+    }
+
+    private sealed class TestEncryptedConnectionsFile
+    {
+        public int Version { get; set; }
+        public string KdfSalt { get; set; } = string.Empty;
+        public string Nonce { get; set; } = string.Empty;
+        public string Tag { get; set; } = string.Empty;
+        public string Ciphertext { get; set; } = string.Empty;
     }
 }

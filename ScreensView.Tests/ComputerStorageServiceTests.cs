@@ -3,7 +3,7 @@ using ScreensView.Viewer.Services;
 
 namespace ScreensView.Tests;
 
-public class ComputerStorageServiceTests : IDisposable
+public class LocalComputerStorageServiceTests : IDisposable
 {
     private readonly string _tempFile = Path.GetTempFileName();
 
