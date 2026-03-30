@@ -140,6 +140,15 @@ Viewer хранит локальные настройки в `%AppData%\ScreensV
 - Чекбокс **Автозапуск** в toolbar включает или выключает запуск Viewer при входе в Windows.
 - На Windows это соответствует значению `ScreensView` в `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`.
 
+### Хранение подключений
+
+По умолчанию список компьютеров Viewer хранит локально в `%AppData%\\ScreensView\\computers.json`.
+
+- `Name`, `Host`, `Port`, `IsEnabled` и `CertThumbprint` сохраняются в JSON как часть локальной конфигурации подключения.
+- `ApiKey` в локальном файле не хранится открытым текстом: вместо него записывается `ApiKeyEncrypted`, зашифрованный через Windows DPAPI для текущего пользователя.
+- В storage-слое Viewer также поддерживается отдельный зашифрованный контейнер подключений для внешних файлов. Он содержит только `Version`, `KdfSalt`, `Nonce`, `Tag` и `Ciphertext`.
+- Для внешнего контейнера используется `PBKDF2-SHA256` для derivation ключа из пароля и `AES-GCM` для шифрования всего списка `ComputerConfig` целиком.
+
 ## Настройка агента
 
 | Параметр | По умолчанию | Описание |

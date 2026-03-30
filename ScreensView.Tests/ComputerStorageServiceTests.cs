@@ -32,7 +32,8 @@ public class LocalConnectionsStorageTests : IDisposable
             Host = "192.168.1.42",
             Port = 5443,
             IsEnabled = true,
-            ApiKey = "super-secret-key-xyz"
+            ApiKey = "super-secret-key-xyz",
+            CertThumbprint = "AABBCCDDEEFF00112233445566778899AABBCCDD"
         };
         var service = CreateService();
 
@@ -47,6 +48,7 @@ public class LocalConnectionsStorageTests : IDisposable
         Assert.Equal(original.Port, c.Port);
         Assert.Equal(original.IsEnabled, c.IsEnabled);
         Assert.Equal(original.ApiKey, c.ApiKey);
+        Assert.Equal(original.CertThumbprint, c.CertThumbprint);
     }
 
     [Fact]

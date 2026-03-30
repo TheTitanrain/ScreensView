@@ -5,7 +5,7 @@ using ScreensView.Viewer.Helpers;
 
 namespace ScreensView.Viewer.Services;
 
-public class ComputerStorageService
+public class ComputerStorageService : IComputerStorageService
 {
     private readonly string _filePath;
     private readonly object _fileLock = new();
@@ -45,7 +45,8 @@ public class ComputerStorageService
                 Host = s.Host,
                 Port = s.Port,
                 IsEnabled = s.IsEnabled,
-                ApiKey = TryDecrypt(s.ApiKeyEncrypted)
+                ApiKey = TryDecrypt(s.ApiKeyEncrypted),
+                CertThumbprint = s.CertThumbprint
             }).ToList();
         }
     }
@@ -59,7 +60,8 @@ public class ComputerStorageService
             Host = c.Host,
             Port = c.Port,
             IsEnabled = c.IsEnabled,
-            ApiKeyEncrypted = string.IsNullOrEmpty(c.ApiKey) ? string.Empty : DpapiHelper.Encrypt(c.ApiKey)
+            ApiKeyEncrypted = string.IsNullOrEmpty(c.ApiKey) ? string.Empty : DpapiHelper.Encrypt(c.ApiKey),
+            CertThumbprint = c.CertThumbprint
         }).ToList();
 
         var json = JsonSerializer.Serialize(items, JsonOptions);
@@ -82,5 +84,6 @@ public class ComputerStorageService
         public int Port { get; set; }
         public bool IsEnabled { get; set; }
         public string ApiKeyEncrypted { get; set; } = string.Empty;
+        public string CertThumbprint { get; set; } = string.Empty;
     }
 }
