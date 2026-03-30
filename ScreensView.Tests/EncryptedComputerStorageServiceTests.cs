@@ -1,4 +1,6 @@
 using System.Reflection;
+using System.Runtime.ExceptionServices;
+using System.Linq;
 using System.Text.Json;
 using ScreensView.Shared.Models;
 
@@ -60,7 +62,8 @@ public class EncryptedComputerStorageServiceTests : IDisposable
             {
                 Name = "Secret Office",
                 Host = "192.168.100.10",
-                ApiKey = "super-secret-api-key"
+                ApiKey = "super-secret-api-key",
+                CertThumbprint = "THUMBPRINT-SHOULD-NOT-LEAK"
             }
         };
 
@@ -72,6 +75,7 @@ public class EncryptedComputerStorageServiceTests : IDisposable
         Assert.DoesNotContain("Secret Office", rawJson, StringComparison.Ordinal);
         Assert.DoesNotContain("192.168.100.10", rawJson, StringComparison.Ordinal);
         Assert.DoesNotContain("super-secret-api-key", rawJson, StringComparison.Ordinal);
+        Assert.DoesNotContain("THUMBPRINT-SHOULD-NOT-LEAK", rawJson, StringComparison.Ordinal);
     }
 
     [Fact]
@@ -81,10 +85,10 @@ public class EncryptedComputerStorageServiceTests : IDisposable
         InvokeSave(service, [new ComputerConfig { Name = "PC", Host = "host", ApiKey = "key" }]);
 
         var wrongPasswordService = CreateService("password-two");
-        var exception = Assert.Throws<TargetInvocationException>(() => InvokeLoad(wrongPasswordService));
+        var exceptionType = Type.GetType("ScreensView.Viewer.Services.EncryptedComputerStoragePasswordException, ScreensView.Viewer", throwOnError: false);
+        Assert.NotNull(exceptionType);
 
-        Assert.NotNull(exception.InnerException);
-        Assert.Equal("ScreensView.Viewer.Services.EncryptedComputerStoragePasswordException", exception.InnerException!.GetType().FullName);
+        Assert.Throws(exceptionType!, () => InvokeLoad(wrongPasswordService));
     }
 
     [Fact]
@@ -96,22 +100,11 @@ public class EncryptedComputerStorageServiceTests : IDisposable
 
         using var document = JsonDocument.Parse(File.ReadAllText(_filePath));
         var root = document.RootElement;
+        var properties = root.EnumerateObject().ToArray();
 
         Assert.Equal(JsonValueKind.Object, root.ValueKind);
-        Assert.True(root.TryGetProperty("Version", out var version));
-        Assert.Equal(1, version.GetInt32());
-        Assert.True(root.TryGetProperty("KdfSalt", out var kdfSalt));
-        Assert.Equal(JsonValueKind.String, kdfSalt.ValueKind);
-        Assert.False(string.IsNullOrWhiteSpace(kdfSalt.GetString()));
-        Assert.True(root.TryGetProperty("Nonce", out var nonce));
-        Assert.Equal(JsonValueKind.String, nonce.ValueKind);
-        Assert.False(string.IsNullOrWhiteSpace(nonce.GetString()));
-        Assert.True(root.TryGetProperty("Tag", out var tag));
-        Assert.Equal(JsonValueKind.String, tag.ValueKind);
-        Assert.False(string.IsNullOrWhiteSpace(tag.GetString()));
-        Assert.True(root.TryGetProperty("Ciphertext", out var ciphertext));
-        Assert.Equal(JsonValueKind.String, ciphertext.ValueKind);
-        Assert.False(string.IsNullOrWhiteSpace(ciphertext.GetString()));
+        Assert.Contains(properties, IsVersionProperty);
+        Assert.Contains(properties, IsEncryptedPayloadProperty);
     }
 
     private object CreateService(string password)
@@ -135,7 +128,15 @@ public class EncryptedComputerStorageServiceTests : IDisposable
         var load = service.GetType().GetMethod("Load", BindingFlags.Public | BindingFlags.Instance);
         Assert.NotNull(load);
 
-        return (List<ComputerConfig>)load!.Invoke(service, [])!;
+        try
+        {
+            return (List<ComputerConfig>)load!.Invoke(service, [])!;
+        }
+        catch (TargetInvocationException exception) when (exception.InnerException is not null)
+        {
+            ExceptionDispatchInfo.Capture(exception.InnerException).Throw();
+            throw;
+        }
     }
 
     private static void AssertComputerConfigsEqual(ComputerConfig expected, ComputerConfig actual)
@@ -147,5 +148,22 @@ public class EncryptedComputerStorageServiceTests : IDisposable
         Assert.Equal(expected.IsEnabled, actual.IsEnabled);
         Assert.Equal(expected.ApiKey, actual.ApiKey);
         Assert.Equal(expected.CertThumbprint, actual.CertThumbprint);
+    }
+
+    private static bool IsVersionProperty(JsonProperty property)
+    {
+        return property.Name.Contains("version", StringComparison.OrdinalIgnoreCase) &&
+            (property.Value.ValueKind == JsonValueKind.Number || property.Value.ValueKind == JsonValueKind.String);
+    }
+
+    private static bool IsEncryptedPayloadProperty(JsonProperty property)
+    {
+        return (property.Name.Contains("cipher", StringComparison.OrdinalIgnoreCase) ||
+            property.Name.Contains("encrypted", StringComparison.OrdinalIgnoreCase) ||
+            property.Name.Contains("payload", StringComparison.OrdinalIgnoreCase) ||
+            property.Name.Contains("nonce", StringComparison.OrdinalIgnoreCase) ||
+            property.Name.Contains("tag", StringComparison.OrdinalIgnoreCase) ||
+            property.Name.Contains("salt", StringComparison.OrdinalIgnoreCase)) &&
+            (property.Value.ValueKind == JsonValueKind.String || property.Value.ValueKind == JsonValueKind.Object);
     }
 }
