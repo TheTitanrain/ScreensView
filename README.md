@@ -124,11 +124,11 @@ Viewer копирует выбранный payload в `C:\Windows\ScreensViewAge
 
 ### Viewer (авто-обновление)
 
-При запуске Viewer проверяет GitHub Releases. Если есть новая версия — предлагает обновиться. Для включения укажи репозиторий в `ScreensView.Viewer/Services/ViewerUpdateService.cs`:
+При запуске Viewer проверяет GitHub Releases. Если есть новая версия — предлагает обновиться. Та же проверка доступна вручную в окне «О программе» по кнопке «Проверить обновления». В проекте используется такой репозиторий в `ScreensView.Viewer/Services/ViewerUpdateService.cs`:
 
 ```csharp
 private const string GitHubReleasesUrl =
-    "https://api.github.com/repos/YOUR_GITHUB_USER/ScreensView/releases/latest";
+    "https://api.github.com/repos/titanrain/ScreensView/releases/latest";
 ```
 
 ## Настройка агента
@@ -138,4 +138,5 @@ private const string GitHubReleasesUrl =
 | `Agent:Port` | `5443` | HTTPS-порт |
 | `Agent:ApiKey` | *(обязательно)* | Секретный ключ авторизации |
 | `Agent:ScreenshotQuality` | `75` | Качество JPEG (1–100) |
+
 
