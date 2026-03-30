@@ -133,4 +133,23 @@ public class ComputerStorageServiceTests : IDisposable
         var rawJson = File.ReadAllText(_tempFile);
         Assert.DoesNotContain(apiKey, rawJson);
     }
+
+    [Fact]
+    public void Save_LocalStorageStillPersistsPlaintextHostAndEncryptedApiKey()
+    {
+        var service = CreateService();
+
+        service.Save([new ComputerConfig
+        {
+            Name = "Office PC",
+            Host = "192.168.1.42",
+            ApiKey = "plaintext-api-key"
+        }]);
+
+        var rawJson = File.ReadAllText(_tempFile);
+        Assert.Contains("Office PC", rawJson);
+        Assert.Contains("192.168.1.42", rawJson);
+        Assert.DoesNotContain("plaintext-api-key", rawJson);
+        Assert.Contains("ApiKeyEncrypted", rawJson);
+    }
 }
