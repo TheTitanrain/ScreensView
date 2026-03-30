@@ -136,6 +136,7 @@ private const string GitHubReleasesUrl =
 
 Viewer хранит локальные настройки в `%AppData%\ScreensView\viewer-settings.json`.
 
+- Слайдер **Интервал (сек)** в toolbar сохраняет последнее выбранное значение в `RefreshIntervalSeconds` и восстанавливает его при следующем запуске Viewer.
 - Чекбокс **Автозапуск** в toolbar включает или выключает запуск Viewer при входе в Windows.
 - На Windows это соответствует значению `ScreensView` в `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`.
 
@@ -146,5 +147,3 @@ Viewer хранит локальные настройки в `%AppData%\ScreensV
 | `Agent:Port` | `5443` | HTTPS-порт |
 | `Agent:ApiKey` | *(обязательно)* | Секретный ключ авторизации |
 | `Agent:ScreenshotQuality` | `75` | Качество JPEG (1–100) |
-
-

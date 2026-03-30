@@ -8,6 +8,10 @@ namespace ScreensView.Viewer.ViewModels;
 
 public partial class MainViewModel : ObservableObject, IDisposable
 {
+    private const int DefaultRefreshIntervalSeconds = 5;
+    private const int MinRefreshIntervalSeconds = 1;
+    private const int MaxRefreshIntervalSeconds = 60;
+
     private readonly ComputerStorageService _storage;
     private readonly ScreenshotPollerService _poller;
     private readonly IViewerSettingsService _viewerSettingsService;
@@ -19,7 +23,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     public ObservableCollection<ComputerViewModel> Computers { get; } = [];
 
-    [ObservableProperty] private int _refreshInterval = 5;
+    [ObservableProperty] private int _refreshInterval = DefaultRefreshIntervalSeconds;
     [ObservableProperty] private bool _isPolling;
     [ObservableProperty] private bool _isAutostartEnabled;
 
@@ -45,6 +49,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
             Computers.Add(new ComputerViewModel(config));
 
         _viewerSettings = _viewerSettingsService.Load();
+        _refreshInterval = NormalizeRefreshInterval(_viewerSettings.RefreshIntervalSeconds);
+        _viewerSettings.RefreshIntervalSeconds = _refreshInterval;
         InitializeAutostartState();
     }
 
@@ -65,6 +71,16 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     partial void OnRefreshIntervalChanged(int value)
     {
+        var normalizedValue = NormalizeRefreshInterval(value);
+        if (value != normalizedValue)
+        {
+            RefreshInterval = normalizedValue;
+            return;
+        }
+
+        _viewerSettings.RefreshIntervalSeconds = value;
+        _viewerSettingsService.Save(_viewerSettings);
+
         if (IsPolling)
         {
             _poller.Stop();
@@ -161,5 +177,12 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _isSynchronizingAutostart = true;
         IsAutostartEnabled = value;
         _isSynchronizingAutostart = false;
+    }
+
+    private static int NormalizeRefreshInterval(int value)
+    {
+        return value is >= MinRefreshIntervalSeconds and <= MaxRefreshIntervalSeconds
+            ? value
+            : DefaultRefreshIntervalSeconds;
     }
 }

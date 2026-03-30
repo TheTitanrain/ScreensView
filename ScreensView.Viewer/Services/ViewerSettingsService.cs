@@ -60,4 +60,5 @@ public class ViewerSettingsService : IViewerSettingsService
 public class ViewerSettings
 {
     public bool LaunchAtStartup { get; set; }
+    public int RefreshIntervalSeconds { get; set; } = 5;
 }

@@ -7,8 +7,13 @@ namespace ScreensView.Tests;
 public class MainViewModelTests : IDisposable
 {
     private readonly string _tempFile = Path.GetTempFileName();
+    private readonly string _settingsFile = Path.GetTempFileName();
 
-    public void Dispose() => File.Delete(_tempFile);
+    public void Dispose()
+    {
+        File.Delete(_tempFile);
+        File.Delete(_settingsFile);
+    }
 
     private MainViewModel CreateVm()
     {
@@ -74,6 +79,31 @@ public class MainViewModelTests : IDisposable
         Assert.False(settings.Current.LaunchAtStartup);
         Assert.Equal(0, settings.SaveCalls);
         Assert.Contains("registry write failed", error);
+    }
+
+    [Fact]
+    public void Constructor_LoadsRefreshIntervalFromViewerSettings()
+    {
+        File.WriteAllText(_settingsFile, "{\"LaunchAtStartup\":false,\"RefreshIntervalSeconds\":12}");
+        var settings = new ViewerSettingsService(_settingsFile);
+        var autostart = new FakeAutostartService(initialValue: false);
+
+        using var vm = CreateVm(settings, autostart);
+
+        Assert.Equal(12, vm.RefreshInterval);
+    }
+
+    [Fact]
+    public void RefreshInterval_WhenChanged_PersistsValueToViewerSettings()
+    {
+        var settings = new ViewerSettingsService(_settingsFile);
+        var autostart = new FakeAutostartService(initialValue: false);
+
+        using var vm = CreateVm(settings, autostart);
+        vm.RefreshInterval = 9;
+
+        var json = File.ReadAllText(_settingsFile);
+        Assert.Contains("\"RefreshIntervalSeconds\": 9", json);
     }
 
     [Fact]
