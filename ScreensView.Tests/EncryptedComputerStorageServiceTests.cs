@@ -129,6 +129,34 @@ public class EncryptedComputerStorageServiceTests : IDisposable
         AssertValidStringProperty(properties["Ciphertext"]);
     }
 
+    [Fact]
+    public void Load_WithWhitespaceOnlyFile_ThrowsInvalidDataException()
+    {
+        File.WriteAllText(_filePath, "   ");
+
+        var service = CreateService("correct-password");
+
+        Assert.Throws<InvalidDataException>(() => InvokeLoad(service));
+    }
+
+    [Fact]
+    public void Load_WithMalformedContainerBase64_ThrowsInvalidDataException()
+    {
+        File.WriteAllText(_filePath, """
+            {
+              "Version": 1,
+              "KdfSalt": "%%%not-base64%%%",
+              "Nonce": "%%%not-base64%%%",
+              "Tag": "%%%not-base64%%%",
+              "Ciphertext": "%%%not-base64%%%"
+            }
+            """);
+
+        var service = CreateService("correct-password");
+
+        Assert.Throws<InvalidDataException>(() => InvokeLoad(service));
+    }
+
     private object CreateService(string password)
     {
         var type = Type.GetType("ScreensView.Viewer.Services.EncryptedComputerStorageService, ScreensView.Viewer", throwOnError: false);

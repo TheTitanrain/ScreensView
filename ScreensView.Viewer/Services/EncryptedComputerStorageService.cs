@@ -27,7 +27,7 @@ public class EncryptedComputerStorageService(string filePath, string password) :
 
             var json = File.ReadAllText(filePath);
             if (string.IsNullOrWhiteSpace(json))
-                return [];
+                throw new InvalidDataException("Encrypted computer storage file is empty.");
 
             var container = JsonSerializer.Deserialize<EncryptedStorageContainer>(json)
                 ?? throw new InvalidDataException("Encrypted computer storage file is invalid.");
@@ -48,6 +48,10 @@ public class EncryptedComputerStorageService(string filePath, string password) :
                 aes.Decrypt(nonce, ciphertext, tag, plaintext);
 
                 return JsonSerializer.Deserialize<List<ComputerConfig>>(plaintext) ?? [];
+            }
+            catch (FormatException ex)
+            {
+                throw new InvalidDataException("Encrypted computer storage file is invalid.", ex);
             }
             catch (CryptographicException ex)
             {
