@@ -30,7 +30,7 @@ public class ConnectionsStorageControllerTests
         var result = InvokeResolveStartup(controller);
 
         Assert.Same(localStorage, GetStorage(result));
-        Assert.Equal(expectedComputers.Select(x => x.Name), GetComputers(result).Select(x => x.Name));
+        AssertComputerListsEqual(expectedComputers, GetComputers(result));
         Assert.False(GetBoolean(result, "UsesExternalFile"));
         Assert.False(GetBoolean(result, "NeedsPassword"));
         Assert.Equal(1, localStorage.LoadCalls);
@@ -66,7 +66,7 @@ public class ConnectionsStorageControllerTests
         Assert.True(GetBoolean(result, "UsesExternalFile"));
         Assert.False(GetBoolean(result, "NeedsPassword"));
         Assert.Same(externalStorage, GetStorage(result));
-        Assert.Equal(expectedComputers.Select(x => x.Name), GetComputers(result).Select(x => x.Name));
+        AssertComputerListsEqual(expectedComputers, GetComputers(result));
         Assert.Equal([(externalPath, rememberedPassword)], externalFactoryCalls);
         Assert.Equal(0, settings.SaveCalls);
         Assert.Same(externalStorage, GetActiveStorage(controller));
@@ -113,6 +113,7 @@ public class ConnectionsStorageControllerTests
         var settings = new FakeViewerSettingsService(new ViewerSettings());
         var localStorage = new FakeComputerStorageService();
         var events = new List<string>();
+        var externalFactoryCalls = new List<(string Path, string Password)>();
         settings.OnSave = _ => events.Add("settings-save");
 
         var externalStorage = new FakeComputerStorageService();
@@ -121,10 +122,17 @@ public class ConnectionsStorageControllerTests
             events.Add("external-save");
             Assert.Equal(string.Empty, settings.Current.ConnectionsFilePath);
             Assert.Equal(string.Empty, settings.Current.ConnectionsFilePasswordEncrypted);
-            Assert.Equal(currentConnections.Select(x => x.Name), computers.Select(x => x.Name));
+            AssertComputerListsEqual(currentConnections, computers);
         };
 
-        var controller = CreateController(settings, () => localStorage, (_, _) => externalStorage);
+        var controller = CreateController(
+            settings,
+            () => localStorage,
+            (path, suppliedPassword) =>
+            {
+                externalFactoryCalls.Add((path, suppliedPassword));
+                return externalStorage;
+            });
         InvokeResolveStartup(controller);
 
         var result = InvokeSwitchToExternalFile(controller, externalPath, password, rememberPassword: true, currentConnections);
@@ -133,10 +141,39 @@ public class ConnectionsStorageControllerTests
         Assert.True(GetBoolean(result, "UsesExternalFile"));
         Assert.Same(externalStorage, GetStorage(result));
         Assert.Equal(["external-save", "settings-save"], events);
+        Assert.Equal([(externalPath, password)], externalFactoryCalls);
         Assert.Equal(externalPath, settings.Current.ConnectionsFilePath);
         Assert.Equal(password, settings.Current.ConnectionsFilePasswordEncrypted);
         Assert.Same(externalStorage, GetActiveStorage(controller));
         Assert.Single(externalStorage.SavedSnapshots);
+    }
+
+    [Fact]
+    public void SwitchToExternalFile_WhenRememberPasswordIsFalse_DoesNotPersistPassword()
+    {
+        const string externalPath = @"C:\Shared\new-connections.svc";
+        const string password = "session-only-password";
+
+        var currentConnections = CreateComputers("Session workstation");
+        var settings = new FakeViewerSettingsService(new ViewerSettings());
+        var externalFactoryCalls = new List<(string Path, string Password)>();
+        var controller = CreateController(
+            settings,
+            () => new FakeComputerStorageService(),
+            (path, suppliedPassword) =>
+            {
+                externalFactoryCalls.Add((path, suppliedPassword));
+                return new FakeComputerStorageService();
+            });
+        InvokeResolveStartup(controller);
+
+        var result = InvokeSwitchToExternalFile(controller, externalPath, password, rememberPassword: false, currentConnections);
+
+        Assert.True(GetBoolean(result, "Succeeded"));
+        Assert.True(GetBoolean(result, "UsesExternalFile"));
+        Assert.Equal([(externalPath, password)], externalFactoryCalls);
+        Assert.Equal(externalPath, settings.Current.ConnectionsFilePath);
+        Assert.Equal(string.Empty, settings.Current.ConnectionsFilePasswordEncrypted);
     }
 
     [Fact]
@@ -164,7 +201,7 @@ public class ConnectionsStorageControllerTests
         Assert.Equal(string.Empty, settings.Current.ConnectionsFilePath);
         Assert.Equal(string.Empty, settings.Current.ConnectionsFilePasswordEncrypted);
         Assert.Single(localStorage.SavedSnapshots);
-        Assert.Equal(currentConnections.Select(x => x.Name), localStorage.SavedSnapshots[0].Select(x => x.Name));
+        AssertComputerListsEqual(currentConnections, localStorage.SavedSnapshots[0]);
         Assert.Same(localStorage, GetActiveStorage(controller));
     }
 
@@ -199,6 +236,36 @@ public class ConnectionsStorageControllerTests
         Assert.Same(localStorage, GetActiveStorage(controller));
         Assert.Equal(originalPath, settings.Current.ConnectionsFilePath);
         Assert.Equal(string.Empty, settings.Current.ConnectionsFilePasswordEncrypted);
+        Assert.Equal(0, settings.SaveCalls);
+    }
+
+    [Fact]
+    public void SwitchToLocalStorage_WhenSaveFails_LeavesSettingsAndActiveSourceUnchanged()
+    {
+        const string externalPath = @"C:\Shared\connections.svc";
+        const string rememberedPassword = "remembered-password";
+
+        var currentConnections = CreateComputers("Shared workstation");
+        var settings = new FakeViewerSettingsService(new ViewerSettings
+        {
+            ConnectionsFilePath = externalPath,
+            ConnectionsFilePasswordEncrypted = rememberedPassword
+        });
+        var failingLocalStorage = new FakeComputerStorageService
+        {
+            SaveException = new InvalidOperationException("disk full")
+        };
+        var externalStorage = new FakeComputerStorageService { LoadResult = Clone(currentConnections) };
+        var controller = CreateController(settings, () => failingLocalStorage, (_, _) => externalStorage);
+        var startup = InvokeResolveStartup(controller);
+
+        var result = InvokeSwitchToLocalStorage(controller, currentConnections);
+
+        Assert.False(GetBoolean(result, "Succeeded"));
+        Assert.Same(externalStorage, GetStorage(startup));
+        Assert.Same(externalStorage, GetActiveStorage(controller));
+        Assert.Equal(externalPath, settings.Current.ConnectionsFilePath);
+        Assert.Equal(rememberedPassword, settings.Current.ConnectionsFilePasswordEncrypted);
         Assert.Equal(0, settings.SaveCalls);
     }
 
@@ -323,6 +390,23 @@ public class ConnectionsStorageControllerTests
             IsEnabled = computer.IsEnabled,
             CertThumbprint = computer.CertThumbprint
         }).ToList();
+    }
+
+    private static void AssertComputerListsEqual(
+        IReadOnlyList<ComputerConfig> expected,
+        IReadOnlyList<ComputerConfig> actual)
+    {
+        Assert.Equal(expected.Count, actual.Count);
+        for (var index = 0; index < expected.Count; index++)
+        {
+            Assert.Equal(expected[index].Id, actual[index].Id);
+            Assert.Equal(expected[index].Name, actual[index].Name);
+            Assert.Equal(expected[index].Host, actual[index].Host);
+            Assert.Equal(expected[index].Port, actual[index].Port);
+            Assert.Equal(expected[index].ApiKey, actual[index].ApiKey);
+            Assert.Equal(expected[index].IsEnabled, actual[index].IsEnabled);
+            Assert.Equal(expected[index].CertThumbprint, actual[index].CertThumbprint);
+        }
     }
 
     private sealed class FakeViewerSettingsService(ViewerSettings initialSettings) : IViewerSettingsService
