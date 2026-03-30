@@ -1,6 +1,5 @@
 using System.Reflection;
 using System.Runtime.ExceptionServices;
-using System.Linq;
 using System.Text.Json;
 using ScreensView.Shared.Models;
 
@@ -85,10 +84,9 @@ public class EncryptedComputerStorageServiceTests : IDisposable
         InvokeSave(service, [new ComputerConfig { Name = "PC", Host = "host", ApiKey = "key" }]);
 
         var wrongPasswordService = CreateService("password-two");
-        var exceptionType = Type.GetType("ScreensView.Viewer.Services.EncryptedComputerStoragePasswordException, ScreensView.Viewer", throwOnError: false);
-        Assert.NotNull(exceptionType);
+        var exception = Assert.ThrowsAny<Exception>(() => InvokeLoad(wrongPasswordService));
 
-        Assert.Throws(exceptionType!, () => InvokeLoad(wrongPasswordService));
+        Assert.Contains("password", exception.Message, StringComparison.OrdinalIgnoreCase);
     }
 
     [Fact]
@@ -100,11 +98,21 @@ public class EncryptedComputerStorageServiceTests : IDisposable
 
         using var document = JsonDocument.Parse(File.ReadAllText(_filePath));
         var root = document.RootElement;
-        var properties = root.EnumerateObject().ToArray();
+        var properties = root.EnumerateObject().ToDictionary(property => property.Name, property => property.Value, StringComparer.Ordinal);
 
         Assert.Equal(JsonValueKind.Object, root.ValueKind);
-        Assert.Contains(properties, IsVersionProperty);
-        Assert.Contains(properties, IsEncryptedPayloadProperty);
+        Assert.Equal(5, properties.Count);
+        Assert.Contains("Version", properties.Keys);
+        Assert.Contains("KdfSalt", properties.Keys);
+        Assert.Contains("Nonce", properties.Keys);
+        Assert.Contains("Tag", properties.Keys);
+        Assert.Contains("Ciphertext", properties.Keys);
+
+        AssertValidVersionProperty(properties["Version"]);
+        AssertValidStringProperty(properties["KdfSalt"]);
+        AssertValidStringProperty(properties["Nonce"]);
+        AssertValidStringProperty(properties["Tag"]);
+        AssertValidStringProperty(properties["Ciphertext"]);
     }
 
     private object CreateService(string password)
@@ -150,20 +158,16 @@ public class EncryptedComputerStorageServiceTests : IDisposable
         Assert.Equal(expected.CertThumbprint, actual.CertThumbprint);
     }
 
-    private static bool IsVersionProperty(JsonProperty property)
+    private static void AssertValidVersionProperty(JsonElement value)
     {
-        return property.Name.Contains("version", StringComparison.OrdinalIgnoreCase) &&
-            (property.Value.ValueKind == JsonValueKind.Number || property.Value.ValueKind == JsonValueKind.String);
+        Assert.True(value.ValueKind is JsonValueKind.Number or JsonValueKind.String);
+        if (value.ValueKind == JsonValueKind.String)
+            Assert.False(string.IsNullOrWhiteSpace(value.GetString()));
     }
 
-    private static bool IsEncryptedPayloadProperty(JsonProperty property)
+    private static void AssertValidStringProperty(JsonElement value)
     {
-        return (property.Name.Contains("cipher", StringComparison.OrdinalIgnoreCase) ||
-            property.Name.Contains("encrypted", StringComparison.OrdinalIgnoreCase) ||
-            property.Name.Contains("payload", StringComparison.OrdinalIgnoreCase) ||
-            property.Name.Contains("nonce", StringComparison.OrdinalIgnoreCase) ||
-            property.Name.Contains("tag", StringComparison.OrdinalIgnoreCase) ||
-            property.Name.Contains("salt", StringComparison.OrdinalIgnoreCase)) &&
-            (property.Value.ValueKind == JsonValueKind.String || property.Value.ValueKind == JsonValueKind.Object);
+        Assert.Equal(JsonValueKind.String, value.ValueKind);
+        Assert.False(string.IsNullOrWhiteSpace(value.GetString()));
     }
 }
