@@ -3,7 +3,7 @@ using ScreensView.Viewer.Services;
 
 namespace ScreensView.Tests;
 
-public class LocalComputerStorageServiceTests : IDisposable
+public class LocalConnectionsStorageTests : IDisposable
 {
     private readonly string _tempFile = Path.GetTempFileName();
 
@@ -23,7 +23,7 @@ public class LocalComputerStorageServiceTests : IDisposable
     }
 
     [Fact]
-    public void SaveAndLoad_PreservesAllProperties()
+    public void SaveAndLoad_PreservesPersistedFields()
     {
         var original = new ComputerConfig
         {
