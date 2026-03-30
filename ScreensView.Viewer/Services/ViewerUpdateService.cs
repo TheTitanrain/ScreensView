@@ -10,7 +10,7 @@ namespace ScreensView.Viewer.Services;
 public class ViewerUpdateService
 {
     private const string GitHubReleasesUrl =
-        "https://api.github.com/repos/YOUR_GITHUB_USER/ScreensView/releases/latest";
+        "https://api.github.com/repos/titanrain/ScreensView/releases/latest";
 
     public static async Task CheckAndUpdateAsync()
     {
@@ -86,6 +86,63 @@ public class ViewerUpdateService
         catch
         {
             // Update check is non-critical — silently ignore
+        }
+    }
+
+    public static async Task CheckManualAsync(Window? owner = null)
+    {
+        try
+        {
+            using var http = new HttpClient();
+            http.DefaultRequestHeaders.Add("User-Agent", "ScreensView");
+            http.Timeout = TimeSpan.FromSeconds(10);
+
+            var release = await http.GetFromJsonAsync<GitHubRelease>(GitHubReleasesUrl);
+            if (release == null)
+            {
+                MessageBox.Show(owner, "Не удалось проверить обновления.", "Обновление ScreensView",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var latestVersion  = ParseVersion(release.TagName);
+            var currentVersion = Assembly.GetExecutingAssembly().GetName().Version ?? new Version(0, 0);
+
+            if (latestVersion <= currentVersion)
+            {
+                MessageBox.Show(owner, "Вы используете последнюю версию.", "Обновление ScreensView",
+                    MessageBoxButton.OK, MessageBoxImage.Information);
+                return;
+            }
+
+            var downloadUrl = release.Assets?.FirstOrDefault(a =>
+                a.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))?.BrowserDownloadUrl;
+            if (string.IsNullOrEmpty(downloadUrl))
+            {
+                MessageBox.Show(owner, "Не удалось проверить обновления.", "Обновление ScreensView",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var result = MessageBox.Show(owner,
+                $"Доступна новая версия {release.TagName}.\nТекущая версия: {currentVersion}\n\nОбновить сейчас?",
+                "Обновление ScreensView", MessageBoxButton.YesNo, MessageBoxImage.Information);
+            if (result != MessageBoxResult.Yes) return;
+
+            var originalPath = Environment.ProcessPath!;
+            var tempPath     = originalPath + ".download.exe";
+
+            var bytes = await http.GetByteArrayAsync(downloadUrl);
+            await File.WriteAllBytesAsync(tempPath, bytes);
+
+            var launchArgs = $"--update-from \"{tempPath}\" --install-to \"{originalPath}\"";
+            Process.Start(new ProcessStartInfo(tempPath, launchArgs) { UseShellExecute = true });
+            Application.Current.Shutdown();
+        }
+        catch
+        {
+            MessageBox.Show(owner, "Не удалось проверить обновления.", "Обновление ScreensView",
+                MessageBoxButton.OK, MessageBoxImage.Warning);
         }
     }
 
