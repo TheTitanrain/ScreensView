@@ -10,19 +10,42 @@ public partial class MainViewModel : ObservableObject, IDisposable
 {
     private readonly ComputerStorageService _storage;
     private readonly ScreenshotPollerService _poller;
+    private readonly IViewerSettingsService _viewerSettingsService;
+    private readonly IAutostartService _autostartService;
+    private readonly Action<string>? _reportAutostartError;
+
+    private ViewerSettings _viewerSettings = new();
+    private bool _isSynchronizingAutostart;
 
     public ObservableCollection<ComputerViewModel> Computers { get; } = [];
 
     [ObservableProperty] private int _refreshInterval = 5;
     [ObservableProperty] private bool _isPolling;
+    [ObservableProperty] private bool _isAutostartEnabled;
 
     public MainViewModel(ComputerStorageService storage, ScreenshotPollerService poller)
+        : this(storage, poller, new ViewerSettingsService(), new AutostartService())
+    {
+    }
+
+    internal MainViewModel(
+        ComputerStorageService storage,
+        ScreenshotPollerService poller,
+        IViewerSettingsService viewerSettingsService,
+        IAutostartService autostartService,
+        Action<string>? reportAutostartError = null)
     {
         _storage = storage;
         _poller = poller;
+        _viewerSettingsService = viewerSettingsService;
+        _autostartService = autostartService;
+        _reportAutostartError = reportAutostartError;
 
         foreach (var config in _storage.Load())
             Computers.Add(new ComputerViewModel(config));
+
+        _viewerSettings = _viewerSettingsService.Load();
+        InitializeAutostartState();
     }
 
     [RelayCommand]
@@ -46,6 +69,24 @@ public partial class MainViewModel : ObservableObject, IDisposable
         {
             _poller.Stop();
             _poller.Start(Computers, value);
+        }
+    }
+
+    partial void OnIsAutostartEnabledChanged(bool value)
+    {
+        if (_isSynchronizingAutostart)
+            return;
+
+        try
+        {
+            _autostartService.SetEnabled(value);
+            _viewerSettings.LaunchAtStartup = value;
+            _viewerSettingsService.Save(_viewerSettings);
+        }
+        catch (Exception ex)
+        {
+            SetAutostartState(!value);
+            _reportAutostartError?.Invoke($"Не удалось изменить автозапуск: {ex.Message}");
         }
     }
 
@@ -93,5 +134,32 @@ public partial class MainViewModel : ObservableObject, IDisposable
     public void Dispose()
     {
         _poller.Dispose();
+    }
+
+    private void InitializeAutostartState()
+    {
+        try
+        {
+            var actualState = _autostartService.IsEnabled();
+            SetAutostartState(actualState);
+
+            if (_viewerSettings.LaunchAtStartup != actualState)
+            {
+                _viewerSettings.LaunchAtStartup = actualState;
+                _viewerSettingsService.Save(_viewerSettings);
+            }
+        }
+        catch (Exception ex)
+        {
+            SetAutostartState(_viewerSettings.LaunchAtStartup);
+            _reportAutostartError?.Invoke($"Не удалось прочитать автозапуск: {ex.Message}");
+        }
+    }
+
+    private void SetAutostartState(bool value)
+    {
+        _isSynchronizingAutostart = true;
+        IsAutostartEnabled = value;
+        _isSynchronizingAutostart = false;
     }
 }

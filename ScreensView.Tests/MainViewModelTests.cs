@@ -17,6 +17,65 @@ public class MainViewModelTests : IDisposable
         return new MainViewModel(storage, poller);
     }
 
+    private MainViewModel CreateVm(
+        IViewerSettingsService settingsService,
+        IAutostartService autostartService,
+        Action<string>? reportError = null)
+    {
+        var storage = new ComputerStorageService(_tempFile);
+        var poller = new ScreenshotPollerService(new AgentHttpClient());
+        return new MainViewModel(storage, poller, settingsService, autostartService, reportError);
+    }
+
+    [Fact]
+    public void Constructor_LoadsAutostartStateFromSystemAndPersistsSyncedValue()
+    {
+        var settings = new FakeViewerSettingsService(initialValue: false);
+        var autostart = new FakeAutostartService(initialValue: true);
+
+        using var vm = CreateVm(settings, autostart);
+
+        Assert.True(vm.IsAutostartEnabled);
+        Assert.True(settings.Current.LaunchAtStartup);
+        Assert.Equal(1, settings.SaveCalls);
+        Assert.Empty(autostart.SetCalls);
+    }
+
+    [Fact]
+    public void IsAutostartEnabled_WhenEnabled_UpdatesSystemAndPersistsSetting()
+    {
+        var settings = new FakeViewerSettingsService(initialValue: false);
+        var autostart = new FakeAutostartService(initialValue: false);
+
+        using var vm = CreateVm(settings, autostart);
+        vm.IsAutostartEnabled = true;
+
+        Assert.True(vm.IsAutostartEnabled);
+        Assert.Equal([true], autostart.SetCalls);
+        Assert.True(settings.Current.LaunchAtStartup);
+        Assert.Equal(1, settings.SaveCalls);
+    }
+
+    [Fact]
+    public void IsAutostartEnabled_WhenSystemUpdateFails_RollsBackAndReportsError()
+    {
+        var settings = new FakeViewerSettingsService(initialValue: false);
+        var autostart = new FakeAutostartService(initialValue: false)
+        {
+            SetEnabledException = new InvalidOperationException("registry write failed")
+        };
+        string? error = null;
+
+        using var vm = CreateVm(settings, autostart, message => error = message);
+        vm.IsAutostartEnabled = true;
+
+        Assert.False(vm.IsAutostartEnabled);
+        Assert.Equal([true], autostart.SetCalls);
+        Assert.False(settings.Current.LaunchAtStartup);
+        Assert.Equal(0, settings.SaveCalls);
+        Assert.Contains("registry write failed", error);
+    }
+
     [Fact]
     public void AddComputers_AddsAllToCollection()
     {
@@ -119,13 +178,44 @@ public class MainViewModelTests : IDisposable
             new ComputerConfig { Name = "B", Host = "10.0.0.2", Port = 5443, ApiKey = "k2" },
             new ComputerConfig { Name = "C", Host = "10.0.0.3", Port = 5443, ApiKey = "k3" },
         };
-        // Add directly to bypass SaveComputers (avoid counting setup saves)
         foreach (var c in configs)
-            vm.Computers.Add(new ScreensView.Viewer.ViewModels.ComputerViewModel(c));
+            vm.Computers.Add(new ComputerViewModel(c));
 
         vm.RemoveComputers(vm.Computers.ToList());
 
         Assert.Equal(1, vm.SaveCount);
+    }
+
+    private class FakeViewerSettingsService(bool initialValue) : IViewerSettingsService
+    {
+        public ViewerSettings Current { get; private set; } = new() { LaunchAtStartup = initialValue };
+        public int SaveCalls { get; private set; }
+
+        public ViewerSettings Load() => new() { LaunchAtStartup = Current.LaunchAtStartup };
+
+        public void Save(ViewerSettings settings)
+        {
+            SaveCalls++;
+            Current = new ViewerSettings { LaunchAtStartup = settings.LaunchAtStartup };
+        }
+    }
+
+    private class FakeAutostartService(bool initialValue) : IAutostartService
+    {
+        public bool CurrentValue { get; private set; } = initialValue;
+        public List<bool> SetCalls { get; } = [];
+        public Exception? SetEnabledException { get; set; }
+
+        public bool IsEnabled() => CurrentValue;
+
+        public void SetEnabled(bool enabled)
+        {
+            SetCalls.Add(enabled);
+            if (SetEnabledException is not null)
+                throw SetEnabledException;
+
+            CurrentValue = enabled;
+        }
     }
 
     private class CountingSaveViewModel(ComputerStorageService s, ScreenshotPollerService p)

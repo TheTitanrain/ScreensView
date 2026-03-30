@@ -15,9 +15,10 @@ public partial class MainWindow : Window
         InitializeComponent();
 
         var storage = new ComputerStorageService();
+        var settingsService = new ViewerSettingsService();
+        var autostartService = new AutostartService();
         var http = new AgentHttpClient((computer, thumbprint) =>
         {
-            // Find the matching ComputerViewModel and persist the pinned thumbprint
             var vm = _vm?.Computers.FirstOrDefault(c => c.Id == computer.Id);
             if (vm != null)
             {
@@ -26,7 +27,7 @@ public partial class MainWindow : Window
             }
         });
         var poller = new ScreenshotPollerService(http);
-        _vm = new MainViewModel(storage, poller);
+        _vm = new MainViewModel(storage, poller, settingsService, autostartService, ShowAutostartError);
         DataContext = _vm;
     }
 
@@ -70,5 +71,10 @@ public partial class MainWindow : Window
     private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
     {
         _vm.Dispose();
+    }
+
+    private void ShowAutostartError(string message)
+    {
+        MessageBox.Show(this, message, "Автозапуск", MessageBoxButton.OK, MessageBoxImage.Error);
     }
 }

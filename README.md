@@ -84,6 +84,7 @@ dotnet run --project ScreensView.Viewer
 1. Нажать **Управление компьютерами → Добавить**
 2. Заполнить имя, IP, порт, API-ключ
 3. Нажать **Запустить** — скриншоты появятся в сетке
+4. При необходимости включить **Автозапуск** в верхнем toolbar, чтобы Viewer запускался вместе с Windows
 
 ## Удалённая установка агента
 
@@ -130,6 +131,13 @@ Viewer копирует выбранный payload в `C:\Windows\ScreensViewAge
 private const string GitHubReleasesUrl =
     "https://api.github.com/repos/titanrain/ScreensView/releases/latest";
 ```
+
+### Настройки Viewer
+
+Viewer хранит локальные настройки в `%AppData%\ScreensView\viewer-settings.json`.
+
+- Чекбокс **Автозапуск** в toolbar включает или выключает запуск Viewer при входе в Windows.
+- На Windows это соответствует значению `ScreensView` в `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`.
 
 ## Настройка агента
 
