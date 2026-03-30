@@ -23,9 +23,8 @@ public class ViewerSettingsServiceTests : IDisposable
 
         service.Save(settings);
 
-        var json = File.ReadAllText(_settingsFile);
-        Assert.Contains("\"ConnectionsFilePath\":", json);
-        Assert.Contains("C:\\\\Shared\\\\connections.json", json);
+        var loaded = service.Load();
+        Assert.Equal(@"C:\Shared\connections.json", GetRequiredStringProperty(loaded, "ConnectionsFilePath"));
     }
 
     [Fact]
@@ -38,9 +37,8 @@ public class ViewerSettingsServiceTests : IDisposable
 
         service.Save(settings);
 
-        var json = File.ReadAllText(_settingsFile);
-        Assert.Contains("\"ConnectionsFilePasswordEncrypted\":", json);
-        Assert.Contains("encrypted-password-value", json);
+        var loaded = service.Load();
+        Assert.Equal("encrypted-password-value", GetRequiredStringProperty(loaded, "ConnectionsFilePasswordEncrypted"));
     }
 
     [Fact]
@@ -53,8 +51,8 @@ public class ViewerSettingsServiceTests : IDisposable
         var service = new ViewerSettingsService(_settingsFile);
         var settings = service.Load();
 
-        Assert.Equal(string.Empty, GetStringProperty(settings, "ConnectionsFilePath"));
-        Assert.Equal(string.Empty, GetStringProperty(settings, "ConnectionsFilePasswordEncrypted"));
+        Assert.Equal(string.Empty, GetRequiredStringProperty(settings, "ConnectionsFilePath"));
+        Assert.Equal(string.Empty, GetRequiredStringProperty(settings, "ConnectionsFilePasswordEncrypted"));
     }
 
     [Fact]
@@ -73,8 +71,8 @@ public class ViewerSettingsServiceTests : IDisposable
         service.Save(settings);
 
         var loaded = service.Load();
-        Assert.Equal(string.Empty, GetStringProperty(loaded, "ConnectionsFilePath"));
-        Assert.Equal(string.Empty, GetStringProperty(loaded, "ConnectionsFilePasswordEncrypted"));
+        Assert.Equal(string.Empty, GetRequiredStringProperty(loaded, "ConnectionsFilePath"));
+        Assert.Equal(string.Empty, GetRequiredStringProperty(loaded, "ConnectionsFilePasswordEncrypted"));
     }
 
     private static void SetStringProperty(ViewerSettings settings, string propertyName, string value)
@@ -84,10 +82,12 @@ public class ViewerSettingsServiceTests : IDisposable
         property!.SetValue(settings, value);
     }
 
-    private static string GetStringProperty(ViewerSettings settings, string propertyName)
+    private static string GetRequiredStringProperty(ViewerSettings settings, string propertyName)
     {
         var property = typeof(ViewerSettings).GetProperty(propertyName, BindingFlags.Public | BindingFlags.Instance);
         Assert.NotNull(property);
-        return (string?)property!.GetValue(settings) ?? string.Empty;
+        var value = property!.GetValue(settings);
+        Assert.IsType<string>(value);
+        return (string)value;
     }
 }
