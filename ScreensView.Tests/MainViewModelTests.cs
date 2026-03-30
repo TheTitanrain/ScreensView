@@ -216,6 +216,126 @@ public class MainViewModelTests : IDisposable
         Assert.Equal(1, vm.SaveCount);
     }
 
+    [Fact]
+    public void ApplyConnectionsSourceChange_WhenSucceeded_ReplacesComputersAndStorage()
+    {
+        var initialStorage = new FakeComputerStorageService
+        {
+            LoadResult =
+            [
+                new ComputerConfig { Name = "Local", Host = "10.0.0.1", ApiKey = "local-key", CertThumbprint = "LOCAL" }
+            ]
+        };
+        var replacementStorage = new FakeComputerStorageService();
+        var poller = new FakeScreenshotPollerService();
+
+        using var vm = CreateVm(initialStorage, poller);
+
+        InvokeApplyConnectionsSourceChange(
+            vm,
+            succeeded: true,
+            replacementStorage,
+            [
+                new ComputerConfig { Name = "Shared", Host = "10.0.0.2", ApiKey = "shared-key", CertThumbprint = "SHARED" }
+            ]);
+
+        Assert.Single(vm.Computers);
+        Assert.Equal("Shared", vm.Computers[0].Name);
+
+        vm.SaveComputers();
+        Assert.Single(replacementStorage.SavedSnapshots);
+        Assert.Equal("Shared", replacementStorage.SavedSnapshots[0][0].Name);
+        Assert.Empty(initialStorage.SavedSnapshots);
+    }
+
+    [Fact]
+    public void ApplyConnectionsSourceChange_WhenPolling_RestartsPollerWithNewComputers()
+    {
+        var initialStorage = new FakeComputerStorageService
+        {
+            LoadResult =
+            [
+                new ComputerConfig { Name = "Local", Host = "10.0.0.1", ApiKey = "local-key" }
+            ]
+        };
+        var replacementStorage = new FakeComputerStorageService();
+        var poller = new FakeScreenshotPollerService();
+
+        using var vm = CreateVm(initialStorage, poller);
+        vm.TogglePollingCommand.Execute(null);
+
+        InvokeApplyConnectionsSourceChange(
+            vm,
+            succeeded: true,
+            replacementStorage,
+            [
+                new ComputerConfig { Name = "Shared A", Host = "10.0.0.2", ApiKey = "shared-a" },
+                new ComputerConfig { Name = "Shared B", Host = "10.0.0.3", ApiKey = "shared-b" }
+            ]);
+
+        Assert.True(vm.IsPolling);
+        Assert.Equal(2, poller.StartCalls.Count);
+        Assert.Equal(1, poller.StopCalls);
+        Assert.Equal(["Shared A", "Shared B"], poller.StartCalls[^1].ComputerNames);
+        Assert.Equal(vm.RefreshInterval, poller.StartCalls[^1].IntervalSeconds);
+    }
+
+    [Fact]
+    public void ApplyConnectionsSourceChange_WhenFailed_LeavesCurrentCollectionUnchanged()
+    {
+        var initialStorage = new FakeComputerStorageService
+        {
+            LoadResult =
+            [
+                new ComputerConfig { Name = "Local", Host = "10.0.0.1", ApiKey = "local-key" }
+            ]
+        };
+        var replacementStorage = new FakeComputerStorageService();
+        var poller = new FakeScreenshotPollerService();
+
+        using var vm = CreateVm(initialStorage, poller);
+
+        InvokeApplyConnectionsSourceChange(
+            vm,
+            succeeded: false,
+            replacementStorage,
+            [
+                new ComputerConfig { Name = "Shared", Host = "10.0.0.2", ApiKey = "shared-key" }
+            ]);
+
+        Assert.Single(vm.Computers);
+        Assert.Equal("Local", vm.Computers[0].Name);
+
+        vm.SaveComputers();
+        Assert.Single(initialStorage.SavedSnapshots);
+        Assert.Equal("Local", initialStorage.SavedSnapshots[0][0].Name);
+        Assert.Empty(replacementStorage.SavedSnapshots);
+        Assert.Empty(poller.StartCalls);
+        Assert.Equal(0, poller.StopCalls);
+    }
+
+    private MainViewModel CreateVm(IComputerStorageService storage, IScreenshotPollerService poller)
+    {
+        return new MainViewModel(
+            storage,
+            poller,
+            new FakeViewerSettingsService(initialValue: false),
+            new FakeAutostartService(initialValue: false));
+    }
+
+    private static void InvokeApplyConnectionsSourceChange(
+        MainViewModel vm,
+        bool succeeded,
+        IComputerStorageService storage,
+        IReadOnlyList<ComputerConfig> computers)
+    {
+        var method = typeof(MainViewModel).GetMethod(
+            "ApplyConnectionsSourceChange",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic);
+        Assert.NotNull(method);
+        method!.Invoke(vm, [succeeded, storage, computers]);
+    }
+
     private class FakeViewerSettingsService(bool initialValue) : IViewerSettingsService
     {
         public ViewerSettings Current { get; private set; } = new() { LaunchAtStartup = initialValue };
@@ -245,6 +365,60 @@ public class MainViewModelTests : IDisposable
                 throw SetEnabledException;
 
             CurrentValue = enabled;
+        }
+    }
+
+    private sealed class FakeComputerStorageService : IComputerStorageService
+    {
+        public List<ComputerConfig> LoadResult { get; set; } = [];
+        public List<IReadOnlyList<ComputerConfig>> SavedSnapshots { get; } = [];
+
+        public List<ComputerConfig> Load()
+        {
+            return LoadResult.Select(config => new ComputerConfig
+            {
+                Id = config.Id,
+                Name = config.Name,
+                Host = config.Host,
+                Port = config.Port,
+                ApiKey = config.ApiKey,
+                IsEnabled = config.IsEnabled,
+                CertThumbprint = config.CertThumbprint
+            }).ToList();
+        }
+
+        public void Save(IEnumerable<ComputerConfig> computers)
+        {
+            SavedSnapshots.Add(computers.Select(config => new ComputerConfig
+            {
+                Id = config.Id,
+                Name = config.Name,
+                Host = config.Host,
+                Port = config.Port,
+                ApiKey = config.ApiKey,
+                IsEnabled = config.IsEnabled,
+                CertThumbprint = config.CertThumbprint
+            }).ToList());
+        }
+    }
+
+    private sealed class FakeScreenshotPollerService : IScreenshotPollerService
+    {
+        public List<(IReadOnlyList<string> ComputerNames, int IntervalSeconds)> StartCalls { get; } = [];
+        public int StopCalls { get; private set; }
+
+        public void Start(IEnumerable<ComputerViewModel> computers, int intervalSeconds)
+        {
+            StartCalls.Add((computers.Select(vm => vm.Name).ToList(), intervalSeconds));
+        }
+
+        public void Stop()
+        {
+            StopCalls++;
+        }
+
+        public void Dispose()
+        {
         }
     }
 

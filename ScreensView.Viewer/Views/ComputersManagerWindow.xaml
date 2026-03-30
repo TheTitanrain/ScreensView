@@ -17,6 +17,19 @@
             </ToolBar>
         </ToolBarTray>
 
+        <Border DockPanel.Dock="Top" Margin="4,4,4,0" Padding="8" CornerRadius="6" Background="#F3F5F7" BorderBrush="#D7DCE2" BorderThickness="1">
+            <DockPanel>
+                <StackPanel>
+                    <TextBlock Text="Источник подключений" FontWeight="SemiBold"/>
+                    <TextBlock x:Name="TxtConnectionsSource" Margin="0,4,0,0" TextWrapping="Wrap"/>
+                </StackPanel>
+                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
+                    <Button x:Name="BtnConnectionsFile" Content="Файл подключений..." Padding="10,4" Margin="8,0,0,0" Click="ConnectionsFile_Click"/>
+                    <Button x:Name="BtnUseLocal" Content="Использовать локальный файл" Padding="10,4" Margin="8,0,0,0" Click="UseLocal_Click"/>
+                </StackPanel>
+            </DockPanel>
+        </Border>
+
         <!-- List -->
         <ListView x:Name="ComputersList" SelectionMode="Extended" SelectionChanged="ComputersList_SelectionChanged" Margin="4">
             <ListView.View>

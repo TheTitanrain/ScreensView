@@ -12,8 +12,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private const int MinRefreshIntervalSeconds = 1;
     private const int MaxRefreshIntervalSeconds = 60;
 
-    private readonly ComputerStorageService _storage;
-    private readonly ScreenshotPollerService _poller;
+    private IComputerStorageService _storage;
+    private readonly IScreenshotPollerService _poller;
     private readonly IViewerSettingsService _viewerSettingsService;
     private readonly IAutostartService _autostartService;
     private readonly Action<string>? _reportAutostartError;
@@ -27,14 +27,14 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private bool _isPolling;
     [ObservableProperty] private bool _isAutostartEnabled;
 
-    public MainViewModel(ComputerStorageService storage, ScreenshotPollerService poller)
+    public MainViewModel(IComputerStorageService storage, IScreenshotPollerService poller)
         : this(storage, poller, new ViewerSettingsService(), new AutostartService())
     {
     }
 
     internal MainViewModel(
-        ComputerStorageService storage,
-        ScreenshotPollerService poller,
+        IComputerStorageService storage,
+        IScreenshotPollerService poller,
         IViewerSettingsService viewerSettingsService,
         IAutostartService autostartService,
         Action<string>? reportAutostartError = null)
@@ -145,6 +145,27 @@ public partial class MainViewModel : ObservableObject, IDisposable
     public virtual void SaveComputers()
     {
         _storage.Save(Computers.Select(c => c.ToConfig()));
+    }
+
+    internal void ApplyConnectionsSourceChange(
+        bool succeeded,
+        IComputerStorageService storage,
+        IReadOnlyList<ComputerConfig> computers)
+    {
+        if (!succeeded)
+            return;
+
+        var restartPolling = IsPolling;
+        if (restartPolling)
+            _poller.Stop();
+
+        _storage = storage;
+        Computers.Clear();
+        foreach (var computer in computers)
+            Computers.Add(new ComputerViewModel(computer));
+
+        if (restartPolling)
+            _poller.Start(Computers, RefreshInterval);
     }
 
     public void Dispose()

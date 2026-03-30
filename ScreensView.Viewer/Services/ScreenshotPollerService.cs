@@ -3,7 +3,13 @@ using ScreensView.Viewer.ViewModels;
 
 namespace ScreensView.Viewer.Services;
 
-public class ScreenshotPollerService : IDisposable
+public interface IScreenshotPollerService : IDisposable
+{
+    void Start(IEnumerable<ComputerViewModel> computers, int intervalSeconds);
+    void Stop();
+}
+
+public class ScreenshotPollerService : IScreenshotPollerService
 {
     private readonly AgentHttpClient _http;
     private CancellationTokenSource? _cts;
@@ -14,7 +20,7 @@ public class ScreenshotPollerService : IDisposable
         _http = http;
     }
 
-    public void Start(ObservableCollection<ComputerViewModel> computers, int intervalSeconds)
+    public void Start(IEnumerable<ComputerViewModel> computers, int intervalSeconds)
     {
         Stop();
         _cts = new CancellationTokenSource();
@@ -28,7 +34,7 @@ public class ScreenshotPollerService : IDisposable
         _cts = null;
     }
 
-    private async Task RunAsync(ObservableCollection<ComputerViewModel> computers, int intervalSeconds, CancellationToken ct)
+    private async Task RunAsync(IEnumerable<ComputerViewModel> computers, int intervalSeconds, CancellationToken ct)
     {
         while (!ct.IsCancellationRequested)
         {

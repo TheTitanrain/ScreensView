@@ -1,4 +1,6 @@
+using System.Security.Cryptography;
 using ScreensView.Shared.Models;
+using ScreensView.Viewer.Helpers;
 
 namespace ScreensView.Viewer.Services;
 
@@ -28,17 +30,62 @@ internal sealed class ConnectionsStorageController(
 
         try
         {
-            var externalStorage = createEncryptedStorage(settings.ConnectionsFilePath, settings.ConnectionsFilePasswordEncrypted);
+            var password = DpapiHelper.Decrypt(settings.ConnectionsFilePasswordEncrypted);
+            var externalStorage = createEncryptedStorage(settings.ConnectionsFilePath, password);
             var computers = externalStorage.Load();
             ActiveStorage = externalStorage;
             return new ResolveConnectionsSourceResult(externalStorage, computers, usesExternalFile: true, needsPassword: false);
         }
-        catch (EncryptedComputerStoragePasswordException)
+        catch (Exception ex) when (ex is EncryptedComputerStoragePasswordException or CryptographicException or FormatException)
         {
             settings.ConnectionsFilePasswordEncrypted = string.Empty;
             settingsService.Save(settings);
             ActiveStorage = null;
             return new ResolveConnectionsSourceResult(storage: null, computers: [], usesExternalFile: true, needsPassword: true);
+        }
+    }
+
+    public SwitchConnectionsSourceResult OpenExternalFile(string filePath, string password, bool rememberPassword)
+    {
+        var previousStorage = ActiveStorage;
+
+        try
+        {
+            var externalStorage = createEncryptedStorage(filePath, password);
+            var computers = externalStorage.Load();
+
+            var settings = settingsService.Load();
+            settings.ConnectionsFilePath = filePath;
+            settings.ConnectionsFilePasswordEncrypted = rememberPassword ? DpapiHelper.Encrypt(password) : string.Empty;
+            settingsService.Save(settings);
+
+            ActiveStorage = externalStorage;
+            return new SwitchConnectionsSourceResult(
+                succeeded: true,
+                storage: externalStorage,
+                computers: computers,
+                usesExternalFile: true,
+                needsPassword: false);
+        }
+        catch (EncryptedComputerStoragePasswordException)
+        {
+            ActiveStorage = previousStorage;
+            return new SwitchConnectionsSourceResult(
+                succeeded: false,
+                storage: previousStorage,
+                computers: [],
+                usesExternalFile: true,
+                needsPassword: true);
+        }
+        catch
+        {
+            ActiveStorage = previousStorage;
+            return new SwitchConnectionsSourceResult(
+                succeeded: false,
+                storage: previousStorage,
+                computers: [],
+                usesExternalFile: previousStorage is EncryptedComputerStorageService,
+                needsPassword: false);
         }
     }
 
@@ -57,7 +104,7 @@ internal sealed class ConnectionsStorageController(
 
             var settings = settingsService.Load();
             settings.ConnectionsFilePath = filePath;
-            settings.ConnectionsFilePasswordEncrypted = rememberPassword ? password : string.Empty;
+            settings.ConnectionsFilePasswordEncrypted = rememberPassword ? DpapiHelper.Encrypt(password) : string.Empty;
             settingsService.Save(settings);
 
             ActiveStorage = externalStorage;

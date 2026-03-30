@@ -9,31 +9,21 @@ namespace ScreensView.Viewer;
 public partial class MainWindow : Window
 {
     private readonly MainViewModel _vm;
+    private readonly ConnectionsStorageController _controller;
+    private readonly IViewerSettingsService _settingsService;
 
-    public MainWindow()
+    internal MainWindow(MainViewModel vm, ConnectionsStorageController controller, IViewerSettingsService settingsService)
     {
         InitializeComponent();
-
-        var storage = new ComputerStorageService();
-        var settingsService = new ViewerSettingsService();
-        var autostartService = new AutostartService();
-        var http = new AgentHttpClient((computer, thumbprint) =>
-        {
-            var vm = _vm?.Computers.FirstOrDefault(c => c.Id == computer.Id);
-            if (vm != null)
-            {
-                vm.CertThumbprint = thumbprint;
-                _vm!.SaveComputers();
-            }
-        });
-        var poller = new ScreenshotPollerService(http);
-        _vm = new MainViewModel(storage, poller, settingsService, autostartService, ShowAutostartError);
+        _vm = vm;
+        _controller = controller;
+        _settingsService = settingsService;
         DataContext = _vm;
     }
 
     private void ManageComputers_Click(object sender, RoutedEventArgs e)
     {
-        var win = new ComputersManagerWindow(_vm);
+        var win = new ComputersManagerWindow(_vm, _controller, _settingsService);
         win.Owner = this;
         win.ShowDialog();
     }
@@ -71,10 +61,5 @@ public partial class MainWindow : Window
     private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
     {
         _vm.Dispose();
-    }
-
-    private void ShowAutostartError(string message)
-    {
-        MessageBox.Show(this, message, "Автозапуск", MessageBoxButton.OK, MessageBoxImage.Error);
     }
 }

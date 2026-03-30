@@ -1,6 +1,7 @@
 using System.Reflection;
 using System.Runtime.ExceptionServices;
 using ScreensView.Shared.Models;
+using ScreensView.Viewer.Helpers;
 using ScreensView.Viewer.Services;
 
 namespace ScreensView.Tests;
@@ -48,7 +49,7 @@ public class ConnectionsStorageControllerTests
         var settings = new FakeViewerSettingsService(new ViewerSettings
         {
             ConnectionsFilePath = externalPath,
-            ConnectionsFilePasswordEncrypted = rememberedPassword
+            ConnectionsFilePasswordEncrypted = DpapiHelper.Encrypt(rememberedPassword)
         });
         var externalStorage = new FakeComputerStorageService { LoadResult = Clone(expectedComputers) };
         var externalFactoryCalls = new List<(string Path, string Password)>();
@@ -81,7 +82,7 @@ public class ConnectionsStorageControllerTests
         var settings = new FakeViewerSettingsService(new ViewerSettings
         {
             ConnectionsFilePath = externalPath,
-            ConnectionsFilePasswordEncrypted = badRememberedPassword
+            ConnectionsFilePasswordEncrypted = DpapiHelper.Encrypt(badRememberedPassword)
         });
         var controller = CreateController(
             settings,
@@ -143,7 +144,7 @@ public class ConnectionsStorageControllerTests
         Assert.Equal(["external-save", "settings-save"], events);
         Assert.Equal([(externalPath, password)], externalFactoryCalls);
         Assert.Equal(externalPath, settings.Current.ConnectionsFilePath);
-        Assert.Equal(password, settings.Current.ConnectionsFilePasswordEncrypted);
+        Assert.Equal(password, DpapiHelper.Decrypt(settings.Current.ConnectionsFilePasswordEncrypted));
         Assert.Same(externalStorage, GetActiveStorage(controller));
         Assert.Single(externalStorage.SavedSnapshots);
     }
@@ -186,7 +187,7 @@ public class ConnectionsStorageControllerTests
         var settings = new FakeViewerSettingsService(new ViewerSettings
         {
             ConnectionsFilePath = externalPath,
-            ConnectionsFilePasswordEncrypted = rememberedPassword
+            ConnectionsFilePasswordEncrypted = DpapiHelper.Encrypt(rememberedPassword)
         });
         var localStorage = new FakeComputerStorageService();
         var externalStorage = new FakeComputerStorageService { LoadResult = Clone(currentConnections) };
@@ -249,7 +250,7 @@ public class ConnectionsStorageControllerTests
         var settings = new FakeViewerSettingsService(new ViewerSettings
         {
             ConnectionsFilePath = externalPath,
-            ConnectionsFilePasswordEncrypted = rememberedPassword
+            ConnectionsFilePasswordEncrypted = DpapiHelper.Encrypt(rememberedPassword)
         });
         var failingLocalStorage = new FakeComputerStorageService
         {
@@ -265,7 +266,7 @@ public class ConnectionsStorageControllerTests
         Assert.Same(externalStorage, GetStorage(startup));
         Assert.Same(externalStorage, GetActiveStorage(controller));
         Assert.Equal(externalPath, settings.Current.ConnectionsFilePath);
-        Assert.Equal(rememberedPassword, settings.Current.ConnectionsFilePasswordEncrypted);
+        Assert.Equal(rememberedPassword, DpapiHelper.Decrypt(settings.Current.ConnectionsFilePasswordEncrypted));
         Assert.Equal(0, settings.SaveCalls);
     }
 
