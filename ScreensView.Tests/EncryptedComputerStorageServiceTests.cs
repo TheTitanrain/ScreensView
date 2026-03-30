@@ -4,7 +4,7 @@ using ScreensView.Shared.Models;
 
 namespace ScreensView.Tests;
 
-public class EncryptedComputerStorageServiceTests : IDisposable
+public class EncryptedConnectionsStorageTests : IDisposable
 {
     private readonly string _filePath = Path.Combine(Path.GetTempPath(), Guid.NewGuid() + ".enc.json");
 
