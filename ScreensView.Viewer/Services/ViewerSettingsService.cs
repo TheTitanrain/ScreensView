@@ -45,7 +45,10 @@ public class ViewerSettingsService : IViewerSettingsService
             if (string.IsNullOrWhiteSpace(json))
                 return new ViewerSettings();
 
-            return JsonSerializer.Deserialize<ViewerSettings>(json) ?? new ViewerSettings();
+            var settings = JsonSerializer.Deserialize<ViewerSettings>(json) ?? new ViewerSettings();
+            settings.ConnectionsFilePath ??= string.Empty;
+            settings.ConnectionsFilePasswordEncrypted ??= string.Empty;
+            return settings;
         }
     }
 

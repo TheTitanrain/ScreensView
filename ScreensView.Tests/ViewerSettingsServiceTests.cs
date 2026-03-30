@@ -56,6 +56,20 @@ public class ViewerSettingsServiceTests : IDisposable
     }
 
     [Fact]
+    public void Load_WhenExternalSourceFieldsAreExplicitNulls_NormalizesToDefaultStrings()
+    {
+        File.WriteAllText(_settingsFile, """
+            {"ConnectionsFilePath":null,"ConnectionsFilePasswordEncrypted":null}
+            """);
+
+        var service = new ViewerSettingsService(_settingsFile);
+        var settings = service.Load();
+
+        Assert.Equal(string.Empty, GetRequiredStringProperty(settings, "ConnectionsFilePath"));
+        Assert.Equal(string.Empty, GetRequiredStringProperty(settings, "ConnectionsFilePasswordEncrypted"));
+    }
+
+    [Fact]
     public void Save_WhenExternalSourceFieldsAreCleared_RoundTripsEmptyStrings()
     {
         var service = new ViewerSettingsService(_settingsFile);
