@@ -62,6 +62,11 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
+    private void About_Click(object sender, RoutedEventArgs e)
+    {
+        new AboutWindow { Owner = this }.ShowDialog();
+    }
+
     private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
     {
         _vm.Dispose();

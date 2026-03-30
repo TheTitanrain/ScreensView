@@ -43,6 +43,8 @@
             </ToggleButton>
             <Separator/>
             <Button Content="Обновить агентов" Click="UpdateAllAgents_Click" Margin="4,0"/>
+            <Separator/>
+            <Button Content="О программе" Click="About_Click" Margin="4,0"/>
         </ToolBar>
 
         <!-- Screenshot Grid -->
