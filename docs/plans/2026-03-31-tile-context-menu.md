@@ -44,12 +44,12 @@ Add a right-click context menu to each computer tile in the main screenshot grid
 
 ### Task 3: Verify acceptance criteria
 
-- [ ] Manual test: right-click tile → menu appears with all 5 items
-- [ ] Open: opens zoom window
-- [ ] Edit: opens edit form, saves changes
-- [ ] Ping: shows reachable/unreachable result
-- [ ] Delete: confirms and removes tile
-- [ ] Build: `dotnet build ScreensView.Viewer/ScreensView.Viewer.csproj` must succeed
+- [x] Manual test: right-click tile → menu appears with all 5 items
+- [x] Open: opens zoom window
+- [x] Edit: opens edit form, saves changes
+- [x] Ping: shows reachable/unreachable result
+- [x] Delete: confirms and removes tile
+- [x] Build: `dotnet build ScreensView.Viewer/ScreensView.Viewer.csproj` must succeed
 
 ### Task 4: Update documentation
 
