@@ -123,39 +123,72 @@
 
     <DockPanel>
         <!-- Toolbar -->
-        <ToolBar DockPanel.Dock="Top" Height="40">
-            <Button Content="Управление компьютерами" Click="ManageComputers_Click" Margin="4,0"/>
-            <Separator/>
-            <TextBlock Text="Интервал (сек):" VerticalAlignment="Center" Margin="4,0"/>
-            <Slider x:Name="IntervalSlider" Minimum="1" Maximum="60" Width="120" VerticalAlignment="Center"
-                    Value="{Binding RefreshInterval}" Margin="4,0" TickFrequency="1" IsSnapToTickEnabled="True"/>
-            <TextBlock Text="{Binding RefreshInterval, StringFormat='{}{0} с'}" VerticalAlignment="Center" Width="35"/>
-            <Separator/>
-            <ToggleButton Command="{Binding TogglePollingCommand}" Margin="4,0" Width="90"
-                          IsChecked="{Binding IsPolling, Mode=OneWay}">
-                <ToggleButton.Style>
-                    <Style TargetType="ToggleButton">
-                        <Setter Property="Content" Value="Запустить"/>
-                        <Style.Triggers>
-                            <Trigger Property="IsChecked" Value="True">
-                                <Setter Property="Content" Value="Остановить"/>
-                                <Setter Property="Background" Value="#FF4444"/>
-                                <Setter Property="Foreground" Value="White"/>
-                            </Trigger>
-                        </Style.Triggers>
-                    </Style>
-                </ToggleButton.Style>
-            </ToggleButton>
-            <Separator/>
-            <Button Content="Обновить агентов" Click="UpdateAllAgents_Click" Margin="4,0"/>
-            <Separator/>
-            <CheckBox Content="Автозапуск"
-                      IsChecked="{Binding IsAutostartEnabled}"
-                      VerticalAlignment="Center"
-                      Margin="8,0,4,0"/>
-            <Separator/>
-            <Button Content="О программе" Click="About_Click" Margin="4,0"/>
-        </ToolBar>
+        <Border DockPanel.Dock="Top" Height="44"
+                Background="#F3F3F3"
+                BorderBrush="#D0D0D0" BorderThickness="0,0,0,1">
+            <Grid Margin="8,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*"/>
+                    <ColumnDefinition Width="Auto"/>
+                </Grid.ColumnDefinitions>
+
+                <!-- Left: main controls -->
+                <StackPanel Grid.Column="0" Orientation="Horizontal" VerticalAlignment="Center">
+
+                    <Button Style="{StaticResource ToolbarButton}" Click="ManageComputers_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE7EF;" FontSize="14" VerticalAlignment="Center"/>
+                            <TextBlock Text=" Компьютеры" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Rectangle Style="{StaticResource ToolbarSeparator}"/>
+
+                    <TextBlock Text="Интервал (сек):" VerticalAlignment="Center"
+                               FontSize="12" Foreground="#555555" Margin="4,0"/>
+                    <Slider x:Name="IntervalSlider" Minimum="1" Maximum="60" Width="110"
+                            VerticalAlignment="Center" Value="{Binding RefreshInterval}"
+                            Margin="4,0" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                    <TextBlock Text="{Binding RefreshInterval, StringFormat='{}{0} с'}"
+                               VerticalAlignment="Center" Width="35"
+                               FontSize="13" FontWeight="SemiBold" Foreground="#1A1A1A"/>
+
+                    <Rectangle Style="{StaticResource ToolbarSeparator}"/>
+
+                    <ToggleButton Command="{Binding TogglePollingCommand}"
+                                  IsChecked="{Binding IsPolling, Mode=OneWay}"
+                                  MinWidth="110"
+                                  Style="{StaticResource ToolbarToggleButton}"/>
+
+                    <Rectangle Style="{StaticResource ToolbarSeparator}"/>
+
+                    <Button Style="{StaticResource ToolbarButton}" Click="UpdateAllAgents_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE895;" FontSize="14" VerticalAlignment="Center"/>
+                            <TextBlock Text=" Обновить агентов" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Rectangle Style="{StaticResource ToolbarSeparator}"/>
+
+                    <CheckBox Content="Автозапуск"
+                              IsChecked="{Binding IsAutostartEnabled}"
+                              VerticalAlignment="Center"
+                              Margin="8,0,4,0"/>
+
+                </StackPanel>
+
+                <!-- Right: About button -->
+                <Button Grid.Column="1" Style="{StaticResource ToolbarButtonGhost}"
+                        Click="About_Click" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE946;" FontSize="13" VerticalAlignment="Center"/>
+                        <TextBlock Text=" О программе" FontSize="12" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+
+            </Grid>
+        </Border>
 
         <!-- Screenshot Grid -->
         <ScrollViewer x:Name="_screensScrollViewer"
