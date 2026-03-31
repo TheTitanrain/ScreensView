@@ -8,6 +8,6 @@ public class ComputerConfig
     public int Port { get; set; } = Constants.DefaultPort;
     public string ApiKey { get; set; } = string.Empty;
     public bool IsEnabled { get; set; } = true;
-    /// <summary>SHA-1 thumbprint of the agent's self-signed cert (pinned on first connection).</summary>
+    /// <summary>SHA-256 thumbprint of the agent's self-signed cert (pinned on first connection).</summary>
     public string CertThumbprint { get; set; } = string.Empty;
 }
