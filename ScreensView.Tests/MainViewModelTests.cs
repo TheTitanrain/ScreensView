@@ -330,7 +330,10 @@ public class MainViewModelTests : IDisposable
         var replacementStorage = new FakeComputerStorageService();
         var poller = new FakeScreenshotPollerService();
 
-        using var vm = CreateVm(initialStorage, poller);
+        using var vm = new MainViewModel(
+            initialStorage, poller,
+            new FakeViewerSettingsService(initialValue: false, refreshIntervalSeconds: 7),
+            new FakeAutostartService(initialValue: false));
 
         InvokeApplyConnectionsSourceChange(
             vm,
@@ -345,7 +348,7 @@ public class MainViewModelTests : IDisposable
         Assert.Equal(2, poller.StartCalls.Count);
         Assert.Equal(1, poller.StopCalls);
         Assert.Equal(["Shared A", "Shared B"], poller.StartCalls[^1].ComputerNames);
-        Assert.Equal(vm.RefreshInterval, poller.StartCalls[^1].IntervalSeconds);
+        Assert.Equal(7, poller.StartCalls[^1].IntervalSeconds);
     }
 
     [Fact]
@@ -404,17 +407,17 @@ public class MainViewModelTests : IDisposable
         method!.Invoke(vm, [succeeded, storage, computers]);
     }
 
-    private class FakeViewerSettingsService(bool initialValue) : IViewerSettingsService
+    private class FakeViewerSettingsService(bool initialValue, int refreshIntervalSeconds = 5) : IViewerSettingsService
     {
-        public ViewerSettings Current { get; private set; } = new() { LaunchAtStartup = initialValue };
+        public ViewerSettings Current { get; private set; } = new() { LaunchAtStartup = initialValue, RefreshIntervalSeconds = refreshIntervalSeconds };
         public int SaveCalls { get; private set; }
 
-        public ViewerSettings Load() => new() { LaunchAtStartup = Current.LaunchAtStartup };
+        public ViewerSettings Load() => new() { LaunchAtStartup = Current.LaunchAtStartup, RefreshIntervalSeconds = Current.RefreshIntervalSeconds };
 
         public void Save(ViewerSettings settings)
         {
             SaveCalls++;
-            Current = new ViewerSettings { LaunchAtStartup = settings.LaunchAtStartup };
+            Current = new ViewerSettings { LaunchAtStartup = settings.LaunchAtStartup, RefreshIntervalSeconds = settings.RefreshIntervalSeconds };
         }
     }
 

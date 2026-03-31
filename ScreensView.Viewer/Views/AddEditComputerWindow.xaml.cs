@@ -49,7 +49,7 @@ public partial class AddEditComputerWindow : Window
 
         var newHost = HostBox.Text.Trim();
         var certThumbprint = (_existing != null
-            && _existing.Host == newHost
+            && _existing.Host.Trim() == newHost
             && _existing.Port == port)
             ? _existing.CertThumbprint
             : string.Empty;

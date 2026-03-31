@@ -96,13 +96,17 @@ public partial class MainWindow : Window
     {
         var vm = GetMenuVm(sender);
         if (vm == null) return;
-        using var http = new Services.AgentHttpClient();
-        bool ok = await http.CheckHealthAsync(vm.ToConfig());
-        MessageBox.Show(
-            ok ? $"{vm.Name}: агент доступен." : $"{vm.Name}: агент недоступен.",
-            "Пинг",
-            MessageBoxButton.OK,
-            ok ? MessageBoxImage.Information : MessageBoxImage.Warning);
+        try
+        {
+            using var http = new Services.AgentHttpClient();
+            bool ok = await http.CheckHealthAsync(vm.ToConfig());
+            MessageBox.Show(
+                ok ? $"{vm.Name}: агент доступен." : $"{vm.Name}: агент недоступен.",
+                "Пинг",
+                MessageBoxButton.OK,
+                ok ? MessageBoxImage.Information : MessageBoxImage.Warning);
+        }
+        catch { }
     }
 
     private void TileMenu_Delete(object sender, RoutedEventArgs e)
