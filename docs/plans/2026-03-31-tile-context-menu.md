@@ -36,11 +36,11 @@ Add a right-click context menu to each computer tile in the main screenshot grid
 **Files:**
 - Modify: `ScreensView.Viewer/MainWindow.xaml.cs`
 
-- [ ] Add private helper `GetMenuVm(object sender)` — extracts ComputerViewModel from (MenuItem → ContextMenu → PlacementTarget → DataContext)
-- [ ] Add `TileMenu_Open` — calls `new ScreenshotZoomWindow(vm) { Owner = this }.Show()` if status is not Locked
-- [ ] Add `TileMenu_Edit` — opens `AddEditComputerWindow(vm.ToConfig())`, on OK calls `_vm.UpdateComputer(vm, win.Result)`
-- [ ] Add `TileMenu_Ping` — creates `AgentHttpClient`, awaits `CheckHealthAsync(vm.ToConfig())`, shows result MessageBox (online/offline)
-- [ ] Add `TileMenu_Delete` — shows confirm MessageBox, on Yes calls `_vm.RemoveComputer(vm)`
+- [x] Add private helper `GetMenuVm(object sender)` — extracts ComputerViewModel from (MenuItem → ContextMenu → PlacementTarget → DataContext)
+- [x] Add `TileMenu_Open` — calls `new ScreenshotZoomWindow(vm) { Owner = this }.Show()` if status is not Locked
+- [x] Add `TileMenu_Edit` — opens `AddEditComputerWindow(vm.ToConfig())`, on OK calls `_vm.UpdateComputer(vm, win.Result)`
+- [x] Add `TileMenu_Ping` — creates `AgentHttpClient`, awaits `CheckHealthAsync(vm.ToConfig())`, shows result MessageBox (online/offline)
+- [x] Add `TileMenu_Delete` — shows confirm MessageBox, on Yes calls `_vm.RemoveComputer(vm)`
 
 ### Task 3: Verify acceptance criteria
 
