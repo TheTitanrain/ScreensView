@@ -47,6 +47,64 @@ public class ComputerViewModelTests
     }
 
     [Fact]
+    public void StatusText_WhenUnknown_IndicatesUnknownState()
+    {
+        var vm = new ComputerViewModel(MakeConfig());
+
+        Assert.Contains("неизвест", vm.StatusText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void StatusText_WhenOffline_IndicatesOfflineState()
+    {
+        var vm = new ComputerViewModel(MakeConfig());
+
+        vm.SetError("Connection refused");
+
+        Assert.Contains("сети", vm.StatusText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void StatusText_WhenLocked_IndicatesLockedState()
+    {
+        var vm = new ComputerViewModel(MakeConfig());
+
+        vm.SetLocked("Session locked");
+
+        Assert.Contains("заблок", vm.StatusText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void StatusText_WhenOnline_IndicatesOnlineState()
+    {
+        var vm = new ComputerViewModel(MakeConfig())
+        {
+            Status = ComputerStatus.Online
+        };
+
+        Assert.Contains("онлайн", vm.StatusText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void HasScreenshot_IsFalseUntilScreenshotArrives()
+    {
+        var vm = new ComputerViewModel(MakeConfig());
+
+        Assert.False(vm.HasScreenshot);
+
+        var response = new ScreenshotResponse
+        {
+            ImageBase64 = CreateMinimalJpegBase64(),
+            Timestamp = DateTime.UtcNow,
+            MachineName = "TEST-PC"
+        };
+
+        RunOnSta(() => vm.UpdateScreenshot(response));
+
+        Assert.True(vm.HasScreenshot);
+    }
+
+    [Fact]
     public void ToConfig_RoundTripsAllProperties()
     {
         var original = MakeConfig();
