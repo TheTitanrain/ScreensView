@@ -3,7 +3,7 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:ScreensView.Viewer.ViewModels"
         Title="ScreensView" Height="700" Width="1100"
-        MinWidth="700"
+        MinWidth="880"
         WindowState="Maximized"
         Icon="/screensview.ico"
         Closing="Window_Closing">
