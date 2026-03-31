@@ -11,13 +11,6 @@
         Closing="Window_Closing">
 
     <Window.Resources>
-        <Style x:Key="SummaryValueTextStyle"
-               TargetType="TextBlock"
-               BasedOn="{StaticResource AppTitleTextStyle}">
-            <Setter Property="FontSize" Value="24"/>
-            <Setter Property="FontWeight" Value="SemiBold"/>
-        </Style>
-
         <Style x:Key="StatusIndicatorStyle" TargetType="Ellipse">
             <Setter Property="Width" Value="10"/>
             <Setter Property="Height" Value="10"/>
@@ -63,7 +56,6 @@
 
     <Grid Margin="20">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="*"/>
         </Grid.RowDefinitions>
@@ -162,96 +154,7 @@
             </StackPanel>
         </Border>
 
-        <Grid Grid.Row="1" Margin="0,0,0,14">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="1.25*"/>
-            </Grid.ColumnDefinitions>
-
-            <Border Grid.Column="0"
-                    Margin="0,0,12,0"
-                    Style="{StaticResource AppSummarySurfaceStyle}">
-                <StackPanel>
-                    <Border Width="40"
-                            Height="4"
-                            HorizontalAlignment="Left"
-                            Background="{StaticResource AppAccentBrush}"
-                            CornerRadius="{StaticResource AppPillCornerRadius}"/>
-                    <TextBlock Margin="0,12,0,6"
-                               Text="Активные компьютеры"
-                               Style="{StaticResource AppCaptionTextStyle}"/>
-                    <TextBlock Text="{Binding ActiveComputerCount}"
-                               Style="{StaticResource SummaryValueTextStyle}"/>
-                    <TextBlock Margin="0,6,0,0"
-                               Text="Участвуют в текущем мониторинге"
-                               Style="{StaticResource AppMutedTextStyle}"/>
-                </StackPanel>
-            </Border>
-
-            <Border Grid.Column="1"
-                    Margin="0,0,12,0"
-                    Style="{StaticResource AppSummarySurfaceStyle}">
-                <StackPanel>
-                    <Border Width="40"
-                            Height="4"
-                            HorizontalAlignment="Left"
-                            Background="{StaticResource AppSuccessBrush}"
-                            CornerRadius="{StaticResource AppPillCornerRadius}"/>
-                    <TextBlock Margin="0,12,0,6"
-                               Text="Онлайн"
-                               Style="{StaticResource AppCaptionTextStyle}"/>
-                    <TextBlock Text="{Binding OnlineComputerCount}"
-                               Style="{StaticResource SummaryValueTextStyle}"/>
-                    <TextBlock Margin="0,6,0,0"
-                               Text="Получают свежие снимки экрана"
-                               Style="{StaticResource AppMutedTextStyle}"/>
-                </StackPanel>
-            </Border>
-
-            <Border Grid.Column="2"
-                    Margin="0,0,12,0"
-                    Style="{StaticResource AppSummarySurfaceStyle}">
-                <StackPanel>
-                    <Border Width="40"
-                            Height="4"
-                            HorizontalAlignment="Left"
-                            Background="{StaticResource AppWarningBrush}"
-                            CornerRadius="{StaticResource AppPillCornerRadius}"/>
-                    <TextBlock Margin="0,12,0,6"
-                               Text="Проблемы"
-                               Style="{StaticResource AppCaptionTextStyle}"/>
-                    <TextBlock Text="{Binding ProblemComputerCount}"
-                               Style="{StaticResource SummaryValueTextStyle}"/>
-                    <TextBlock Margin="0,6,0,0"
-                               Text="Нет сети или возникла ошибка опроса"
-                               Style="{StaticResource AppMutedTextStyle}"/>
-                </StackPanel>
-            </Border>
-
-            <Border Grid.Column="3"
-                    Style="{StaticResource AppSummarySurfaceStyle}">
-                <StackPanel>
-                    <Border Width="40"
-                            Height="4"
-                            HorizontalAlignment="Left"
-                            Background="{StaticResource AppBorderStrongBrush}"
-                            CornerRadius="{StaticResource AppPillCornerRadius}"/>
-                    <TextBlock Margin="0,12,0,8"
-                               Text="Состояние опроса"
-                               Style="{StaticResource AppCaptionTextStyle}"/>
-                    <TextBlock Text="{Binding PollingStateText}"
-                               TextWrapping="Wrap"
-                               Style="{StaticResource AppSectionHeaderTextStyle}"/>
-                    <TextBlock Margin="0,8,0,0"
-                               Text="{Binding RefreshInterval, StringFormat='Интервал: {0} сек.'}"
-                               Style="{StaticResource AppMutedTextStyle}"/>
-                </StackPanel>
-            </Border>
-        </Grid>
-
-        <ScrollViewer Grid.Row="2"
+        <ScrollViewer Grid.Row="1"
                       VerticalScrollBarVisibility="Auto"
                       HorizontalScrollBarVisibility="Disabled">
             <ItemsControl ItemsSource="{Binding Computers}">
