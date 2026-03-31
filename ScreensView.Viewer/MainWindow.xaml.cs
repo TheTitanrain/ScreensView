@@ -1,4 +1,5 @@
 using System.Windows;
+using System.Windows.Controls;
 using System.Windows.Input;
 using ScreensView.Viewer.Services;
 using ScreensView.Viewer.ViewModels;
@@ -11,6 +12,12 @@ public partial class MainWindow : Window
     private readonly MainViewModel _vm;
     private readonly ConnectionsStorageController _controller;
     private readonly IViewerSettingsService _settingsService;
+
+    private const double MinTileWidth = 240.0;
+    private const double TileMargin = 12.0;
+    private const double TileBorderAspect = 210.0 / 320.0;
+
+    private WrapPanel? _tileWrapPanel;
 
     internal MainWindow(MainViewModel vm, ConnectionsStorageController controller, IViewerSettingsService settingsService)
     {
@@ -47,7 +54,7 @@ public partial class MainWindow : Window
     private void Card_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (e.ClickCount != 2) return;
-        if (((System.Windows.Controls.Border)sender).DataContext is ComputerViewModel vm
+        if (((Border)sender).DataContext is ComputerViewModel vm
             && vm.Status != ComputerStatus.Locked)
             new ScreenshotZoomWindow(vm) { Owner = this }.Show();
         e.Handled = true;
@@ -61,5 +68,36 @@ public partial class MainWindow : Window
     private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
     {
         _vm.Dispose();
+    }
+
+    private void WrapPanel_Loaded(object sender, RoutedEventArgs e)
+    {
+        _tileWrapPanel = (WrapPanel)sender;
+        UpdateTileSize();
+    }
+
+    private void ScrollViewer_SizeChanged(object sender, SizeChangedEventArgs e)
+    {
+        UpdateTileSize();
+    }
+
+    private void ScrollViewer_ScrollChanged(object sender, ScrollChangedEventArgs e)
+    {
+        // Fires when vertical scrollbar appears/disappears (e.g. computers collection changes),
+        // reducing ViewportWidth without a SizeChanged event.
+        if (e.ViewportWidthChange != 0)
+            UpdateTileSize();
+    }
+
+    private void UpdateTileSize()
+    {
+        if (_tileWrapPanel == null) return;
+        double availableWidth = _screensScrollViewer?.ViewportWidth ?? 0;
+        if (availableWidth <= 0) return;
+        int columns = Math.Max(1, (int)(availableWidth / MinTileWidth));
+        double tileWidth = availableWidth / columns;
+        double borderWidth = tileWidth - TileMargin;
+        _tileWrapPanel.ItemWidth = tileWidth;
+        _tileWrapPanel.ItemHeight = borderWidth * TileBorderAspect + TileMargin;
     }
 }
