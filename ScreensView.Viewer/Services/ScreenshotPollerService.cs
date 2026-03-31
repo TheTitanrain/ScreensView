@@ -38,7 +38,8 @@ public class ScreenshotPollerService : IScreenshotPollerService
     {
         while (!ct.IsCancellationRequested)
         {
-            var tasks = computers
+            var snapshot = System.Windows.Application.Current.Dispatcher.Invoke(() => computers.ToList());
+            var tasks = snapshot
                 .Where(c => c.IsEnabled)
                 .Select(c => PollComputerAsync(c, ct))
                 .ToList();

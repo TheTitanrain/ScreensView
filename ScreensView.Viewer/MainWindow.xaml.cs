@@ -98,7 +98,11 @@ public partial class MainWindow : Window
         if (vm == null) return;
         try
         {
-            using var http = new Services.AgentHttpClient();
+            using var http = new Services.AgentHttpClient((_, thumbprint) =>
+            {
+                vm.CertThumbprint = thumbprint;
+                _vm.SaveComputers();
+            });
             bool ok = await http.CheckHealthAsync(vm.ToConfig());
             MessageBox.Show(
                 ok ? $"{vm.Name}: агент доступен." : $"{vm.Name}: агент недоступен.",
