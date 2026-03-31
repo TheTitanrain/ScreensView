@@ -65,40 +65,20 @@
                 Style="{StaticResource AppCardBorderStyle}"
                 Padding="20">
             <StackPanel>
-                <Grid Margin="0,0,0,16">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*"/>
-                        <ColumnDefinition Width="Auto"/>
-                    </Grid.ColumnDefinitions>
-
-                    <StackPanel>
-                        <TextBlock Text="ScreensView"
-                                   Style="{StaticResource AppTitleTextStyle}"
-                                   FontSize="26"/>
-                        <TextBlock Margin="0,6,0,0"
-                                   Text="Лёгкая панель мониторинга подключённых компьютеров"
-                                   Style="{StaticResource AppMutedTextStyle}"/>
-                    </StackPanel>
-
-                    <WrapPanel Grid.Column="1"
-                               HorizontalAlignment="Right"
-                               VerticalAlignment="Top">
-                        <Button Margin="0,0,10,10"
-                                Click="ManageComputers_Click"
-                                Content="Управление компьютерами"
-                                Style="{StaticResource AppButtonStyle}"/>
-                        <Button Margin="0,0,10,10"
-                                Click="UpdateAllAgents_Click"
-                                Content="Обновить агентов"
-                                Style="{StaticResource AppPrimaryButtonStyle}"/>
-                        <Button Margin="0,0,0,10"
-                                Click="About_Click"
-                                Content="О программе"
-                                Style="{StaticResource AppButtonStyle}"/>
-                    </WrapPanel>
-                </Grid>
-
                 <WrapPanel>
+                    <Button Margin="0,0,10,12"
+                            Click="ManageComputers_Click"
+                            Content="Управление компьютерами"
+                            Style="{StaticResource AppButtonStyle}"/>
+                    <Button Margin="0,0,10,12"
+                            Click="UpdateAllAgents_Click"
+                            Content="Обновить агентов"
+                            Style="{StaticResource AppPrimaryButtonStyle}"/>
+                    <Button Margin="0,0,10,12"
+                            Click="About_Click"
+                            Content="О программе"
+                            Style="{StaticResource AppButtonStyle}"/>
+
                     <Border Margin="0,0,12,12"
                             Style="{StaticResource AppSummarySurfaceStyle}"
                             Padding="14,12">
