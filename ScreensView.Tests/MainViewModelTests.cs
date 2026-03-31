@@ -242,14 +242,14 @@ public class MainViewModelTests : IDisposable
     }
 
     [Fact]
-    public void PollingSummaryText_ChangesBetweenStoppedAndRunningStates()
+    public void PollingStateText_ChangesBetweenStoppedAndRunningStates()
     {
         var vm = CreateVm();
 
-        var stoppedText = vm.PollingSummaryText;
+        var stoppedText = vm.PollingStateText;
 
         vm.TogglePollingCommand.Execute(null);
-        var runningText = vm.PollingSummaryText;
+        var runningText = vm.PollingStateText;
 
         Assert.NotEqual(stoppedText, runningText);
         Assert.Contains("останов", stoppedText, StringComparison.OrdinalIgnoreCase);
