@@ -9,9 +9,12 @@ public partial class AddEditComputerWindow : Window
 {
     public ComputerConfig? Result { get; private set; }
 
+    private readonly ComputerConfig? _existing;
+
     public AddEditComputerWindow(ComputerConfig? existing)
     {
         InitializeComponent();
+        _existing = existing;
 
         if (existing != null)
         {
@@ -50,7 +53,8 @@ public partial class AddEditComputerWindow : Window
             Host = HostBox.Text.Trim(),
             Port = port,
             ApiKey = ApiKeyBox.Text.Trim(),
-            IsEnabled = EnabledCheck.IsChecked == true
+            IsEnabled = EnabledCheck.IsChecked == true,
+            CertThumbprint = _existing?.CertThumbprint ?? string.Empty
         };
         DialogResult = true;
     }

@@ -55,10 +55,15 @@ public partial class MainWindow : Window
     private void Card_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (e.ClickCount != 2) return;
-        if (((Border)sender).DataContext is ComputerViewModel vm
-            && vm.Status != ComputerStatus.Locked)
-            new ScreenshotZoomWindow(vm) { Owner = this }.Show();
+        if (((Border)sender).DataContext is ComputerViewModel vm)
+            OpenZoomWindow(vm);
         e.Handled = true;
+    }
+
+    private void OpenZoomWindow(ComputerViewModel vm)
+    {
+        if (vm.Status != ComputerStatus.Locked)
+            new ScreenshotZoomWindow(vm) { Owner = this }.Show();
     }
 
     private static ComputerViewModel? GetMenuVm(object sender)
@@ -74,8 +79,8 @@ public partial class MainWindow : Window
     private void TileMenu_Open(object sender, RoutedEventArgs e)
     {
         var vm = GetMenuVm(sender);
-        if (vm != null && vm.Status != ComputerStatus.Locked)
-            new ScreenshotZoomWindow(vm) { Owner = this }.Show();
+        if (vm != null)
+            OpenZoomWindow(vm);
     }
 
     private void TileMenu_Edit(object sender, RoutedEventArgs e)
