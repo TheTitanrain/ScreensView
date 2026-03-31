@@ -47,14 +47,21 @@ public partial class AddEditComputerWindow : Window
         if (string.IsNullOrWhiteSpace(ApiKeyBox.Text))
         { MessageBox.Show("API-ключ не может быть пустым.", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
 
+        var newHost = HostBox.Text.Trim();
+        var certThumbprint = (_existing != null
+            && _existing.Host == newHost
+            && _existing.Port == port)
+            ? _existing.CertThumbprint
+            : string.Empty;
+
         Result = new ComputerConfig
         {
             Name = NameBox.Text.Trim(),
-            Host = HostBox.Text.Trim(),
+            Host = newHost,
             Port = port,
             ApiKey = ApiKeyBox.Text.Trim(),
             IsEnabled = EnabledCheck.IsChecked == true,
-            CertThumbprint = _existing?.CertThumbprint ?? string.Empty
+            CertThumbprint = certThumbprint
         };
         DialogResult = true;
     }
