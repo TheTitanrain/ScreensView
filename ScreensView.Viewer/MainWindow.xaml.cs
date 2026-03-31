@@ -15,7 +15,8 @@ public partial class MainWindow : Window
 
     private const double MinTileWidth = 240.0;
     private const double TileMargin = 12.0;
-    private const double TileBorderAspect = 210.0 / 320.0;
+    private const double TileInfoBarHeight = 28.0;
+    private const double TileBorderAspect = 9.0 / 16.0;
 
     private WrapPanel? _tileWrapPanel;
 
@@ -98,6 +99,6 @@ public partial class MainWindow : Window
         double tileWidth = availableWidth / columns;
         double borderWidth = tileWidth - TileMargin;
         _tileWrapPanel.ItemWidth = tileWidth;
-        _tileWrapPanel.ItemHeight = borderWidth * TileBorderAspect + TileMargin;
+        _tileWrapPanel.ItemHeight = borderWidth * TileBorderAspect + TileMargin + TileInfoBarHeight;
     }
 }
