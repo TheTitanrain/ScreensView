@@ -1,4 +1,6 @@
 using System.Collections.ObjectModel;
+using System.Collections.Specialized;
+using System.ComponentModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ScreensView.Shared.Models;
@@ -17,6 +19,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private readonly IViewerSettingsService _viewerSettingsService;
     private readonly IAutostartService _autostartService;
     private readonly Action<string>? _reportAutostartError;
+    private readonly Dictionary<ComputerViewModel, int> _trackedComputers = new();
 
     private ViewerSettings _viewerSettings = new();
     private bool _isSynchronizingAutostart;
@@ -26,6 +29,13 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private int _refreshInterval = DefaultRefreshIntervalSeconds;
     [ObservableProperty] private bool _isPolling;
     [ObservableProperty] private bool _isAutostartEnabled;
+
+    public int ActiveComputerCount => Computers.Count(c => c.IsEnabled);
+    public int OnlineComputerCount => Computers.Count(c => c.Status == ComputerStatus.Online);
+    public int ProblemComputerCount => Computers.Count(c => c.Status is ComputerStatus.Offline or ComputerStatus.Error);
+    public string PollingStateText => IsPolling
+        ? $"Опрос запущен, интервал {RefreshInterval} сек."
+        : "Опрос остановлен.";
 
     public MainViewModel(IComputerStorageService storage, IScreenshotPollerService poller)
         : this(storage, poller, new ViewerSettingsService(), new AutostartService())
@@ -47,6 +57,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         foreach (var config in _storage.Load())
             Computers.Add(new ComputerViewModel(config));
+
+        Computers.CollectionChanged += OnComputersCollectionChanged;
+        foreach (var computer in Computers)
+            SubscribeToComputer(computer);
 
         _viewerSettings = _viewerSettingsService.Load();
         _refreshInterval = NormalizeRefreshInterval(_viewerSettings.RefreshIntervalSeconds);
@@ -86,6 +100,13 @@ public partial class MainViewModel : ObservableObject, IDisposable
             _poller.Stop();
             _poller.Start(Computers, value);
         }
+
+        RaisePollingTextChanged();
+    }
+
+    partial void OnIsPollingChanged(bool value)
+    {
+        RaisePollingTextChanged();
     }
 
     partial void OnIsAutostartEnabledChanged(bool value)
@@ -170,6 +191,14 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     public void Dispose()
     {
+        Computers.CollectionChanged -= OnComputersCollectionChanged;
+
+        foreach (var pair in _trackedComputers.ToArray())
+        {
+            for (var i = 0; i < pair.Value; i++)
+                UnsubscribeFromComputer(pair.Key);
+        }
+
         _poller.Dispose();
     }
 
@@ -198,6 +227,90 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _isSynchronizingAutostart = true;
         IsAutostartEnabled = value;
         _isSynchronizingAutostart = false;
+    }
+
+    private void OnComputersCollectionChanged(object? sender, NotifyCollectionChangedEventArgs e)
+    {
+        if (e.Action == NotifyCollectionChangedAction.Reset)
+        {
+            foreach (var computer in _trackedComputers.Keys.ToArray())
+                UnsubscribeFromComputer(computer);
+        }
+        else
+        {
+            if (e.OldItems is not null)
+            {
+                foreach (ComputerViewModel computer in e.OldItems)
+                    UnsubscribeFromComputer(computer);
+            }
+
+            if (e.NewItems is not null)
+            {
+                foreach (ComputerViewModel computer in e.NewItems)
+                    SubscribeToComputer(computer);
+            }
+        }
+
+        RaiseComputerSummaryCounts();
+    }
+
+    private void OnComputerPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (string.IsNullOrEmpty(e.PropertyName))
+        {
+            RaiseComputerSummaryCounts();
+            return;
+        }
+
+        switch (e.PropertyName)
+        {
+            case nameof(ComputerViewModel.IsEnabled):
+                OnPropertyChanged(nameof(ActiveComputerCount));
+                break;
+            case nameof(ComputerViewModel.Status):
+                OnPropertyChanged(nameof(OnlineComputerCount));
+                OnPropertyChanged(nameof(ProblemComputerCount));
+                break;
+        }
+    }
+
+    private void SubscribeToComputer(ComputerViewModel computer)
+    {
+        if (_trackedComputers.TryGetValue(computer, out var count))
+        {
+            _trackedComputers[computer] = count + 1;
+            return;
+        }
+
+        _trackedComputers[computer] = 1;
+        computer.PropertyChanged += OnComputerPropertyChanged;
+    }
+
+    private void UnsubscribeFromComputer(ComputerViewModel computer)
+    {
+        if (!_trackedComputers.TryGetValue(computer, out var count))
+            return;
+
+        if (count > 1)
+        {
+            _trackedComputers[computer] = count - 1;
+            return;
+        }
+
+        _trackedComputers.Remove(computer);
+        computer.PropertyChanged -= OnComputerPropertyChanged;
+    }
+
+    private void RaiseComputerSummaryCounts()
+    {
+        OnPropertyChanged(nameof(ActiveComputerCount));
+        OnPropertyChanged(nameof(OnlineComputerCount));
+        OnPropertyChanged(nameof(ProblemComputerCount));
+    }
+
+    private void RaisePollingTextChanged()
+    {
+        OnPropertyChanged(nameof(PollingStateText));
     }
 
     private static int NormalizeRefreshInterval(int value)
