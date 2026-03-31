@@ -15,9 +15,9 @@ Replace the default WPF `ToolBar` in `MainWindow.xaml` with a polished flat-ligh
 
 Replacing the standard `ToolBar` with a custom `Border`+`ControlTemplate` removes the automatic system-theme integration that the default WPF controls provide. This is an **intentional functional trade-off** for this internal IT monitoring tool: high-contrast and dark-mode users are not in the target audience.
 
-To avoid a silent regression, the `Border` background and all button styles must use `DynamicResource` against `SystemColors` keys as **fallbacks** via a `ResourceDictionary` override only when the HC mode is detected — **but this is out of scope for this iteration**.
+**Known regression (accepted for this version):** Windows High Contrast mode will no longer restyle the toolbar automatically. Users running HC themes will see hardcoded light colors that may reduce legibility.
 
-**Explicit known regression:** Windows High Contrast mode will no longer restyle the toolbar automatically. Users running HC themes will see hardcoded light colors that may reduce legibility. This is documented and accepted for this version.
+**Follow-up backlog (not part of this task):** A future iteration could add HC support by overriding `Border` background and button styles with `DynamicResource` against `SystemColors` keys via a conditional `ResourceDictionary`.
 
 ## Layout & Colors
 
@@ -128,6 +128,10 @@ The icon glyph changes between states. This requires a full `ControlTemplate` wi
 Full style definition:
 
 ```xml
+<!-- Foreground is not set as a style-level Setter here because the button always renders
+     on a colored background (green or red). Text color is hardcoded White inside the
+     ControlTemplate for guaranteed contrast. This is intentional and differs from
+     ToolbarButton/ToolbarButtonGhost which use a Foreground Setter. -->
 <Style x:Key="ToolbarToggleButton" TargetType="ToggleButton">
     <Setter Property="Template">
         <Setter.Value>
