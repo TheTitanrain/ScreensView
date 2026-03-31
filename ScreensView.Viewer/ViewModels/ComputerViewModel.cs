@@ -21,23 +21,6 @@ public partial class ComputerViewModel : ObservableObject
     [ObservableProperty] private string _statusMessage = string.Empty;
     [ObservableProperty] private DateTime? _lastUpdated;
 
-    public bool HasScreenshot => Screenshot is not null;
-
-    public string StatusText => Status switch
-    {
-        ComputerStatus.Online => "Компьютер онлайн",
-        ComputerStatus.Offline => string.IsNullOrWhiteSpace(StatusMessage)
-            ? "Нет сети"
-            : $"Нет сети: {StatusMessage}",
-        ComputerStatus.Error => string.IsNullOrWhiteSpace(StatusMessage)
-            ? "Нет сети"
-            : $"Нет сети: {StatusMessage}",
-        ComputerStatus.Locked => string.IsNullOrWhiteSpace(StatusMessage)
-            ? "Сеанс заблокирован"
-            : $"Сеанс заблокирован: {StatusMessage}",
-        _ => "Статус неизвестен"
-    };
-
     public ComputerViewModel(ComputerConfig config)
     {
         Id = config.Id;
@@ -86,20 +69,5 @@ public partial class ComputerViewModel : ObservableObject
     {
         Status = ComputerStatus.Locked;
         StatusMessage = message;
-    }
-
-    partial void OnScreenshotChanged(BitmapImage? value)
-    {
-        OnPropertyChanged(nameof(HasScreenshot));
-    }
-
-    partial void OnStatusChanged(ComputerStatus value)
-    {
-        OnPropertyChanged(nameof(StatusText));
-    }
-
-    partial void OnStatusMessageChanged(string value)
-    {
-        OnPropertyChanged(nameof(StatusText));
     }
 }
