@@ -61,6 +61,11 @@ public partial class MainWindow : Window
         e.Handled = true;
     }
 
+    private void TileMenu_Open(object sender, RoutedEventArgs e) { }
+    private void TileMenu_Edit(object sender, RoutedEventArgs e) { }
+    private void TileMenu_Ping(object sender, RoutedEventArgs e) { }
+    private void TileMenu_Delete(object sender, RoutedEventArgs e) { }
+
     private void About_Click(object sender, RoutedEventArgs e)
     {
         new AboutWindow { Owner = this }.ShowDialog();
