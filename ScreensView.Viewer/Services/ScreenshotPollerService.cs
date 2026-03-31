@@ -40,7 +40,8 @@ public class ScreenshotPollerService : IScreenshotPollerService
         {
             var tasks = computers
                 .Where(c => c.IsEnabled)
-                .Select(c => PollComputerAsync(c, ct));
+                .Select(c => PollComputerAsync(c, ct))
+                .ToList();
 
             await Task.WhenAll(tasks);
 
