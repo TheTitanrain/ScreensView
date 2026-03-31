@@ -106,7 +106,10 @@ public partial class MainWindow : Window
                 MessageBoxButton.OK,
                 ok ? MessageBoxImage.Information : MessageBoxImage.Warning);
         }
-        catch { }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Ошибка: {ex.Message}", "Пинг", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
     }
 
     private void TileMenu_Delete(object sender, RoutedEventArgs e)
