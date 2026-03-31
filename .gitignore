@@ -32,3 +32,6 @@ Thumbs.db
 .superpowers/
 .worktrees/
 
+
+# ralphex progress logs
+.ralphex/progress/
