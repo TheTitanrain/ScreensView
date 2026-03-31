@@ -101,6 +101,10 @@ Implement read-only properties backed by the existing `Computers` collection:
 - `PollingStateText`
 - optional `RefreshIntervalText` if it noticeably simplifies XAML
 
+Keep the summary consistent with polling behavior:
+
+- disabled computers must be excluded from `OnlineComputerCount` and `ProblemComputerCount`
+
 Keep the logic presentation-only; do not add new services or persistence.
 
 - [x] **Step 2: Raise property change notifications when card state changes**

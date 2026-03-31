@@ -212,6 +212,36 @@ public class MainViewModelTests : IDisposable
     }
 
     [Fact]
+    public void OnlineAndProblemComputerCounts_ExcludeDisabledEntries()
+    {
+        var storage = new FakeComputerStorageService
+        {
+            LoadResult =
+            [
+                new ComputerConfig { Name = "Enabled Online", Host = "10.0.0.1", Port = 5443, ApiKey = "k1", IsEnabled = true },
+                new ComputerConfig { Name = "Disabled Online", Host = "10.0.0.2", Port = 5443, ApiKey = "k2", IsEnabled = false },
+                new ComputerConfig { Name = "Enabled Error", Host = "10.0.0.3", Port = 5443, ApiKey = "k3", IsEnabled = true },
+                new ComputerConfig { Name = "Disabled Offline", Host = "10.0.0.4", Port = 5443, ApiKey = "k4", IsEnabled = false },
+            ]
+        };
+
+        using var vm = CreateVm(storage, new FakeScreenshotPollerService());
+
+        var enabledOnlineVm = vm.Computers.Single(c => c.Name == "Enabled Online");
+        var disabledOnlineVm = vm.Computers.Single(c => c.Name == "Disabled Online");
+        var enabledErrorVm = vm.Computers.Single(c => c.Name == "Enabled Error");
+        var disabledOfflineVm = vm.Computers.Single(c => c.Name == "Disabled Offline");
+
+        enabledOnlineVm.Status = ComputerStatus.Online;
+        disabledOnlineVm.Status = ComputerStatus.Online;
+        enabledErrorVm.Status = ComputerStatus.Error;
+        disabledOfflineVm.Status = ComputerStatus.Offline;
+
+        Assert.Equal(1, vm.OnlineComputerCount);
+        Assert.Equal(1, vm.ProblemComputerCount);
+    }
+
+    [Fact]
     public void ProblemComputerCount_IncludeOfflineAndErrorEntriesOnly()
     {
         var storage = new FakeComputerStorageService

@@ -31,8 +31,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private bool _isAutostartEnabled;
 
     public int ActiveComputerCount => Computers.Count(c => c.IsEnabled);
-    public int OnlineComputerCount => Computers.Count(c => c.Status == ComputerStatus.Online);
-    public int ProblemComputerCount => Computers.Count(c => c.Status is ComputerStatus.Offline or ComputerStatus.Error);
+    public int OnlineComputerCount => Computers.Count(c => c.IsEnabled && c.Status == ComputerStatus.Online);
+    public int ProblemComputerCount => Computers.Count(c => c.IsEnabled && c.Status is ComputerStatus.Offline or ComputerStatus.Error);
     public string PollingStateText => IsPolling
         ? $"Опрос запущен, интервал {RefreshInterval} сек."
         : "Опрос остановлен.";
@@ -266,6 +266,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
         {
             case nameof(ComputerViewModel.IsEnabled):
                 OnPropertyChanged(nameof(ActiveComputerCount));
+                OnPropertyChanged(nameof(OnlineComputerCount));
+                OnPropertyChanged(nameof(ProblemComputerCount));
                 break;
             case nameof(ComputerViewModel.Status):
                 OnPropertyChanged(nameof(OnlineComputerCount));
