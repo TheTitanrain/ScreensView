@@ -164,6 +164,99 @@ public class MainViewModelTests : IDisposable
     }
 
     [Fact]
+    public void ActiveComputerCount_ExcludesDisabledEntries()
+    {
+        var storage = new FakeComputerStorageService
+        {
+            LoadResult =
+            [
+                new ComputerConfig { Name = "Enabled", Host = "10.0.0.1", Port = 5443, ApiKey = "k1", IsEnabled = true },
+                new ComputerConfig { Name = "Disabled", Host = "10.0.0.2", Port = 5443, ApiKey = "k2", IsEnabled = false },
+                new ComputerConfig { Name = "Also Enabled", Host = "10.0.0.3", Port = 5443, ApiKey = "k3", IsEnabled = true }
+            ]
+        };
+
+        using var vm = CreateVm(storage, new FakeScreenshotPollerService());
+
+        Assert.Equal(2, vm.ActiveComputerCount);
+    }
+
+    [Fact]
+    public void OnlineComputerCount_IncludeOnlyOnlineEntries()
+    {
+        var storage = new FakeComputerStorageService
+        {
+            LoadResult =
+            [
+                new ComputerConfig { Name = "Unknown", Host = "10.0.0.1", Port = 5443, ApiKey = "k1", IsEnabled = true },
+                new ComputerConfig { Name = "Online", Host = "10.0.0.2", Port = 5443, ApiKey = "k2", IsEnabled = true },
+                new ComputerConfig { Name = "Offline", Host = "10.0.0.3", Port = 5443, ApiKey = "k3", IsEnabled = true },
+                new ComputerConfig { Name = "Error", Host = "10.0.0.4", Port = 5443, ApiKey = "k4", IsEnabled = true },
+                new ComputerConfig { Name = "Locked", Host = "10.0.0.5", Port = 5443, ApiKey = "k5", IsEnabled = true }
+            ]
+        };
+
+        using var vm = CreateVm(storage, new FakeScreenshotPollerService());
+
+        var onlineVm = vm.Computers.Single(c => c.Name == "Online");
+        var offlineVm = vm.Computers.Single(c => c.Name == "Offline");
+        var errorVm = vm.Computers.Single(c => c.Name == "Error");
+        var lockedVm = vm.Computers.Single(c => c.Name == "Locked");
+
+        onlineVm.Status = ComputerStatus.Online;
+        offlineVm.Status = ComputerStatus.Offline;
+        errorVm.Status = ComputerStatus.Error;
+        lockedVm.Status = ComputerStatus.Locked;
+
+        Assert.Equal(1, vm.OnlineComputerCount);
+    }
+
+    [Fact]
+    public void ProblemComputerCount_IncludeOfflineAndErrorEntriesOnly()
+    {
+        var storage = new FakeComputerStorageService
+        {
+            LoadResult =
+            [
+                new ComputerConfig { Name = "Unknown", Host = "10.0.0.1", Port = 5443, ApiKey = "k1", IsEnabled = true },
+                new ComputerConfig { Name = "Online", Host = "10.0.0.2", Port = 5443, ApiKey = "k2", IsEnabled = true },
+                new ComputerConfig { Name = "Offline", Host = "10.0.0.3", Port = 5443, ApiKey = "k3", IsEnabled = true },
+                new ComputerConfig { Name = "Error", Host = "10.0.0.4", Port = 5443, ApiKey = "k4", IsEnabled = true },
+                new ComputerConfig { Name = "Locked", Host = "10.0.0.5", Port = 5443, ApiKey = "k5", IsEnabled = true }
+            ]
+        };
+
+        using var vm = CreateVm(storage, new FakeScreenshotPollerService());
+
+        var onlineVm = vm.Computers.Single(c => c.Name == "Online");
+        var offlineVm = vm.Computers.Single(c => c.Name == "Offline");
+        var errorVm = vm.Computers.Single(c => c.Name == "Error");
+        var lockedVm = vm.Computers.Single(c => c.Name == "Locked");
+
+        onlineVm.Status = ComputerStatus.Online;
+        offlineVm.Status = ComputerStatus.Offline;
+        errorVm.Status = ComputerStatus.Error;
+        lockedVm.Status = ComputerStatus.Locked;
+
+        Assert.Equal(2, vm.ProblemComputerCount);
+    }
+
+    [Fact]
+    public void PollingSummaryText_ChangesBetweenStoppedAndRunningStates()
+    {
+        var vm = CreateVm();
+
+        var stoppedText = vm.PollingSummaryText;
+
+        vm.TogglePollingCommand.Execute(null);
+        var runningText = vm.PollingSummaryText;
+
+        Assert.NotEqual(stoppedText, runningText);
+        Assert.Contains("останов", stoppedText, StringComparison.OrdinalIgnoreCase);
+        Assert.Contains("запущ", runningText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void RemoveComputers_RemovesAllFromCollection()
     {
         var vm = CreateVm();
