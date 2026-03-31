@@ -11,6 +11,14 @@ Replace the default WPF `ToolBar` in `MainWindow.xaml` with a polished flat-ligh
 **Icons:** Segoe MDL2 Assets (`FontFamily="Segoe MDL2 Assets"`)
 **Implementation approach:** Replace `<ToolBar>` with `<Border>` + `<Grid>`, define styles in `Window.Resources`.
 
+## High-Contrast / Accessibility
+
+Replacing the standard `ToolBar` with a custom `Border`+`ControlTemplate` removes the automatic system-theme integration that the default WPF controls provide. This is an **intentional functional trade-off** for this internal IT monitoring tool: high-contrast and dark-mode users are not in the target audience.
+
+To avoid a silent regression, the `Border` background and all button styles must use `DynamicResource` against `SystemColors` keys as **fallbacks** via a `ResourceDictionary` override only when the HC mode is detected — **but this is out of scope for this iteration**.
+
+**Explicit known regression:** Windows High Contrast mode will no longer restyle the toolbar automatically. Users running HC themes will see hardcoded light colors that may reduce legibility. This is documented and accepted for this version.
+
 ## Layout & Colors
 
 | Element | Value |
@@ -23,8 +31,19 @@ Replace the default WPF `ToolBar` in `MainWindow.xaml` with a polished flat-ligh
 | Button corner radius | `5px` |
 | Button hover background | `#E8E8E8` |
 | Button pressed background | `#D0D0D0` |
-| Button foreground | `#1A1A1A` |
+| Button foreground | `#1A1A1A` — set explicitly via `Setter Property="Foreground"` in the style |
+| Button disabled foreground | `#AAAAAA` |
+| Button disabled background | `#F0F0F0` |
+| Button disabled border | `#D8D8D8` |
 | Button padding | `5,6,12,6` |
+
+## Narrow Window / DPI
+
+Set `MinWidth="700"` on the `<Window>` element to prevent horizontal clipping. The existing window has no `MinWidth` — this is part of the toolbar task.
+
+The toolbar `StackPanel` content has a fixed total minimum footprint of approximately 650px at 100% DPI. No overflow/wrapping is implemented — content will clip below `MinWidth`. Toolbar overflow is **out of scope** for this iteration.
+
+At 150–200% DPI, WPF's layout inflation means the window may need scrolling or further `MinWidth` adjustment. This is **not addressed** in this iteration; the existing app has the same issue.
 
 ## Container Structure
 
@@ -137,6 +156,9 @@ Full style definition:
                     <Trigger Property="IsPressed" Value="True">
                         <Setter TargetName="border" Property="Opacity" Value="0.75"/>
                     </Trigger>
+                    <Trigger Property="IsEnabled" Value="False">
+                        <Setter TargetName="border" Property="Opacity" Value="0.45"/>
+                    </Trigger>
                 </ControlTemplate.Triggers>
             </ControlTemplate>
         </Setter.Value>
@@ -146,10 +168,13 @@ Full style definition:
 
 ## Button Style (with ControlTemplate for hover)
 
-WPF's default `Button` template uses `SystemColors` brushes internally, which override a plain `Background` setter. A `ControlTemplate` is required for custom hover/pressed states:
+WPF's default `Button` template uses `SystemColors` brushes internally, which override a plain `Background` setter. A `ControlTemplate` is required for custom hover/pressed/disabled/focus states.
+
+Keyboard focus is visualized via a dotted `FocusVisualStyle` rectangle (WPF default), which is sufficient for this toolbar. No custom focus ring is added.
 
 ```xml
 <Style x:Key="ToolbarButton" TargetType="Button">
+    <Setter Property="Foreground" Value="#1A1A1A"/>
     <Setter Property="Margin" Value="0,0,4,0"/>
     <Setter Property="Template">
         <Setter.Value>
@@ -166,6 +191,11 @@ WPF's default `Button` template uses `SystemColors` brushes internally, which ov
                     <Trigger Property="IsPressed" Value="True">
                         <Setter TargetName="border" Property="Background" Value="#D0D0D0"/>
                     </Trigger>
+                    <Trigger Property="IsEnabled" Value="False">
+                        <Setter TargetName="border" Property="Background" Value="#F0F0F0"/>
+                        <Setter TargetName="border" Property="BorderBrush" Value="#D8D8D8"/>
+                        <Setter Property="Foreground" Value="#AAAAAA"/>
+                    </Trigger>
                 </ControlTemplate.Triggers>
             </ControlTemplate>
         </Setter.Value>
@@ -175,7 +205,7 @@ WPF's default `Button` template uses `SystemColors` brushes internally, which ov
 
 ## Ghost Button Style (О программе)
 
-Transparent background, no visible border, `Foreground=#555555`. Also requires a `ControlTemplate`:
+Transparent background, no visible border. Also requires a `ControlTemplate`:
 
 ```xml
 <Style x:Key="ToolbarButtonGhost" TargetType="Button">
@@ -193,6 +223,9 @@ Transparent background, no visible border, `Foreground=#555555`. Also requires a
                     </Trigger>
                     <Trigger Property="IsPressed" Value="True">
                         <Setter TargetName="border" Property="Background" Value="#D0D0D0"/>
+                    </Trigger>
+                    <Trigger Property="IsEnabled" Value="False">
+                        <Setter Property="Foreground" Value="#AAAAAA"/>
                     </Trigger>
                 </ControlTemplate.Triggers>
             </ControlTemplate>
@@ -229,19 +262,25 @@ Preserve existing binding. No visual changes — `CheckBox` styling is out of sc
           Margin="8,0,4,0"/>
 ```
 
+## Window MinWidth
+
+Add `MinWidth="700"` to the `<Window>` element in `MainWindow.xaml` to prevent horizontal clipping of the toolbar at narrow widths.
+
 ## Styles Location
 
 All styles defined in `MainWindow.xaml` under `<Window.Resources>`:
 
-- `Style x:Key="ToolbarButton" TargetType="Button"` — standard button with ControlTemplate
+- `Style x:Key="ToolbarButton" TargetType="Button"` — standard button with ControlTemplate (includes disabled state)
 - `Style x:Key="ToolbarButtonGhost" TargetType="Button"` — ghost style for "О программе"
 - `Style x:Key="ToolbarSeparator" TargetType="Rectangle"` — separator line
-- `Style x:Key="ToolbarToggleButton" TargetType="ToggleButton"` — with ControlTemplate and IsChecked triggers
+- `Style x:Key="ToolbarToggleButton" TargetType="ToggleButton"` — with ControlTemplate and IsChecked/disabled triggers
 
 ## Out of Scope
 
 - Slider thumb custom styling
+- CheckBox custom styling
 - Styling of card tiles, other windows, or context menus
 - Tooltip changes
 - Dark mode support
-- Accessibility / high-contrast themes
+- High-contrast / accessibility themes (known regression — documented above)
+- Toolbar overflow / wrapping at narrow widths below `MinWidth`
