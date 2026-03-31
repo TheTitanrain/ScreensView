@@ -52,6 +52,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _refreshInterval = NormalizeRefreshInterval(_viewerSettings.RefreshIntervalSeconds);
         _viewerSettings.RefreshIntervalSeconds = _refreshInterval;
         InitializeAutostartState();
+
+        _poller.Start(Computers, _refreshInterval);
+        _isPolling = true;
     }
 
     [RelayCommand]
