@@ -24,6 +24,7 @@ public partial class ComputersManagerWindow : Window
         _settingsService = settingsService;
         ComputersList.ItemsSource = mainVm.Computers;
         RefreshConnectionsSourceUi();
+        Loaded += OnLoaded;
     }
 
     private ViewModels.ComputerViewModel? Selected => ComputersList.SelectedItem as ViewModels.ComputerViewModel;
@@ -31,6 +32,20 @@ public partial class ComputersManagerWindow : Window
     private List<Shared.Models.ComputerConfig> SelectedConfigs =>
         ComputersList.SelectedItems.Cast<ViewModels.ComputerViewModel>()
             .Select(vm => vm.ToConfig()).ToList();
+
+    private void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        Loaded -= OnLoaded;
+        UpdateLayout();
+        var panelWidth = Math.Max(ToolbarPanel.ActualWidth, ConnectionsPanel.ActualWidth);
+        var computed = WindowWidthHelper.ComputeMinWidth(
+            panelWidth,
+            Content is FrameworkElement content ? content.ActualWidth : ActualWidth,
+            ActualWidth,
+            SystemParameters.WorkArea.Width);
+        Width = computed;
+        MinWidth = computed;
+    }
 
     private void ComputersList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
