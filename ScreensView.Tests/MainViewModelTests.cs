@@ -368,6 +368,66 @@ public class MainViewModelTests : IDisposable
     }
 
     [Fact]
+    public void UpdateComputer_WhenDisablingComputer_SetsDisabledStatus()
+    {
+        var initialStorage = new FakeComputerStorageService
+        {
+            LoadResult =
+            [
+                new ComputerConfig { Name = "Workstation", Host = "10.0.0.10", ApiKey = "key", IsEnabled = true }
+            ]
+        };
+        var poller = new FakeScreenshotPollerService();
+
+        using var vm = CreateVm(initialStorage, poller);
+        var target = vm.Computers.Single();
+
+        vm.UpdateComputer(target, new ComputerConfig
+        {
+            Id = target.Id,
+            Name = target.Name,
+            Host = target.Host,
+            Port = target.Port,
+            ApiKey = target.ApiKey,
+            IsEnabled = false,
+            CertThumbprint = target.CertThumbprint
+        });
+
+        Assert.Equal(ComputerStatus.Disabled, target.Status);
+        Assert.Equal("Компьютер отключён в Управлении компьютерами.", target.StatusMessage);
+    }
+
+    [Fact]
+    public void UpdateComputer_WhenReEnablingComputer_ResetsStatusToUnknown()
+    {
+        var initialStorage = new FakeComputerStorageService
+        {
+            LoadResult =
+            [
+                new ComputerConfig { Name = "Workstation", Host = "10.0.0.10", ApiKey = "key", IsEnabled = false }
+            ]
+        };
+        var poller = new FakeScreenshotPollerService();
+
+        using var vm = CreateVm(initialStorage, poller);
+        var target = vm.Computers.Single();
+
+        vm.UpdateComputer(target, new ComputerConfig
+        {
+            Id = target.Id,
+            Name = target.Name,
+            Host = target.Host,
+            Port = target.Port,
+            ApiKey = target.ApiKey,
+            IsEnabled = true,
+            CertThumbprint = target.CertThumbprint
+        });
+
+        Assert.Equal(ComputerStatus.Unknown, target.Status);
+        Assert.Equal(string.Empty, target.StatusMessage);
+    }
+
+    [Fact]
     public void ApplyConnectionsSourceChange_WhenSucceeded_ReplacesComputersAndStorage()
     {
         var initialStorage = new FakeComputerStorageService

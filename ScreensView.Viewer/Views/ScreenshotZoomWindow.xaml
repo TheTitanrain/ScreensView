@@ -88,6 +88,9 @@
                                 <DataTrigger Binding="{Binding Status}" Value="Locked">
                                     <Setter Property="Fill" Value="#CCAA44"/>
                                 </DataTrigger>
+                                <DataTrigger Binding="{Binding Status}" Value="Disabled">
+                                    <Setter Property="Fill" Value="#7B8A97"/>
+                                </DataTrigger>
                             </Style.Triggers>
                         </Style>
                     </Ellipse.Style>
@@ -99,9 +102,21 @@
                            TextTrimming="CharacterEllipsis" ToolTip="{Binding StatusMessage}"/>
 
                 <!-- Last updated time -->
-                <TextBlock Grid.Column="2" Foreground="#888" FontSize="10"
-                           VerticalAlignment="Center" Margin="0,0,8,0"
-                           Text="{Binding LastUpdated, StringFormat='HH:mm:ss'}"/>
+                <TextBlock Grid.Column="2" FontSize="10"
+                           VerticalAlignment="Center" Margin="0,0,8,0">
+                    <TextBlock.Style>
+                        <Style TargetType="TextBlock">
+                            <Setter Property="Foreground" Value="#888"/>
+                            <Setter Property="Text" Value="{Binding LastUpdated, StringFormat='HH:mm:ss'}"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding Status}" Value="Disabled">
+                                    <Setter Property="Foreground" Value="#B5C0C9"/>
+                                    <Setter Property="Text" Value="Откл."/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </TextBlock.Style>
+                </TextBlock>
             </Grid>
         </Border>
     </Grid>

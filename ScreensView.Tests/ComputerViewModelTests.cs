@@ -47,6 +47,15 @@ public class ComputerViewModelTests
     }
 
     [Fact]
+    public void Constructor_WhenComputerDisabled_SetsDisabledStatusAndMessage()
+    {
+        var vm = new ComputerViewModel(MakeConfig(config => config.IsEnabled = false));
+
+        Assert.Equal(ComputerStatus.Disabled, vm.Status);
+        Assert.Equal("Компьютер отключён в Управлении компьютерами.", vm.StatusMessage);
+    }
+
+    [Fact]
     public void ToConfig_RoundTripsAllProperties()
     {
         var original = MakeConfig();
@@ -87,6 +96,28 @@ public class ComputerViewModelTests
     }
 
     [Fact]
+    public void IsEnabled_WhenSetToFalse_SetsDisabledStatusAndMessage()
+    {
+        var vm = new ComputerViewModel(MakeConfig());
+
+        vm.IsEnabled = false;
+
+        Assert.Equal(ComputerStatus.Disabled, vm.Status);
+        Assert.Equal("Компьютер отключён в Управлении компьютерами.", vm.StatusMessage);
+    }
+
+    [Fact]
+    public void IsEnabled_WhenSetBackToTrue_ResetsStatusToUnknownAndClearsMessage()
+    {
+        var vm = new ComputerViewModel(MakeConfig(config => config.IsEnabled = false));
+
+        vm.IsEnabled = true;
+
+        Assert.Equal(ComputerStatus.Unknown, vm.Status);
+        Assert.Equal(string.Empty, vm.StatusMessage);
+    }
+
+    [Fact]
     public void UpdateScreenshot_SetsOnlineStatus()
     {
         var vm = new ComputerViewModel(MakeConfig());
@@ -122,6 +153,25 @@ public class ComputerViewModelTests
 
         Assert.Equal(ComputerStatus.Online, vm.Status);
         Assert.Equal(string.Empty, vm.StatusMessage);
+    }
+
+    [Fact]
+    public void UpdateScreenshot_WhenComputerDisabled_DoesNotOverrideDisabledStatus()
+    {
+        var vm = new ComputerViewModel(MakeConfig(config => config.IsEnabled = false));
+        var response = new ScreenshotResponse
+        {
+            ImageBase64 = CreateMinimalJpegBase64(),
+            Timestamp = DateTime.UtcNow,
+            MachineName = "TEST-PC"
+        };
+
+        RunOnSta(() => vm.UpdateScreenshot(response));
+
+        Assert.Equal(ComputerStatus.Disabled, vm.Status);
+        Assert.Equal("Компьютер отключён в Управлении компьютерами.", vm.StatusMessage);
+        Assert.Null(vm.Screenshot);
+        Assert.Null(vm.LastUpdated);
     }
 
     private static string CreateMinimalJpegBase64()

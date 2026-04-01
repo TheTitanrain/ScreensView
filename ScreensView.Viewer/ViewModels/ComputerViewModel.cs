@@ -4,10 +4,12 @@ using ScreensView.Shared.Models;
 
 namespace ScreensView.Viewer.ViewModels;
 
-public enum ComputerStatus { Unknown, Online, Offline, Error, Locked }
+public enum ComputerStatus { Unknown, Online, Offline, Error, Locked, Disabled }
 
 public partial class ComputerViewModel : ObservableObject
 {
+    private const string DisabledMessage = "Компьютер отключён в Управлении компьютерами.";
+
     public Guid Id { get; }
 
     [ObservableProperty] private string _name;
@@ -30,6 +32,7 @@ public partial class ComputerViewModel : ObservableObject
         _apiKey = config.ApiKey;
         _isEnabled = config.IsEnabled;
         _certThumbprint = config.CertThumbprint;
+        ApplyEnabledState(_isEnabled);
     }
 
     public ComputerConfig ToConfig() => new()
@@ -45,6 +48,9 @@ public partial class ComputerViewModel : ObservableObject
 
     public void UpdateScreenshot(ScreenshotResponse response)
     {
+        if (!IsEnabled)
+            return;
+
         var bytes = Convert.FromBase64String(response.ImageBase64);
         var image = new BitmapImage();
         using var ms = new System.IO.MemoryStream(bytes);
@@ -61,13 +67,40 @@ public partial class ComputerViewModel : ObservableObject
 
     public void SetError(string message)
     {
+        if (!IsEnabled)
+            return;
+
         Status = ComputerStatus.Offline;
         StatusMessage = message;
     }
 
     public void SetLocked(string message)
     {
+        if (!IsEnabled)
+            return;
+
         Status = ComputerStatus.Locked;
         StatusMessage = message;
+    }
+
+    partial void OnIsEnabledChanged(bool value)
+    {
+        ApplyEnabledState(value);
+    }
+
+    private void ApplyEnabledState(bool isEnabled)
+    {
+        if (!isEnabled)
+        {
+            Status = ComputerStatus.Disabled;
+            StatusMessage = DisabledMessage;
+            return;
+        }
+
+        if (Status == ComputerStatus.Disabled)
+        {
+            Status = ComputerStatus.Unknown;
+            StatusMessage = string.Empty;
+        }
     }
 }
