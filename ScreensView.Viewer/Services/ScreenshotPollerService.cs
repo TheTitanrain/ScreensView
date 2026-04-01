@@ -5,6 +5,7 @@ namespace ScreensView.Viewer.Services;
 
 public interface IScreenshotPollerService : IDisposable
 {
+    Task RefreshNowAsync(IEnumerable<ComputerViewModel> computers);
     void Start(IEnumerable<ComputerViewModel> computers, int intervalSeconds);
     void Stop();
 }
@@ -12,6 +13,7 @@ public interface IScreenshotPollerService : IDisposable
 public class ScreenshotPollerService : IScreenshotPollerService
 {
     private readonly AgentHttpClient _http;
+    private readonly SemaphoreSlim _pollGate = new(1, 1);
     private CancellationTokenSource? _cts;
     private Task? _pollingTask;
 
@@ -34,9 +36,26 @@ public class ScreenshotPollerService : IScreenshotPollerService
         _cts = null;
     }
 
+    public Task RefreshNowAsync(IEnumerable<ComputerViewModel> computers)
+    {
+        return PollBatchAsync(computers, CancellationToken.None);
+    }
+
     private async Task RunAsync(IEnumerable<ComputerViewModel> computers, int intervalSeconds, CancellationToken ct)
     {
         while (!ct.IsCancellationRequested)
+        {
+            await PollBatchAsync(computers, ct);
+
+            try { await Task.Delay(TimeSpan.FromSeconds(intervalSeconds), ct); }
+            catch (TaskCanceledException) { break; }
+        }
+    }
+
+    private async Task PollBatchAsync(IEnumerable<ComputerViewModel> computers, CancellationToken ct)
+    {
+        await _pollGate.WaitAsync(ct);
+        try
         {
             var snapshot = System.Windows.Application.Current.Dispatcher.Invoke(() => computers.ToList());
             var tasks = snapshot
@@ -45,9 +64,10 @@ public class ScreenshotPollerService : IScreenshotPollerService
                 .ToList();
 
             await Task.WhenAll(tasks);
-
-            try { await Task.Delay(TimeSpan.FromSeconds(intervalSeconds), ct); }
-            catch (TaskCanceledException) { break; }
+        }
+        finally
+        {
+            _pollGate.Release();
         }
     }
 
@@ -69,5 +89,8 @@ public class ScreenshotPollerService : IScreenshotPollerService
         }
     }
 
-    public void Dispose() => Stop();
+    public void Dispose()
+    {
+        Stop();
+    }
 }

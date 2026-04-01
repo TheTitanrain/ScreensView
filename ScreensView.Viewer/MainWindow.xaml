@@ -162,6 +162,15 @@
 
                     <Rectangle Style="{StaticResource ToolbarSeparator}"/>
 
+                    <Button Style="{StaticResource ToolbarButton}" Command="{Binding RefreshNowCommand}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE72C;" FontSize="14" VerticalAlignment="Center"/>
+                            <TextBlock Text=" Обновить сейчас" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
+                    <Rectangle Style="{StaticResource ToolbarSeparator}"/>
+
                     <CheckBox Content="Автозапуск"
                               IsChecked="{Binding IsAutostartEnabled}"
                               VerticalAlignment="Center"

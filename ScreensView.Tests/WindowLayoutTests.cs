@@ -3,6 +3,15 @@ namespace ScreensView.Tests;
 public class WindowLayoutTests
 {
     [Fact]
+    public void RefreshNowButton_IsHostedInMainWindowToolbar()
+    {
+        var mainWindowXaml = File.ReadAllText(GetRepoPath(@"ScreensView.Viewer\MainWindow.xaml"));
+
+        Assert.Contains("Command=\"{Binding RefreshNowCommand}\"", mainWindowXaml);
+        Assert.Contains("Text=\" Обновить сейчас\"", mainWindowXaml);
+    }
+
+    [Fact]
     public void UpdateAllAgentsButton_IsHostedInComputersManagerWindowToolbar()
     {
         var mainWindowXaml = File.ReadAllText(GetRepoPath(@"ScreensView.Viewer\MainWindow.xaml"));

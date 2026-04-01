@@ -72,6 +72,12 @@ public partial class MainViewModel : ObservableObject, IDisposable
         }
     }
 
+    [RelayCommand]
+    private Task RefreshNowAsync()
+    {
+        return _poller.RefreshNowAsync(Computers);
+    }
+
     partial void OnRefreshIntervalChanged(int value)
     {
         var normalizedValue = NormalizeRefreshInterval(value);

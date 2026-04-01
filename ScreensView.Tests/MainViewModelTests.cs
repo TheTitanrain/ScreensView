@@ -1,3 +1,4 @@
+using CommunityToolkit.Mvvm.Input;
 using ScreensView.Shared.Models;
 using ScreensView.Viewer.Services;
 using ScreensView.Viewer.ViewModels;
@@ -110,6 +111,56 @@ public class MainViewModelTests : IDisposable
 
         var json = File.ReadAllText(_settingsFile);
         Assert.Contains("\"RefreshIntervalSeconds\": 9", json);
+    }
+
+    [Fact]
+    public async Task RefreshNowCommand_WhenPolling_RunsOneShotRefreshWithoutRestartingPoller()
+    {
+        var storage = new FakeComputerStorageService
+        {
+            LoadResult =
+            [
+                new ComputerConfig { Name = "PC-1", Host = "10.0.0.1", ApiKey = "key-1", IsEnabled = true },
+                new ComputerConfig { Name = "PC-2", Host = "10.0.0.2", ApiKey = "key-2", IsEnabled = false }
+            ]
+        };
+        var poller = new FakeScreenshotPollerService();
+
+        using var vm = CreateVm(storage, poller);
+        var command = GetRefreshNowCommand(vm);
+
+        await command.ExecuteAsync(null);
+
+        Assert.True(vm.IsPolling);
+        Assert.Single(poller.StartCalls);
+        Assert.Equal(0, poller.StopCalls);
+        Assert.Single(poller.RefreshCalls);
+        Assert.Equal(["PC-1", "PC-2"], poller.RefreshCalls[0]);
+    }
+
+    [Fact]
+    public async Task RefreshNowCommand_WhenPollingStopped_KeepsPollingStopped()
+    {
+        var storage = new FakeComputerStorageService
+        {
+            LoadResult =
+            [
+                new ComputerConfig { Name = "PC-1", Host = "10.0.0.1", ApiKey = "key-1", IsEnabled = true }
+            ]
+        };
+        var poller = new FakeScreenshotPollerService();
+
+        using var vm = CreateVm(storage, poller);
+        vm.TogglePollingCommand.Execute(null);
+        var command = GetRefreshNowCommand(vm);
+
+        await command.ExecuteAsync(null);
+
+        Assert.False(vm.IsPolling);
+        Assert.Single(poller.StartCalls);
+        Assert.Equal(1, poller.StopCalls);
+        Assert.Single(poller.RefreshCalls);
+        Assert.Equal(["PC-1"], poller.RefreshCalls[0]);
     }
 
     [Fact]
@@ -549,6 +600,14 @@ public class MainViewModelTests : IDisposable
         method!.Invoke(vm, [succeeded, storage, computers]);
     }
 
+    private static IAsyncRelayCommand GetRefreshNowCommand(MainViewModel vm)
+    {
+        var property = typeof(MainViewModel).GetProperty("RefreshNowCommand");
+        Assert.NotNull(property);
+        var command = property!.GetValue(vm);
+        return Assert.IsAssignableFrom<IAsyncRelayCommand>(command);
+    }
+
     private class FakeViewerSettingsService(bool initialValue, int refreshIntervalSeconds = 5) : IViewerSettingsService
     {
         public ViewerSettings Current { get; private set; } = new() { LaunchAtStartup = initialValue, RefreshIntervalSeconds = refreshIntervalSeconds };
@@ -622,11 +681,18 @@ public class MainViewModelTests : IDisposable
     private sealed class FakeScreenshotPollerService : IScreenshotPollerService
     {
         public List<(IReadOnlyList<string> ComputerNames, int IntervalSeconds)> StartCalls { get; } = [];
+        public List<IReadOnlyList<string>> RefreshCalls { get; } = [];
         public int StopCalls { get; private set; }
 
         public void Start(IEnumerable<ComputerViewModel> computers, int intervalSeconds)
         {
             StartCalls.Add((computers.Select(vm => vm.Name).ToList(), intervalSeconds));
+        }
+
+        public Task RefreshNowAsync(IEnumerable<ComputerViewModel> computers)
+        {
+            RefreshCalls.Add(computers.Select(vm => vm.Name).ToList());
+            return Task.CompletedTask;
         }
 
         public void Stop()
