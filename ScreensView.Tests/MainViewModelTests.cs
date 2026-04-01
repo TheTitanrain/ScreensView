@@ -25,7 +25,7 @@ public class MainViewModelTests : IDisposable
     private MainViewModel CreateVm(
         IViewerSettingsService settingsService,
         IAutostartService autostartService,
-        Action<string>? reportError = null)
+        Action<string, string>? reportError = null)
     {
         var storage = new ComputerStorageService(_tempFile);
         var poller = new ScreenshotPollerService(new AgentHttpClient());
@@ -69,15 +69,21 @@ public class MainViewModelTests : IDisposable
         {
             SetEnabledException = new InvalidOperationException("registry write failed")
         };
+        string? title = null;
         string? error = null;
 
-        using var vm = CreateVm(settings, autostart, message => error = message);
+        using var vm = CreateVm(settings, autostart, (reportedTitle, message) =>
+        {
+            title = reportedTitle;
+            error = message;
+        });
         vm.IsAutostartEnabled = true;
 
         Assert.False(vm.IsAutostartEnabled);
         Assert.Equal([true], autostart.SetCalls);
         Assert.False(settings.Current.LaunchAtStartup);
         Assert.Equal(0, settings.SaveCalls);
+        Assert.Equal("Автозапуск", title);
         Assert.Contains("registry write failed", error);
     }
 
@@ -104,6 +110,82 @@ public class MainViewModelTests : IDisposable
 
         var json = File.ReadAllText(_settingsFile);
         Assert.Contains("\"RefreshIntervalSeconds\": 9", json);
+    }
+
+    [Fact]
+    public void SetComputerEnabled_WhenDisabling_UpdatesViewModelAndPersists()
+    {
+        var storage = new FakeComputerStorageService
+        {
+            LoadResult =
+            [
+                new ComputerConfig { Name = "PC", Host = "10.0.0.1", ApiKey = "key", IsEnabled = true }
+            ]
+        };
+
+        using var vm = CreateVm(storage, new FakeScreenshotPollerService());
+        var target = vm.Computers[0];
+
+        vm.SetComputerEnabled(target, false);
+
+        Assert.False(target.IsEnabled);
+        Assert.Single(storage.SavedSnapshots);
+        Assert.False(storage.SavedSnapshots[0][0].IsEnabled);
+    }
+
+    [Fact]
+    public void SetComputerEnabled_WhenEnabling_UpdatesViewModelAndPersists()
+    {
+        var storage = new FakeComputerStorageService
+        {
+            LoadResult =
+            [
+                new ComputerConfig { Name = "PC", Host = "10.0.0.1", ApiKey = "key", IsEnabled = false }
+            ]
+        };
+
+        using var vm = CreateVm(storage, new FakeScreenshotPollerService());
+        var target = vm.Computers[0];
+
+        vm.SetComputerEnabled(target, true);
+
+        Assert.True(target.IsEnabled);
+        Assert.Single(storage.SavedSnapshots);
+        Assert.True(storage.SavedSnapshots[0][0].IsEnabled);
+    }
+
+    [Fact]
+    public void SetComputerEnabled_WhenSaveFails_RevertsStateAndReportsError()
+    {
+        var storage = new FakeComputerStorageService
+        {
+            LoadResult =
+            [
+                new ComputerConfig { Name = "PC", Host = "10.0.0.1", ApiKey = "key", IsEnabled = true }
+            ],
+            SaveException = new InvalidOperationException("disk full")
+        };
+        string? title = null;
+        string? error = null;
+
+        using var vm = new MainViewModel(
+            storage,
+            new FakeScreenshotPollerService(),
+            new FakeViewerSettingsService(initialValue: false),
+            new FakeAutostartService(initialValue: false),
+            (reportedTitle, message) =>
+            {
+                title = reportedTitle;
+                error = message;
+            });
+        var target = vm.Computers[0];
+
+        vm.SetComputerEnabled(target, false);
+
+        Assert.True(target.IsEnabled);
+        Assert.Empty(storage.SavedSnapshots);
+        Assert.Equal("Управление компьютерами", title);
+        Assert.Contains("disk full", error);
     }
 
     [Fact]
@@ -262,7 +344,6 @@ public class MainViewModelTests : IDisposable
         var poller = new FakeScreenshotPollerService();
 
         using var vm = CreateVm(initialStorage, poller);
-        vm.TogglePollingCommand.Execute(null);
 
         InvokeApplyConnectionsSourceChange(
             vm,
@@ -310,7 +391,7 @@ public class MainViewModelTests : IDisposable
         Assert.Single(initialStorage.SavedSnapshots);
         Assert.Equal("Local", initialStorage.SavedSnapshots[0][0].Name);
         Assert.Empty(replacementStorage.SavedSnapshots);
-        Assert.Empty(poller.StartCalls);
+        Assert.Single(poller.StartCalls);
         Assert.Equal(0, poller.StopCalls);
     }
 
@@ -372,6 +453,7 @@ public class MainViewModelTests : IDisposable
     {
         public List<ComputerConfig> LoadResult { get; set; } = [];
         public List<IReadOnlyList<ComputerConfig>> SavedSnapshots { get; } = [];
+        public Exception? SaveException { get; set; }
 
         public List<ComputerConfig> Load()
         {
@@ -389,6 +471,9 @@ public class MainViewModelTests : IDisposable
 
         public void Save(IEnumerable<ComputerConfig> computers)
         {
+            if (SaveException is not null)
+                throw SaveException;
+
             SavedSnapshots.Add(computers.Select(config => new ComputerConfig
             {
                 Id = config.Id,

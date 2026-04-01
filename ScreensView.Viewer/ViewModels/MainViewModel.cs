@@ -16,7 +16,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private readonly IScreenshotPollerService _poller;
     private readonly IViewerSettingsService _viewerSettingsService;
     private readonly IAutostartService _autostartService;
-    private readonly Action<string>? _reportAutostartError;
+    private readonly Action<string, string>? _reportError;
 
     private ViewerSettings _viewerSettings = new();
     private bool _isSynchronizingAutostart;
@@ -37,13 +37,13 @@ public partial class MainViewModel : ObservableObject, IDisposable
         IScreenshotPollerService poller,
         IViewerSettingsService viewerSettingsService,
         IAutostartService autostartService,
-        Action<string>? reportAutostartError = null)
+        Action<string, string>? reportError = null)
     {
         _storage = storage;
         _poller = poller;
         _viewerSettingsService = viewerSettingsService;
         _autostartService = autostartService;
-        _reportAutostartError = reportAutostartError;
+        _reportError = reportError;
 
         foreach (var config in _storage.Load())
             Computers.Add(new ComputerViewModel(config));
@@ -105,7 +105,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             SetAutostartState(!value);
-            _reportAutostartError?.Invoke($"Не удалось изменить автозапуск: {ex.Message}");
+            ReportError("Автозапуск", $"Не удалось изменить автозапуск: {ex.Message}");
         }
     }
 
@@ -130,6 +130,25 @@ public partial class MainViewModel : ObservableObject, IDisposable
         vm.ApiKey = config.ApiKey;
         vm.IsEnabled = config.IsEnabled;
         SaveComputers();
+    }
+
+    public void SetComputerEnabled(ComputerViewModel vm, bool isEnabled)
+    {
+        if (vm.IsEnabled == isEnabled)
+            return;
+
+        var previousValue = vm.IsEnabled;
+        vm.IsEnabled = isEnabled;
+
+        try
+        {
+            SaveComputers();
+        }
+        catch (Exception ex)
+        {
+            vm.IsEnabled = previousValue;
+            ReportError("Управление компьютерами", $"Не удалось изменить состояние компьютера '{vm.Name}': {ex.Message}");
+        }
     }
 
     public void RemoveComputer(ComputerViewModel vm)
@@ -192,8 +211,13 @@ public partial class MainViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             SetAutostartState(_viewerSettings.LaunchAtStartup);
-            _reportAutostartError?.Invoke($"Не удалось прочитать автозапуск: {ex.Message}");
+            ReportError("Автозапуск", $"Не удалось прочитать автозапуск: {ex.Message}");
         }
+    }
+
+    private void ReportError(string title, string message)
+    {
+        _reportError?.Invoke(title, message);
     }
 
     private void SetAutostartState(bool value)

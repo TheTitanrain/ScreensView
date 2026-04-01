@@ -124,17 +124,19 @@
         <ListView x:Name="ComputersList" SelectionMode="Extended" SelectionChanged="ComputersList_SelectionChanged" Margin="4">
             <ListView.View>
                 <GridView>
+                    <GridViewColumn Header="Включён" Width="70">
+                        <GridViewColumn.CellTemplate>
+                            <DataTemplate>
+                                <CheckBox IsChecked="{Binding IsEnabled, Mode=OneWay}"
+                                          Click="EnabledCheckBox_Click"
+                                          HorizontalAlignment="Center"/>
+                            </DataTemplate>
+                        </GridViewColumn.CellTemplate>
+                    </GridViewColumn>
                     <GridViewColumn Header="Имя" Width="160" DisplayMemberBinding="{Binding Name}"/>
                     <GridViewColumn Header="Хост / IP" Width="160" DisplayMemberBinding="{Binding Host}"/>
                     <GridViewColumn Header="Порт" Width="60" DisplayMemberBinding="{Binding Port}"/>
                     <GridViewColumn Header="Статус" Width="80" DisplayMemberBinding="{Binding Status}"/>
-                    <GridViewColumn Header="Включён" Width="70">
-                        <GridViewColumn.CellTemplate>
-                            <DataTemplate>
-                                <CheckBox IsChecked="{Binding IsEnabled}" IsEnabled="False" HorizontalAlignment="Center"/>
-                            </DataTemplate>
-                        </GridViewColumn.CellTemplate>
-                    </GridViewColumn>
                 </GridView>
             </ListView.View>
         </ListView>
