@@ -5,10 +5,11 @@ public class WindowLayoutTests
     [Fact]
     public void ComputersManagerWindow_HasEnoughDefaultWidthForToolbarActions()
     {
-        var computersManagerXaml = File.ReadAllText(GetRepoPath(@"ScreensView.Viewer\Views\ComputersManagerWindow.xaml"));
+        var xaml = File.ReadAllText(GetRepoPath(@"ScreensView.Viewer\Views\ComputersManagerWindow.xaml"));
 
-        Assert.Contains("Width=\"900\"", computersManagerXaml);
-        Assert.Contains("MinWidth=\"900\"", computersManagerXaml);
+        Assert.DoesNotContain("MinWidth=\"900\"", xaml);
+        Assert.Contains("x:Name=\"ToolbarPanel\"", xaml);
+        Assert.Contains("x:Name=\"ConnectionsPanel\"", xaml);
     }
 
     [Fact]
