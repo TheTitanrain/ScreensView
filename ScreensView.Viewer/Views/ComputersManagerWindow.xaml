@@ -94,6 +94,15 @@
                     </StackPanel>
                 </Button>
 
+                <Rectangle Style="{StaticResource ToolbarSeparator}"/>
+
+                <Button x:Name="BtnUpdateAllAgents" Style="{StaticResource ToolbarButton}" Click="UpdateAllAgents_Click">
+                    <StackPanel Orientation="Horizontal">
+                        <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE895;" FontSize="14" VerticalAlignment="Center"/>
+                        <TextBlock Text=" Обновить агентов" VerticalAlignment="Center"/>
+                    </StackPanel>
+                </Button>
+
             </StackPanel>
         </Border>
 

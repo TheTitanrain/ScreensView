@@ -127,6 +127,29 @@ public partial class ComputersManagerWindow : Window
         new InstallProgressWindow(mode, configs, creds.Username, creds.Password) { Owner = this }.ShowDialog();
     }
 
+    private void UpdateAllAgents_Click(object sender, RoutedEventArgs e)
+    {
+        var computers = _mainVm.Computers.Where(c => c.IsEnabled).Select(c => c.ToConfig()).ToList();
+        if (computers.Count == 0)
+        {
+            MessageBox.Show(
+                this,
+                "Нет активных компьютеров для обновления.",
+                "Обновление агентов",
+                MessageBoxButton.OK,
+                MessageBoxImage.Information);
+            return;
+        }
+
+        var creds = new CredentialsDialog { Owner = this };
+        if (creds.ShowDialog() != true) return;
+
+        new InstallProgressWindow(InstallProgressWindow.Mode.UpdateAll, computers, creds.Username, creds.Password)
+        {
+            Owner = this
+        }.ShowDialog();
+    }
+
     private void ConnectionsFile_Click(object sender, RoutedEventArgs e)
     {
         if (MessageBox.Show(

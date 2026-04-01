@@ -36,22 +36,6 @@ public partial class MainWindow : Window
         win.ShowDialog();
     }
 
-    private void UpdateAllAgents_Click(object sender, RoutedEventArgs e)
-    {
-        var computers = _vm.Computers.Where(c => c.IsEnabled).Select(c => c.ToConfig()).ToList();
-        if (computers.Count == 0)
-        {
-            MessageBox.Show("Нет активных компьютеров для обновления.", "Обновление агентов",
-                MessageBoxButton.OK, MessageBoxImage.Information);
-            return;
-        }
-        var creds = new CredentialsDialog { Owner = this };
-        if (creds.ShowDialog() != true) return;
-        var win = new InstallProgressWindow(InstallProgressWindow.Mode.UpdateAll, computers, creds.Username, creds.Password);
-        win.Owner = this;
-        win.ShowDialog();
-    }
-
     private void Card_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (e.ClickCount != 2) return;
