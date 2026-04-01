@@ -9,9 +9,12 @@ public partial class AddEditComputerWindow : Window
 {
     public ComputerConfig? Result { get; private set; }
 
+    private readonly ComputerConfig? _existing;
+
     public AddEditComputerWindow(ComputerConfig? existing)
     {
         InitializeComponent();
+        _existing = existing;
 
         if (existing != null)
         {
@@ -44,13 +47,21 @@ public partial class AddEditComputerWindow : Window
         if (string.IsNullOrWhiteSpace(ApiKeyBox.Text))
         { MessageBox.Show("API-ключ не может быть пустым.", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning); return; }
 
+        var newHost = HostBox.Text.Trim();
+        var certThumbprint = (_existing != null
+            && string.Equals(_existing.Host.Trim(), newHost, StringComparison.OrdinalIgnoreCase)
+            && _existing.Port == port)
+            ? _existing.CertThumbprint
+            : string.Empty;
+
         Result = new ComputerConfig
         {
             Name = NameBox.Text.Trim(),
-            Host = HostBox.Text.Trim(),
+            Host = newHost,
             Port = port,
             ApiKey = ApiKeyBox.Text.Trim(),
-            IsEnabled = EnabledCheck.IsChecked == true
+            IsEnabled = EnabledCheck.IsChecked == true,
+            CertThumbprint = certThumbprint
         };
         DialogResult = true;
     }

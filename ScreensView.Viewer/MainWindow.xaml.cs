@@ -55,10 +55,74 @@ public partial class MainWindow : Window
     private void Card_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
     {
         if (e.ClickCount != 2) return;
-        if (((Border)sender).DataContext is ComputerViewModel vm
-            && vm.Status != ComputerStatus.Locked)
-            new ScreenshotZoomWindow(vm) { Owner = this }.Show();
+        if (((Border)sender).DataContext is ComputerViewModel vm)
+            OpenZoomWindow(vm);
         e.Handled = true;
+    }
+
+    private void OpenZoomWindow(ComputerViewModel vm)
+    {
+        if (vm.Status != ComputerStatus.Locked)
+            new ScreenshotZoomWindow(vm) { Owner = this }.Show();
+    }
+
+    private static ComputerViewModel? GetMenuVm(object sender)
+    {
+        if (sender is MenuItem mi
+            && mi.Parent is ContextMenu cm
+            && cm.PlacementTarget is FrameworkElement fe
+            && fe.DataContext is ComputerViewModel vm)
+            return vm;
+        return null;
+    }
+
+    private void TileMenu_Open(object sender, RoutedEventArgs e)
+    {
+        var vm = GetMenuVm(sender);
+        if (vm != null)
+            OpenZoomWindow(vm);
+    }
+
+    private void TileMenu_Edit(object sender, RoutedEventArgs e)
+    {
+        var vm = GetMenuVm(sender);
+        if (vm == null) return;
+        var win = new Views.AddEditComputerWindow(vm.ToConfig()) { Owner = this };
+        if (win.ShowDialog() == true && win.Result != null)
+            _vm.UpdateComputer(vm, win.Result);
+    }
+
+    private async void TileMenu_Ping(object sender, RoutedEventArgs e)
+    {
+        var vm = GetMenuVm(sender);
+        if (vm == null) return;
+        try
+        {
+            using var http = new Services.AgentHttpClient((_, thumbprint) =>
+            {
+                vm.CertThumbprint = thumbprint;
+                _vm.SaveComputers();
+            });
+            bool ok = await http.CheckHealthAsync(vm.ToConfig());
+            MessageBox.Show(
+                ok ? $"{vm.Name}: агент доступен." : $"{vm.Name}: агент недоступен.",
+                "Пинг",
+                MessageBoxButton.OK,
+                ok ? MessageBoxImage.Information : MessageBoxImage.Warning);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Ошибка: {ex.Message}", "Пинг", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private void TileMenu_Delete(object sender, RoutedEventArgs e)
+    {
+        var vm = GetMenuVm(sender);
+        if (vm == null) return;
+        if (MessageBox.Show($"Удалить «{vm.Name}»?", "Удаление",
+                MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
+        _vm.RemoveComputer(vm);
     }
 
     private void About_Click(object sender, RoutedEventArgs e)

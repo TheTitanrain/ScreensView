@@ -9,17 +9,11 @@ namespace ScreensView.Viewer.Services;
 
 public class AgentHttpClient : IDisposable
 {
-    private readonly HttpClient _client;
     private readonly Action<ComputerConfig, string>? _onThumbprintPinned;
 
     public AgentHttpClient(Action<ComputerConfig, string>? onThumbprintPinned = null)
     {
         _onThumbprintPinned = onThumbprintPinned;
-        var handler = new HttpClientHandler
-        {
-            ServerCertificateCustomValidationCallback = (_, _, _, _) => true  // overridden per-request
-        };
-        _client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(10) };
     }
 
     public async Task<ScreenshotResponse?> GetScreenshotAsync(ComputerConfig computer, CancellationToken ct = default)
@@ -97,5 +91,5 @@ public class AgentHttpClient : IDisposable
         return body;
     }
 
-    public void Dispose() => _client.Dispose();
+    public void Dispose() { }
 }

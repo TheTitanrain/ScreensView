@@ -129,6 +129,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         vm.Port = config.Port;
         vm.ApiKey = config.ApiKey;
         vm.IsEnabled = config.IsEnabled;
+        vm.CertThumbprint = config.CertThumbprint;
         SaveComputers();
     }
 

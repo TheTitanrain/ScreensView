@@ -40,6 +40,7 @@ Five projects in one solution:
 1. User adds a computer in `AddEditComputerWindow` → saved to `ComputerStorageService` → shown in `MainWindow` grid as `ComputerViewModel`
 2. `ScreenshotPollerService.Start()` polls all enabled computers on a configurable interval → updates `ComputerViewModel.Screenshot` on UI thread via Dispatcher
 3. Remote install: `RemoteAgentInstaller` connects via WNet (SMB to `Admin$`), queries remote OS via WMI, selects either modern or legacy payload, copies files + writes `appsettings.json`, then creates/starts the Windows Service via `Win32_Service`
+4. Tile right-click context menu in `MainWindow` resolves the target `ComputerViewModel` via `GetMenuVm()` (`MenuItem.Parent` → `ContextMenu.PlacementTarget` → `DataContext` cast) and then delegates to `OpenZoomWindow`, `_vm.UpdateComputer`, `_vm.RemoveComputer`, or `AgentHttpClient.CheckHealthAsync`
 
 ### Screenshot capture — Session 0 isolation
 

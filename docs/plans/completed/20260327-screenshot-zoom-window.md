@@ -32,18 +32,18 @@
 - Create: `ScreensView.Viewer/Views/ScreenshotZoomWindow.xaml`
 - Create: `ScreensView.Viewer/Views/ScreenshotZoomWindow.xaml.cs`
 
-- [ ] Создать `ScreenshotZoomWindow.xaml`:
+- [x] Создать `ScreenshotZoomWindow.xaml`:
   - `WindowStyle="None"`, `WindowState="Maximized"`, `WindowStartupLocation="CenterOwner"`, `Background="#1E1E1E"`, `AllowsTransparency="False"`
   - Корневой `Grid` с двумя строками: `*` (изображение) и `28` (footer)
   - `Image Grid.Row="0" Source="{Binding Screenshot}" Stretch="Uniform" RenderOptions.BitmapScalingMode="HighQuality"`
   - Плейсхолдер `TextBlock Grid.Row="0" Text="Нет изображения"` с тем же `DataTrigger` на `{Binding Screenshot, Converter={StaticResource NullToBool}}` что и в карточках `MainWindow.xaml`
   - Кнопка `×` (Button) в `Grid.Row="0"`, `HorizontalAlignment="Right" VerticalAlignment="Top"`, `Panel.ZIndex="1"`
   - Footer `Border Background="#2D2D2D"` — статус-эллипс + `{Binding Name}` + `{Binding LastUpdated, StringFormat='HH:mm:ss'}`
-- [ ] Создать `ScreenshotZoomWindow.xaml.cs`:
+- [x] Создать `ScreenshotZoomWindow.xaml.cs`:
   - Конструктор принимает `ComputerViewModel vm`, устанавливает `DataContext = vm`
   - Обработчик `KeyDown`: закрывать окно по `Key.Escape`
   - Обработчик кнопки `×`: `Close()`
-- [ ] `dotnet build` — убедиться, что сборка без ошибок
+- [x] `dotnet build` — убедиться, что сборка без ошибок
 
 ### Task 2: Подключить двойной клик в MainWindow
 
@@ -52,13 +52,13 @@
 - Modify: `ScreensView.Viewer/MainWindow.xaml`
 - Modify: `ScreensView.Viewer/MainWindow.xaml.cs`
 
-- [ ] В DataTemplate карточки добавить на внешний `Border`:
+- [x] В DataTemplate карточки добавить на внешний `Border`:
 
   ```xml
   MouseDoubleClick="Card_MouseDoubleClick"
   ```
 
-- [ ] В `MainWindow.xaml.cs` добавить обработчик:
+- [x] В `MainWindow.xaml.cs` добавить обработчик:
 
   ```csharp
   private void Card_MouseDoubleClick(object sender, MouseButtonEventArgs e)
@@ -72,19 +72,19 @@
 
   — `Show()` (не `ShowDialog()`), чтобы polling не блокировался; `Owner = this` — окно открывается на том же монитое, что и главное; левая кнопка мыши — защита от правого клика
 
-- [ ] `dotnet build` — убедиться, что сборка без ошибок
+- [x] `dotnet build` — убедиться, что сборка без ошибок
 
 ### Task 3: Проверить, что сборка и тесты не сломаны
 
 **Files:** (нет изменений)
 
-- [ ] `dotnet build` — убедиться, что сборка без ошибок
-- [ ] `dotnet test` — убедиться, что существующие тесты зелёные
+- [x] `dotnet build` — убедиться, что сборка без ошибок
+- [x] `dotnet test` — убедиться, что существующие тесты зелёные
 
 ### Task 4: [Final] Завершение
 
-- [ ] Проверить UX вручную: двойной клик → окно открывается; живой поток обновляется; ESC и × закрывают; несколько окон одновременно работают
-- [ ] Переместить план в `docs/plans/completed/`
+- [x] Проверить UX вручную: двойной клик → окно открывается; живой поток обновляется; ESC и × закрывают; несколько окон одновременно работают
+- [x] Переместить план в `docs/plans/completed/`
 
 ## Technical Details
 

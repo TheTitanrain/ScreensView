@@ -164,6 +164,75 @@ public class MainViewModelTests : IDisposable
     }
 
     [Fact]
+    public void UpdateComputer_UpdatesAllFieldsOnViewModel()
+    {
+        var vm = CreateVm();
+        vm.AddComputer(new ComputerConfig { Name = "Old", Host = "10.0.0.1", Port = 5443, ApiKey = "old-key", IsEnabled = true, CertThumbprint = "OLDTHUMB" });
+        var target = vm.Computers[0];
+        var updated = new ComputerConfig { Name = "New", Host = "10.0.0.2", Port = 6443, ApiKey = "new-key", IsEnabled = false, CertThumbprint = "NEWTHUMB" };
+
+        vm.UpdateComputer(target, updated);
+
+        Assert.Equal("New", target.Name);
+        Assert.Equal("10.0.0.2", target.Host);
+        Assert.Equal(6443, target.Port);
+        Assert.Equal("new-key", target.ApiKey);
+        Assert.False(target.IsEnabled);
+        Assert.Equal("NEWTHUMB", target.CertThumbprint);
+    }
+
+    [Fact]
+    public void UpdateComputer_PersistsAfterReload()
+    {
+        var storage = new ComputerStorageService(_tempFile);
+        using (var vm = new MainViewModel(storage, new ScreenshotPollerService(new AgentHttpClient())))
+        {
+            vm.AddComputer(new ComputerConfig { Name = "Old", Host = "10.0.0.1", Port = 5443, ApiKey = "k1", CertThumbprint = "THUMB1" });
+            vm.UpdateComputer(vm.Computers[0], new ComputerConfig { Name = "Updated", Host = "10.0.0.9", Port = 5443, ApiKey = "k1", CertThumbprint = "THUMB2" });
+        }
+
+        using var vm2 = new MainViewModel(storage, new ScreenshotPollerService(new AgentHttpClient()));
+        Assert.Single(vm2.Computers);
+        Assert.Equal("Updated", vm2.Computers[0].Name);
+        Assert.Equal("10.0.0.9", vm2.Computers[0].Host);
+        Assert.Equal("THUMB2", vm2.Computers[0].CertThumbprint);
+    }
+
+    [Fact]
+    public void RemoveComputer_RemovesFromCollection()
+    {
+        var vm = CreateVm();
+        vm.AddComputers([
+            new ComputerConfig { Name = "A", Host = "10.0.0.1", Port = 5443, ApiKey = "k1" },
+            new ComputerConfig { Name = "B", Host = "10.0.0.2", Port = 5443, ApiKey = "k2" },
+        ]);
+        var toRemove = vm.Computers[0];
+
+        vm.RemoveComputer(toRemove);
+
+        Assert.Single(vm.Computers);
+        Assert.Equal("B", vm.Computers[0].Name);
+    }
+
+    [Fact]
+    public void RemoveComputer_PersistsAfterReload()
+    {
+        var storage = new ComputerStorageService(_tempFile);
+        using (var vm = new MainViewModel(storage, new ScreenshotPollerService(new AgentHttpClient())))
+        {
+            vm.AddComputers([
+                new ComputerConfig { Name = "A", Host = "10.0.0.1", Port = 5443, ApiKey = "k1" },
+                new ComputerConfig { Name = "B", Host = "10.0.0.2", Port = 5443, ApiKey = "k2" },
+            ]);
+            vm.RemoveComputer(vm.Computers[0]);
+        }
+
+        using var vm2 = new MainViewModel(storage, new ScreenshotPollerService(new AgentHttpClient()));
+        Assert.Single(vm2.Computers);
+        Assert.Equal("B", vm2.Computers[0].Name);
+    }
+
+    [Fact]
     public void RemoveComputers_RemovesAllFromCollection()
     {
         var vm = CreateVm();
@@ -261,8 +330,10 @@ public class MainViewModelTests : IDisposable
         var replacementStorage = new FakeComputerStorageService();
         var poller = new FakeScreenshotPollerService();
 
-        using var vm = CreateVm(initialStorage, poller);
-        vm.TogglePollingCommand.Execute(null);
+        using var vm = new MainViewModel(
+            initialStorage, poller,
+            new FakeViewerSettingsService(initialValue: false, refreshIntervalSeconds: 7),
+            new FakeAutostartService(initialValue: false));
 
         InvokeApplyConnectionsSourceChange(
             vm,
@@ -277,7 +348,7 @@ public class MainViewModelTests : IDisposable
         Assert.Equal(2, poller.StartCalls.Count);
         Assert.Equal(1, poller.StopCalls);
         Assert.Equal(["Shared A", "Shared B"], poller.StartCalls[^1].ComputerNames);
-        Assert.Equal(vm.RefreshInterval, poller.StartCalls[^1].IntervalSeconds);
+        Assert.Equal(7, poller.StartCalls[^1].IntervalSeconds);
     }
 
     [Fact]
@@ -310,7 +381,7 @@ public class MainViewModelTests : IDisposable
         Assert.Single(initialStorage.SavedSnapshots);
         Assert.Equal("Local", initialStorage.SavedSnapshots[0][0].Name);
         Assert.Empty(replacementStorage.SavedSnapshots);
-        Assert.Empty(poller.StartCalls);
+        Assert.Single(poller.StartCalls); // only the initial Start from the constructor
         Assert.Equal(0, poller.StopCalls);
     }
 
@@ -336,17 +407,17 @@ public class MainViewModelTests : IDisposable
         method!.Invoke(vm, [succeeded, storage, computers]);
     }
 
-    private class FakeViewerSettingsService(bool initialValue) : IViewerSettingsService
+    private class FakeViewerSettingsService(bool initialValue, int refreshIntervalSeconds = 5) : IViewerSettingsService
     {
-        public ViewerSettings Current { get; private set; } = new() { LaunchAtStartup = initialValue };
+        public ViewerSettings Current { get; private set; } = new() { LaunchAtStartup = initialValue, RefreshIntervalSeconds = refreshIntervalSeconds };
         public int SaveCalls { get; private set; }
 
-        public ViewerSettings Load() => new() { LaunchAtStartup = Current.LaunchAtStartup };
+        public ViewerSettings Load() => new() { LaunchAtStartup = Current.LaunchAtStartup, RefreshIntervalSeconds = Current.RefreshIntervalSeconds };
 
         public void Save(ViewerSettings settings)
         {
             SaveCalls++;
-            Current = new ViewerSettings { LaunchAtStartup = settings.LaunchAtStartup };
+            Current = new ViewerSettings { LaunchAtStartup = settings.LaunchAtStartup, RefreshIntervalSeconds = settings.RefreshIntervalSeconds };
         }
     }
 
