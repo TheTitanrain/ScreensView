@@ -45,12 +45,12 @@ public partial class App : Application
             poller,
             settingsService,
             new AutostartService(),
-            message =>
+            (title, message) =>
             {
                 if (mainWindow is null)
-                    MessageBox.Show(message, "Автозапуск", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show(message, title, MessageBoxButton.OK, MessageBoxImage.Error);
                 else
-                    MessageBox.Show(mainWindow, message, "Автозапуск", MessageBoxButton.OK, MessageBoxImage.Error);
+                    MessageBox.Show(mainWindow, message, title, MessageBoxButton.OK, MessageBoxImage.Error);
             });
 
         mainWindow = new MainWindow(viewModel, controller, settingsService);

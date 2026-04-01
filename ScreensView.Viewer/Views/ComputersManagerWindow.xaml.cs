@@ -41,6 +41,14 @@ public partial class ComputersManagerWindow : Window
         BtnUninstall.IsEnabled = count >= 1;
     }
 
+    private void EnabledCheckBox_Click(object sender, RoutedEventArgs e)
+    {
+        if (sender is not CheckBox checkBox || checkBox.DataContext is not ViewModels.ComputerViewModel vm)
+            return;
+
+        _mainVm.SetComputerEnabled(vm, checkBox.IsChecked == true);
+    }
+
     private void Add_Click(object sender, RoutedEventArgs e)
     {
         var win = new AddEditComputerWindow(null) { Owner = this };
