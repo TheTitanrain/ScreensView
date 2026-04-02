@@ -1,6 +1,7 @@
 using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using ScreensView.Shared.Models;
+using ScreensView.Viewer.Models;
 
 namespace ScreensView.Viewer.ViewModels;
 
@@ -22,6 +23,9 @@ public partial class ComputerViewModel : ObservableObject
     [ObservableProperty] private ComputerStatus _status = ComputerStatus.Unknown;
     [ObservableProperty] private string _statusMessage = string.Empty;
     [ObservableProperty] private DateTime? _lastUpdated;
+    [ObservableProperty] private string? _description;
+    [ObservableProperty] private LlmCheckResult? _lastLlmCheck;
+    [ObservableProperty] private bool _isLlmChecking;
 
     public ComputerViewModel(ComputerConfig config)
     {
@@ -32,6 +36,7 @@ public partial class ComputerViewModel : ObservableObject
         _apiKey = config.ApiKey;
         _isEnabled = config.IsEnabled;
         _certThumbprint = config.CertThumbprint;
+        _description = config.Description;
         ApplyEnabledState(_isEnabled);
     }
 
@@ -43,7 +48,8 @@ public partial class ComputerViewModel : ObservableObject
         Port = Port,
         ApiKey = ApiKey,
         IsEnabled = IsEnabled,
-        CertThumbprint = CertThumbprint
+        CertThumbprint = CertThumbprint,
+        Description = Description
     };
 
     public void UpdateScreenshot(ScreenshotResponse response)
@@ -86,6 +92,12 @@ public partial class ComputerViewModel : ObservableObject
     partial void OnIsEnabledChanged(bool value)
     {
         ApplyEnabledState(value);
+    }
+
+    partial void OnDescriptionChanged(string? value)
+    {
+        if (string.IsNullOrEmpty(value))
+            LastLlmCheck = null;
     }
 
     private void ApplyEnabledState(bool isEnabled)

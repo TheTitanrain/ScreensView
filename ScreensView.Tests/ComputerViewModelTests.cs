@@ -1,5 +1,6 @@
 using System.Runtime.ExceptionServices;
 using ScreensView.Shared.Models;
+using ScreensView.Viewer.Models;
 using ScreensView.Viewer.ViewModels;
 
 namespace ScreensView.Tests;
@@ -174,12 +175,94 @@ public class ComputerViewModelTests
         Assert.Null(vm.LastUpdated);
     }
 
+    [Fact]
+    public void Constructor_MapsDescriptionFromConfig()
+    {
+        var config = MakeConfig(c => c.Description = "Desktop with Office icons");
+        var vm = new ComputerViewModel(config);
+        Assert.Equal("Desktop with Office icons", vm.Description);
+    }
+
+    [Fact]
+    public void Constructor_NullDescription_MapsNull()
+    {
+        var config = MakeConfig(c => c.Description = null);
+        var vm = new ComputerViewModel(config);
+        Assert.Null(vm.Description);
+    }
+
+    [Fact]
+    public void ToConfig_IncludesDescription()
+    {
+        var config = MakeConfig(c => c.Description = "Server room monitor");
+        var vm = new ComputerViewModel(config);
+        Assert.Equal("Server room monitor", vm.ToConfig().Description);
+    }
+
+    [Fact]
+    public void ToConfig_NullDescription_RoundTrips()
+    {
+        var vm = new ComputerViewModel(MakeConfig(c => c.Description = null));
+        Assert.Null(vm.ToConfig().Description);
+    }
+
+    [Fact]
+    public void Description_WhenCleared_ResetsLastLlmCheck()
+    {
+        var vm = new ComputerViewModel(MakeConfig(c => c.Description = "some desc"));
+        vm.LastLlmCheck = new LlmCheckResult(true, "ok", false, DateTime.Now);
+
+        vm.Description = string.Empty;
+
+        Assert.Null(vm.LastLlmCheck);
+    }
+
+    [Fact]
+    public void Description_WhenSetToNull_ResetsLastLlmCheck()
+    {
+        var vm = new ComputerViewModel(MakeConfig(c => c.Description = "some desc"));
+        vm.LastLlmCheck = new LlmCheckResult(true, "ok", false, DateTime.Now);
+
+        vm.Description = null;
+
+        Assert.Null(vm.LastLlmCheck);
+    }
+
+    [Fact]
+    public void Description_WhenChangedToNonEmpty_DoesNotResetLastLlmCheck()
+    {
+        var vm = new ComputerViewModel(MakeConfig(c => c.Description = "A"));
+        var result = new LlmCheckResult(true, "ok", false, DateTime.Now);
+        vm.LastLlmCheck = result;
+
+        vm.Description = "B";
+
+        Assert.Same(result, vm.LastLlmCheck);
+    }
+
     private static string CreateMinimalJpegBase64()
     {
         using var bmp = new System.Drawing.Bitmap(4, 4);
         using var ms = new MemoryStream();
         bmp.Save(ms, System.Drawing.Imaging.ImageFormat.Jpeg);
         return Convert.ToBase64String(ms.ToArray());
+    }
+
+    internal static System.Windows.Media.Imaging.BitmapImage CreateMinimalBitmap()
+    {
+        var base64 = CreateMinimalJpegBase64();
+        var bytes = Convert.FromBase64String(base64);
+        return RunOnSta(() =>
+        {
+            var img = new System.Windows.Media.Imaging.BitmapImage();
+            using var ms = new System.IO.MemoryStream(bytes);
+            img.BeginInit();
+            img.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+            img.StreamSource = ms;
+            img.EndInit();
+            img.Freeze();
+            return img;
+        });
     }
 
     private static void RunOnSta(Action action)
@@ -194,5 +277,21 @@ public class ComputerViewModelTests
         thread.Start();
         thread.Join();
         if (caught != null) ExceptionDispatchInfo.Capture(caught).Throw();
+    }
+
+    private static T RunOnSta<T>(Func<T> func)
+    {
+        T? result = default;
+        Exception? caught = null;
+        var thread = new Thread(() =>
+        {
+            try { result = func(); }
+            catch (Exception ex) { caught = ex; }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+        if (caught != null) ExceptionDispatchInfo.Capture(caught).Throw();
+        return result!;
     }
 }
