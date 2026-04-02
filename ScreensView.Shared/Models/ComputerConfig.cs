@@ -10,4 +10,5 @@ public class ComputerConfig
     public bool IsEnabled { get; set; } = true;
     /// <summary>SHA-256 thumbprint of the agent's self-signed cert (pinned on first connection).</summary>
     public string CertThumbprint { get; set; } = string.Empty;
+    public string? Description { get; set; }
 }
