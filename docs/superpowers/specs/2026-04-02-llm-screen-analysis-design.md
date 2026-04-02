@@ -131,16 +131,24 @@ loop:
     for each vm in snapshot sequentially:
         screenshotCopy = read vm.Screenshot           // simple property read, no Dispatcher
         if screenshotCopy == null → skip
+        descriptionAtStart = vm.Description           // capture before inference starts
         set vm.IsLlmChecking = true  [Dispatcher.Invoke]
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60))
         try:
-            result = await _inference.AnalyzeAsync(screenshotCopy, vm.Description, cts.Token)
-            Dispatcher.Invoke: vm.LastLlmCheck = result
+            result = await _inference.AnalyzeAsync(screenshotCopy, descriptionAtStart, cts.Token)
+            Dispatcher.Invoke:
+                if (vm.Description == descriptionAtStart)  // guard: description unchanged
+                    vm.LastLlmCheck = result
+                // else: description changed during inference — discard stale result
         catch:
-            Dispatcher.Invoke: vm.LastLlmCheck = new LlmCheckResult(false, ex.Message, IsError: true, DateTime.Now)
+            Dispatcher.Invoke:
+                if (vm.Description == descriptionAtStart)
+                    vm.LastLlmCheck = new LlmCheckResult(false, ex.Message, IsError: true, DateTime.Now)
         finally:
             Dispatcher.Invoke: vm.IsLlmChecking = false  // always reset
 ```
+
+**Description-change guard:** `descriptionAtStart` is captured synchronously before `AnalyzeAsync`. After inference completes (up to 60s later), the result is written only if `vm.Description` still equals `descriptionAtStart`. If the user cleared or changed the description during inference, the result is silently discarded — `IsLlmChecking` is still reset to false. This prevents stale results from appearing after a description edit.
 
 The `computers.ToList()` snapshot is taken via `Dispatcher.Invoke` to safely read from the WPF `ObservableCollection` (it lives on the UI thread). The loop itself runs on a background thread.
 
@@ -178,7 +186,33 @@ else
 }
 ```
 
-`ModelDownloadProgress` is a `double` property on `MainViewModel` (for UI binding). The `Progress<double>` adapter bridges between `IProgress<double>` (service) and the `double` property (binding). Set to `-1` when not downloading (sentinel for hiding the progress bar).
+`ModelDownloadProgress` is a `double` property on `MainViewModel` (for UI binding), initialized to `-1` (sentinel = not downloading, progress bar hidden).
+
+The download is started from an `async void` method in `App.xaml.cs` (not a bare fire-and-forget `_ = ...`) so that success/error/cancel can reset the progress bar and surface errors:
+
+```csharp
+async void StartModelDownloadAsync()
+{
+    var progress = new Progress<double>(p => mainViewModel.ModelDownloadProgress = p);
+    try
+    {
+        await downloadService.DownloadAsync(progress, mainViewModel.AppToken);
+        // ModelReady fires inside DownloadAsync on success → LlmCheckService.Start() called
+        mainViewModel.ModelDownloadProgress = -1;   // hide progress bar
+    }
+    catch (OperationCanceledException)
+    {
+        mainViewModel.ModelDownloadProgress = -1;   // hide on cancel (app closing)
+    }
+    catch (Exception ex)
+    {
+        mainViewModel.ModelDownloadProgress = -1;   // hide on error
+        mainViewModel.ReportError("Model download", ex.Message); // existing ReportError mechanism
+    }
+}
+```
+
+Replace the bare `_ = downloadService.DownloadAsync(...)` line in the wiring section above with `StartModelDownloadAsync()`.
 
 `MainViewModel` constructor adds:
 
@@ -231,10 +265,32 @@ Add to `ViewerSettings`:
 public int LlmCheckIntervalMinutes { get; set; } = 5;
 ```
 
-In `MainViewModel`, add handler `OnLlmCheckIntervalChanged` (mirrors existing `OnRefreshIntervalChanged`) that:
+In `MainViewModel` constructor, load the value the same way `RefreshInterval` is loaded (load → normalize → write back if changed):
 
-1. Calls `_llmCheckService.Stop()` and restarts with new interval: `_llmCheckService.Start(Computers, value)`
-2. Calls `_viewerSettingsService.Save(_viewerSettings)`
+```csharp
+_llmCheckIntervalMinutes = NormalizeLlmCheckInterval(_viewerSettings.LlmCheckIntervalMinutes);
+_viewerSettings.LlmCheckIntervalMinutes = _llmCheckIntervalMinutes;
+```
+
+Add `[ObservableProperty] private int _llmCheckIntervalMinutes = 5;` alongside the existing `_refreshInterval`.
+
+In `MainViewModel`, add handler `OnLlmCheckIntervalChanged` (mirrors existing `OnRefreshIntervalChanged`):
+
+```csharp
+partial void OnLlmCheckIntervalChanged(int value)
+{
+    var normalized = NormalizeLlmCheckInterval(value);
+    if (value != normalized) { LlmCheckIntervalMinutes = normalized; return; }
+
+    _viewerSettings.LlmCheckIntervalMinutes = value;   // update before saving
+    _viewerSettingsService.Save(_viewerSettings);
+
+    _llmCheckService.Stop();
+    _llmCheckService.Start(Computers, value);
+}
+```
+
+`NormalizeLlmCheckInterval`: clamp to 1–60 minutes, default 5.
 
 ---
 
@@ -308,11 +364,26 @@ New test class `LlmCheckResultTests` and additions to existing test classes. Tar
 
 ### `ModelDownloadServiceTests` — new class
 
-- **IsModelReady false when only .part exists:** create `.part` file, assert `IsModelReady == false`
+These tests require injectable seams. `ModelDownloadService` must expose an `internal` constructor:
+
+```csharp
+internal ModelDownloadService(HttpClient httpClient, string basePath)
+```
+
+The production constructor `ModelDownloadService()` calls this with `new HttpClient()` and `Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "ScreensView", "models")`.
+
+`basePath` controls where `.gguf` and `.part` files are written. Tests use `Path.GetTempPath()` + a per-test GUID subfolder (created in test setup, deleted in teardown).
+
+`HttpClient` is injected to allow a fake `HttpMessageHandler` that returns controlled response streams and `Content-Length` headers.
+
+Test cases:
+
+- **IsModelReady false when only .part exists:** create `.part` file in basePath, assert `IsModelReady == false`
 - **IsModelReady false when neither file exists:** assert `IsModelReady == false`
 - **IsModelReady true when final file exists and no .part:** create final file, assert `IsModelReady == true`
-- **Download resumes via Range header:** mock `HttpClient`; start download with existing `.part` file of known size; assert request contains `Range: bytes=N-` header
-- **Cancellation leaves .part file:** start download, cancel mid-stream, assert `.part` file still present
+- **Download resumes via Range header:** create a `.part` file of N bytes in basePath; fake handler returns HTTP 206; assert the outgoing request contains `Range: bytes=N-`
+- **Cancellation leaves .part file:** fake handler streams data slowly; cancel after first chunk; assert `.part` file still present, `IsModelReady == false`
+- **Successful download fires ModelReady and renames .part:** fake handler returns full content; await `DownloadAsync`; assert final file exists, `.part` file absent, `ModelReady` event was raised
 
 ---
 
@@ -331,3 +402,5 @@ New test class `LlmCheckResultTests` and additions to existing test classes. Tar
 9. **App shutdown mid-check:** app closes cleanly within seconds — `Stop()` cancels inference
 10. Computers without Description are never processed
 11. **Many computers:** with 10 computers at 60s each, cycle takes ~10 min; next cycle starts only after previous finishes — no skipped cycles, no overlaps
+12. **Description changed during inference:** change Description on a computer while its `IsLlmChecking = true`; after inference completes, `LastLlmCheck` stays as it was before the check started (result discarded)
+13. **Download error:** disconnect network mid-download → progress bar hides, error message shown via standard error dialog; no crash, no stuck progress bar
