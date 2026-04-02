@@ -124,7 +124,7 @@ Runs LLM analysis, independent of screenshot polling. Follows the same interface
 
 ```text
 loop:
-    await Task.Delay(intervalMinutes, stopCts.Token)  // wait between cycles
+    await Task.Delay(TimeSpan.FromMinutes(_intervalMinutes), stopCts.Token)  // read volatile field each cycle
     take snapshot: computers = Start()-provided collection
                               .Where(vm => vm.IsEnabled && !string.IsNullOrEmpty(vm.Description))
                               .ToList()               // snapshot on Dispatcher thread
@@ -155,7 +155,8 @@ The `computers.ToList()` snapshot is taken via `Dispatcher.Invoke` to safely rea
 
 **Lifecycle:**
 
-- `Start(IReadOnlyList<ComputerViewModel> computers, int intervalMinutes)` — stores ref, starts loop
+- `Start(IReadOnlyList<ComputerViewModel> computers, int intervalMinutes)` — stores ref, starts loop; if already running, does nothing (idempotent).
+- `UpdateInterval(int intervalMinutes)` — atomically updates the interval field (`volatile int` or `Interlocked`). The running loop reads the field at the start of each `Task.Delay`, so the new interval takes effect after the current cycle finishes. No restart, no overlap.
 - `Stop()` — synchronous, cancels `stopCts` (fire-and-forget). The in-flight 60s inference may run briefly past `Stop()` — acceptable given the cap.
 - Does NOT auto-start. Called explicitly after `ModelDownloadService.ModelReady` fires.
 
@@ -290,13 +291,10 @@ partial void OnLlmCheckIntervalChanged(int value)
     _viewerSettings.LlmCheckIntervalMinutes = value;   // update before saving
     _viewerSettingsService.Save(_viewerSettings);
 
-    // Only restart if model is ready; otherwise the next Start() call
-    // (triggered by ModelReady event) will pick up the saved interval.
-    if (_downloadService.IsModelReady)
-    {
-        _llmCheckService.Stop();
-        _llmCheckService.Start(Computers, value);
-    }
+    // Update interval without restarting the loop — no overlap possible.
+    // If model is not ready yet, the saved value will be read by Start()
+    // when ModelReady fires.
+    _llmCheckService.UpdateInterval(value);
 }
 ```
 
