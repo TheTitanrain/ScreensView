@@ -1,5 +1,6 @@
 using CommunityToolkit.Mvvm.Input;
 using ScreensView.Shared.Models;
+using ScreensView.Viewer.Models;
 using ScreensView.Viewer.Services;
 using ScreensView.Viewer.ViewModels;
 
@@ -587,6 +588,124 @@ public class MainViewModelTests : IDisposable
             new FakeAutostartService(initialValue: false));
     }
 
+    private MainViewModel CreateVmWithLlm(
+        IViewerSettingsService? settingsService = null,
+        IAutostartService? autostartService = null,
+        ILlmCheckService? llmCheckService = null,
+        IModelDownloadService? downloadService = null,
+        Action<string, string>? reportError = null)
+    {
+        var storage = new ComputerStorageService(_tempFile);
+        var poller = new ScreenshotPollerService(new AgentHttpClient());
+        return new MainViewModel(
+            storage, poller,
+            settingsService ?? new ViewerSettingsService(_settingsFile),
+            autostartService ?? new FakeAutostartService(false),
+            reportError,
+            llmCheckService ?? new FakeLlmCheckService(),
+            downloadService ?? new FakeModelDownloadService());
+    }
+
+    [Fact]
+    public void Constructor_LoadsLlmCheckIntervalFromSettings()
+    {
+        var settings = new FakeViewerSettingsService(false, llmCheckIntervalMinutes: 12);
+        using var vm = CreateVmWithLlm(settingsService: settings);
+        Assert.Equal(12, vm.LlmCheckIntervalMinutes);
+    }
+
+    [Fact]
+    public void Constructor_WhenModelReady_StartsLlmCheckService()
+    {
+        var download = new FakeModelDownloadService { IsModelReady = true };
+        var llm = new FakeLlmCheckService();
+        using var vm = CreateVmWithLlm(llmCheckService: llm, downloadService: download);
+        Assert.Single(llm.StartCalls);
+    }
+
+    [Fact]
+    public void Constructor_WhenModelNotReady_DoesNotStartLlmCheckService()
+    {
+        var download = new FakeModelDownloadService { IsModelReady = false };
+        var llm = new FakeLlmCheckService();
+        using var vm = CreateVmWithLlm(llmCheckService: llm, downloadService: download);
+        Assert.Empty(llm.StartCalls);
+    }
+
+    [Fact]
+    public void ModelReady_Event_StartsLlmCheckService()
+    {
+        var download = new FakeModelDownloadService { IsModelReady = false };
+        var llm = new FakeLlmCheckService();
+        using var vm = CreateVmWithLlm(llmCheckService: llm, downloadService: download);
+
+        download.FireModelReady();
+
+        Assert.Single(llm.StartCalls);
+    }
+
+    [Fact]
+    public void LlmCheckIntervalMinutes_WhenChanged_CallsUpdateInterval()
+    {
+        var download = new FakeModelDownloadService { IsModelReady = true };
+        var llm = new FakeLlmCheckService();
+        using var vm = CreateVmWithLlm(llmCheckService: llm, downloadService: download);
+
+        vm.LlmCheckIntervalMinutes = 20;
+
+        Assert.Contains(20, llm.UpdateIntervalCalls);
+    }
+
+    [Fact]
+    public void LlmCheckIntervalMinutes_WhenChanged_SavesSettings()
+    {
+        var settings = new FakeViewerSettingsService(false);
+        var download = new FakeModelDownloadService { IsModelReady = false };
+        using var vm = CreateVmWithLlm(settingsService: settings, downloadService: download);
+        var priorSaves = settings.SaveCalls;
+
+        vm.LlmCheckIntervalMinutes = 10;
+
+        Assert.True(settings.SaveCalls > priorSaves);
+        Assert.Equal(10, settings.Current.LlmCheckIntervalMinutes);
+    }
+
+    [Fact]
+    public void Dispose_StopsLlmCheckService()
+    {
+        var llm = new FakeLlmCheckService();
+        var vm = CreateVmWithLlm(llmCheckService: llm);
+        vm.Dispose();
+        Assert.Equal(1, llm.StopCalls);
+    }
+
+    [Fact]
+    public void UpdateComputer_PropagatesDescription()
+    {
+        using var vm = CreateVmWithLlm();
+        vm.AddComputer(new ComputerConfig { Name = "X", Host = "1.1.1.1", Port = 5443, ApiKey = "k" });
+        var computerVm = vm.Computers[0];
+        var updated = computerVm.ToConfig();
+        updated.Description = "new desc";
+
+        vm.UpdateComputer(computerVm, updated);
+
+        Assert.Equal("new desc", computerVm.Description);
+    }
+
+    [Fact]
+    public void UpdateComputer_ResetsLastLlmCheck()
+    {
+        using var vm = CreateVmWithLlm();
+        vm.AddComputer(new ComputerConfig { Name = "X", Host = "1.1.1.1", Port = 5443, ApiKey = "k" });
+        var computerVm = vm.Computers[0];
+        computerVm.LastLlmCheck = new LlmCheckResult(true, "ok", false, DateTime.Now);
+
+        vm.UpdateComputer(computerVm, computerVm.ToConfig());
+
+        Assert.Null(computerVm.LastLlmCheck);
+    }
+
     private static void InvokeApplyConnectionsSourceChange(
         MainViewModel vm,
         bool succeeded,
@@ -608,18 +727,58 @@ public class MainViewModelTests : IDisposable
         return Assert.IsAssignableFrom<IAsyncRelayCommand>(command);
     }
 
-    private class FakeViewerSettingsService(bool initialValue, int refreshIntervalSeconds = 5) : IViewerSettingsService
+    private class FakeViewerSettingsService(bool initialValue, int refreshIntervalSeconds = 5,
+        int llmCheckIntervalMinutes = 5) : IViewerSettingsService
     {
-        public ViewerSettings Current { get; private set; } = new() { LaunchAtStartup = initialValue, RefreshIntervalSeconds = refreshIntervalSeconds };
+        public ViewerSettings Current { get; private set; } = new()
+        {
+            LaunchAtStartup = initialValue,
+            RefreshIntervalSeconds = refreshIntervalSeconds,
+            LlmCheckIntervalMinutes = llmCheckIntervalMinutes
+        };
         public int SaveCalls { get; private set; }
 
-        public ViewerSettings Load() => new() { LaunchAtStartup = Current.LaunchAtStartup, RefreshIntervalSeconds = Current.RefreshIntervalSeconds };
+        public ViewerSettings Load() => new()
+        {
+            LaunchAtStartup = Current.LaunchAtStartup,
+            RefreshIntervalSeconds = Current.RefreshIntervalSeconds,
+            LlmCheckIntervalMinutes = Current.LlmCheckIntervalMinutes
+        };
 
         public void Save(ViewerSettings settings)
         {
             SaveCalls++;
-            Current = new ViewerSettings { LaunchAtStartup = settings.LaunchAtStartup, RefreshIntervalSeconds = settings.RefreshIntervalSeconds };
+            Current = new ViewerSettings
+            {
+                LaunchAtStartup = settings.LaunchAtStartup,
+                RefreshIntervalSeconds = settings.RefreshIntervalSeconds,
+                LlmCheckIntervalMinutes = settings.LlmCheckIntervalMinutes
+            };
         }
+    }
+
+    private sealed class FakeLlmCheckService : ILlmCheckService
+    {
+        public List<(IReadOnlyList<string> Names, int IntervalMinutes)> StartCalls { get; } = [];
+        public List<int> UpdateIntervalCalls { get; } = [];
+        public int StopCalls { get; private set; }
+
+        public void Start(IReadOnlyList<ComputerViewModel> computers, int intervalMinutes)
+            => StartCalls.Add((computers.Select(vm => vm.Name).ToList(), intervalMinutes));
+
+        public void UpdateInterval(int intervalMinutes)
+            => UpdateIntervalCalls.Add(intervalMinutes);
+
+        public void Stop() => StopCalls++;
+    }
+
+    private sealed class FakeModelDownloadService : IModelDownloadService
+    {
+        public bool IsModelReady { get; set; }
+        public string ModelPath => string.Empty;
+        public event EventHandler? ModelReady;
+        public void FireModelReady() => ModelReady?.Invoke(this, EventArgs.Empty);
+        public Task DownloadAsync(IProgress<double> progress, CancellationToken ct) => Task.CompletedTask;
     }
 
     private class FakeAutostartService(bool initialValue) : IAutostartService
