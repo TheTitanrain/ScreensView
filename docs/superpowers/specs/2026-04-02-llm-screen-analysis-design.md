@@ -132,6 +132,7 @@ loop:
         screenshotCopy = read vm.Screenshot           // simple property read, no Dispatcher
         if screenshotCopy == null → skip
         descriptionAtStart = vm.Description           // capture before inference starts
+        if string.IsNullOrEmpty(descriptionAtStart) → skip  // may have been cleared since snapshot
         set vm.IsLlmChecking = true  [Dispatcher.Invoke]
         using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(60))
         try:
@@ -207,7 +208,11 @@ async void StartModelDownloadAsync()
     catch (Exception ex)
     {
         mainViewModel.ModelDownloadProgress = -1;   // hide on error
-        mainViewModel.ReportError("Model download", ex.Message); // existing ReportError mechanism
+        // Use the existing _reportError delegate that App.xaml.cs already passes to MainViewModel
+        // (Action<string,string> reportError in the internal constructor).
+        // Expose it as an internal method on MainViewModel:
+        //   internal void ReportDownloadError(string message) => ReportError("Model download", message);
+        mainViewModel.ReportDownloadError(ex.Message);
     }
 }
 ```
@@ -285,8 +290,13 @@ partial void OnLlmCheckIntervalChanged(int value)
     _viewerSettings.LlmCheckIntervalMinutes = value;   // update before saving
     _viewerSettingsService.Save(_viewerSettings);
 
-    _llmCheckService.Stop();
-    _llmCheckService.Start(Computers, value);
+    // Only restart if model is ready; otherwise the next Start() call
+    // (triggered by ModelReady event) will pick up the saved interval.
+    if (_downloadService.IsModelReady)
+    {
+        _llmCheckService.Stop();
+        _llmCheckService.Start(Computers, value);
+    }
 }
 ```
 
