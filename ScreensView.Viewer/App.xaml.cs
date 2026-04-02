@@ -1,6 +1,7 @@
 using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
+using ScreensView.Viewer.Models;
 using ScreensView.Viewer.Services;
 using ScreensView.Viewer.ViewModels;
 using ScreensView.Viewer.Views;
@@ -149,6 +150,71 @@ public class NullToBoolConverter : IValueConverter
     public object Convert(object? value, Type targetType, object parameter, CultureInfo culture)
         => value != null;
 
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotImplementedException();
+}
+
+public class LlmBorderBrushConverter : IValueConverter
+{
+    public static readonly LlmBorderBrushConverter Instance = new();
+
+    public object Convert(object? value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is LlmCheckResult { IsError: false, IsMatch: true })
+            return new System.Windows.Media.SolidColorBrush(
+                System.Windows.Media.Color.FromRgb(0x44, 0xCC, 0x44)); // green
+        if (value is LlmCheckResult { IsError: false, IsMatch: false })
+            return new System.Windows.Media.SolidColorBrush(
+                System.Windows.Media.Color.FromRgb(0xFF, 0x88, 0x00)); // orange
+        return System.Windows.Media.Brushes.Transparent;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotImplementedException();
+}
+
+public class LlmBorderThicknessConverter : IValueConverter
+{
+    public static readonly LlmBorderThicknessConverter Instance = new();
+
+    public object Convert(object? value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is LlmCheckResult { IsError: false, IsMatch: true })
+            return new System.Windows.Thickness(2);
+        if (value is LlmCheckResult { IsError: false, IsMatch: false })
+            return new System.Windows.Thickness(3);
+        return new System.Windows.Thickness(0);
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotImplementedException();
+}
+
+public class LlmTooltipConverter : IValueConverter
+{
+    public static readonly LlmTooltipConverter Instance = new();
+
+    public object? Convert(object? value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if (value is bool isChecking && isChecking)
+            return "LLM: analysing...";
+        if (value is LlmCheckResult result)
+        {
+            var prefix = result.IsError ? "LLM: Error" :
+                         result.IsMatch ? "LLM: Match" : "LLM: Mismatch";
+            return $"{prefix} — {result.Explanation}";
+        }
+        return null;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotImplementedException();
+}
+
+public class ModelDownloadActiveConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object parameter, CultureInfo culture)
+        => value is double d && d >= 0;
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         => throw new NotImplementedException();
 }

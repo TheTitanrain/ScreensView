@@ -176,6 +176,51 @@
                               VerticalAlignment="Center"
                               Margin="8,0,4,0"/>
 
+                    <Rectangle Style="{StaticResource ToolbarSeparator}"/>
+
+                    <!-- LLM interval -->
+                    <TextBlock Text="LLM:" VerticalAlignment="Center" Margin="4,0,2,0" FontSize="12"/>
+                    <Slider Minimum="1" Maximum="60" Width="80" VerticalAlignment="Center"
+                            Value="{Binding LlmCheckIntervalMinutes}"
+                            Margin="4,0" TickFrequency="1" IsSnapToTickEnabled="True"/>
+                    <TextBlock Text="{Binding LlmCheckIntervalMinutes, StringFormat='{}{0} min'}"
+                               VerticalAlignment="Center" Width="42"
+                               FontSize="13" FontWeight="SemiBold" Foreground="#1A1A1A"/>
+
+                    <!-- Model download progress (hidden when not downloading) -->
+                    <Rectangle>
+                        <Rectangle.Style>
+                            <Style TargetType="Rectangle" BasedOn="{StaticResource ToolbarSeparator}">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ModelDownloadProgress,
+                                        Converter={StaticResource ModelDownloadActive}}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </Rectangle.Style>
+                    </Rectangle>
+                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                        <StackPanel.Style>
+                            <Style TargetType="StackPanel">
+                                <Setter Property="Visibility" Value="Collapsed"/>
+                                <Style.Triggers>
+                                    <DataTrigger Binding="{Binding ModelDownloadProgress,
+                                        Converter={StaticResource ModelDownloadActive}}" Value="True">
+                                        <Setter Property="Visibility" Value="Visible"/>
+                                    </DataTrigger>
+                                </Style.Triggers>
+                            </Style>
+                        </StackPanel.Style>
+                        <TextBlock Text="Downloading model: " VerticalAlignment="Center" FontSize="12"/>
+                        <ProgressBar Width="120" Height="14" VerticalAlignment="Center"
+                                     Minimum="0" Maximum="100"
+                                     Value="{Binding ModelDownloadProgress, Mode=OneWay}"/>
+                        <TextBlock Text="{Binding ModelDownloadProgress, StringFormat='{} {0:0}%'}"
+                                   VerticalAlignment="Center" Margin="4,0,0,0" FontSize="12"/>
+                    </StackPanel>
+
                 </StackPanel>
 
                 <!-- Right: About button -->
@@ -204,7 +249,27 @@
                 </ItemsControl.ItemsPanel>
                 <ItemsControl.ItemTemplate>
                     <DataTemplate DataType="{x:Type vm:ComputerViewModel}">
-                        <Border Margin="6" BorderBrush="#CCCCCC" BorderThickness="1"
+                        <Border Margin="6"
+                                BorderBrush="{Binding LastLlmCheck, Converter={StaticResource LlmBorderBrush}}"
+                                BorderThickness="{Binding LastLlmCheck, Converter={StaticResource LlmBorderThickness}}"
+                                CornerRadius="4">
+                            <Border.ToolTip>
+                                <ToolTip>
+                                    <TextBlock>
+                                        <TextBlock.Style>
+                                            <Style TargetType="TextBlock">
+                                                <Setter Property="Text" Value="{Binding LastLlmCheck, Converter={StaticResource LlmTooltip}}"/>
+                                                <Style.Triggers>
+                                                    <DataTrigger Binding="{Binding IsLlmChecking}" Value="True">
+                                                        <Setter Property="Text" Value="LLM: analysing..."/>
+                                                    </DataTrigger>
+                                                </Style.Triggers>
+                                            </Style>
+                                        </TextBlock.Style>
+                                    </TextBlock>
+                                </ToolTip>
+                            </Border.ToolTip>
+                        <Border BorderBrush="#CCCCCC" BorderThickness="1"
                                 Background="#1E1E1E" CornerRadius="4"
                                 MouseLeftButtonDown="Card_MouseLeftButtonDown">
                             <Border.Style>
@@ -329,6 +394,7 @@
                                     </Grid>
                                 </Border>
                             </Grid>
+                        </Border>
                         </Border>
                     </DataTemplate>
                 </ItemsControl.ItemTemplate>

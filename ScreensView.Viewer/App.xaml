@@ -4,5 +4,9 @@
              xmlns:local="clr-namespace:ScreensView.Viewer">
     <Application.Resources>
         <local:NullToBoolConverter x:Key="NullToBool"/>
+        <local:LlmBorderBrushConverter x:Key="LlmBorderBrush"/>
+        <local:LlmBorderThicknessConverter x:Key="LlmBorderThickness"/>
+        <local:LlmTooltipConverter x:Key="LlmTooltip"/>
+        <local:ModelDownloadActiveConverter x:Key="ModelDownloadActive"/>
     </Application.Resources>
 </Application>
