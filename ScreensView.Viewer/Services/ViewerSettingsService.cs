@@ -64,6 +64,7 @@ public class ViewerSettings
 {
     public bool LaunchAtStartup { get; set; }
     public int RefreshIntervalSeconds { get; set; } = 5;
+    public int LlmCheckIntervalMinutes { get; set; } = 5;
     public string ConnectionsFilePath { get; set; } = string.Empty;
     public string ConnectionsFilePasswordEncrypted { get; set; } = string.Empty;
 }

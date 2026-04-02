@@ -104,4 +104,28 @@ public class ViewerSettingsServiceTests : IDisposable
         Assert.IsType<string>(value);
         return (string)value;
     }
+
+    [Fact]
+    public void LlmCheckIntervalMinutes_DefaultValue_IsFive()
+    {
+        var settings = new ViewerSettings();
+        Assert.Equal(5, settings.LlmCheckIntervalMinutes);
+    }
+
+    [Fact]
+    public void LlmCheckIntervalMinutes_PersistsAcrossSaveLoad()
+    {
+        var path = Path.GetTempFileName();
+        try
+        {
+            var svc = new ViewerSettingsService(path);
+            var settings = svc.Load();
+            settings.LlmCheckIntervalMinutes = 15;
+            svc.Save(settings);
+
+            var loaded = svc.Load();
+            Assert.Equal(15, loaded.LlmCheckIntervalMinutes);
+        }
+        finally { File.Delete(path); }
+    }
 }
