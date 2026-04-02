@@ -827,15 +827,17 @@ The LLamaSharp vision API is experimental — a full implementation is deferred.
           var originalDesc = "original";
           LlmCheckResult fakeResult = new(false, "mismatch", false, DateTime.Now);
 
-          var inference = new FakeLlmInferenceService(fakeResult,
-              onAnalyze: vm => vm.Description = "changed during inference");
-          var svc = new LlmCheckService(inference);
+          // vm must be declared before inference so OnBeforeReturn can capture it
           var vm = MakeVm(originalDesc);
           vm.Screenshot = ComputerViewModelTests.CreateMinimalBitmap();
 
+          var inference = new FakeLlmInferenceService(fakeResult);
+          inference.OnBeforeReturn = () => vm.Description = "changed during inference";
+          var svc = new LlmCheckService(inference);
+
           await svc.RunCycleAsync([vm]);
 
-          // Description changed, so result is discarded
+          // Description changed during inference, so result is discarded
           Assert.Null(vm.LastLlmCheck);
           Assert.False(vm.IsLlmChecking);
       }
