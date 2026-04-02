@@ -23,6 +23,7 @@ public partial class AddEditComputerWindow : Window
             PortBox.Text = existing.Port.ToString();
             ApiKeyBox.Text = existing.ApiKey;
             EnabledCheck.IsChecked = existing.IsEnabled;
+            DescriptionBox.Text = existing.Description ?? string.Empty;
         }
         else
         {
@@ -54,6 +55,7 @@ public partial class AddEditComputerWindow : Window
             ? _existing.CertThumbprint
             : string.Empty;
 
+        var desc = DescriptionBox.Text.Trim();
         Result = new ComputerConfig
         {
             Name = NameBox.Text.Trim(),
@@ -61,7 +63,8 @@ public partial class AddEditComputerWindow : Window
             Port = port,
             ApiKey = ApiKeyBox.Text.Trim(),
             IsEnabled = EnabledCheck.IsChecked == true,
-            CertThumbprint = certThumbprint
+            CertThumbprint = certThumbprint,
+            Description = desc.Length > 0 ? desc : null
         };
         DialogResult = true;
     }
