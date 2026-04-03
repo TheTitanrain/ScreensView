@@ -11,6 +11,7 @@ namespace ScreensView.Viewer.Services;
 public interface ILlmInferenceService
 {
     Task<LlmCheckResult> AnalyzeAsync(BitmapImage screenshot, string description, CancellationToken ct);
+    void Reset(); // disposes cached runtime so next AnalyzeAsync loads from current model path
 }
 
 internal interface ILlmVisionRuntime : IDisposable
@@ -90,6 +91,12 @@ public class LlmInferenceService : ILlmInferenceService, IDisposable
         {
             return new LlmCheckResult(false, ex.Message, IsError: true, DateTime.Now);
         }
+    }
+
+    public void Reset()
+    {
+        _runtime?.Dispose();
+        _runtime = null;
     }
 
     public void Dispose()

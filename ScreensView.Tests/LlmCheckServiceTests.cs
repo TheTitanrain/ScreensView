@@ -193,5 +193,8 @@ public class LlmCheckServiceTests
             OnBeforeReturn?.Invoke();
             return Task.FromResult(_result ?? new LlmCheckResult(true, "ok", false, DateTime.Now));
         }
+
+        public int ResetCalls { get; private set; }
+        public void Reset() => ResetCalls++;
     }
 }
