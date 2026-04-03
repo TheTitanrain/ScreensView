@@ -728,6 +728,16 @@ public class MainViewModelTests : IDisposable
     }
 
     [Fact]
+    public void SelectedModel_WhenChanged_StopsLlmCheckService()
+    {
+        var llm = new FakeLlmCheckService();
+        using var vm = CreateVmWithLlm(llmCheckService: llm);
+        var newModel = new ModelDefinition("test", "Test", "test.gguf", "https://example.com/test.gguf", null, null);
+        vm.SelectedModel = newModel;
+        Assert.NotEmpty(llm.StopCalls);
+    }
+
+    [Fact]
     public void LlmCheckIntervalMinutes_WhenChanged_CallsUpdateInterval()
     {
         var download = new FakeModelDownloadService { IsModelReady = true };
@@ -760,6 +770,15 @@ public class MainViewModelTests : IDisposable
         var vm = CreateVmWithLlm(llmCheckService: llm);
         vm.Dispose();
         Assert.Single(llm.StopCalls);
+    }
+
+    [Fact]
+    public void Dispose_CallsResetOnInferenceService()
+    {
+        var inference = new FakeLlmInferenceService();
+        var vm = CreateVmWithLlm(inferenceService: inference);
+        vm.Dispose();
+        Assert.True(inference.ResetCalls > 0);
     }
 
     [Fact]
