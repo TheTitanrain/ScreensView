@@ -116,7 +116,8 @@ public partial class MainWindow : Window
 
     private void Settings_Click(object sender, RoutedEventArgs e)
     {
-        // TODO: open SettingsWindow
+        var win = new Views.SettingsWindow(_vm) { Owner = this };
+        win.ShowDialog();
     }
 
     private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
