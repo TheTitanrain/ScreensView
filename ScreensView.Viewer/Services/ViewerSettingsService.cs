@@ -65,6 +65,8 @@ public class ViewerSettings
     public bool LaunchAtStartup { get; set; }
     public int RefreshIntervalSeconds { get; set; } = 5;
     public int LlmCheckIntervalMinutes { get; set; } = 5;
+    public bool LlmEnabled { get; set; } = false;
+    public string SelectedModelId { get; set; } = "qwen3.5-2b-q4";
     public string ConnectionsFilePath { get; set; } = string.Empty;
     public string ConnectionsFilePasswordEncrypted { get; set; } = string.Empty;
 }

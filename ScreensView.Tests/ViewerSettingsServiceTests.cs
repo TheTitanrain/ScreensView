@@ -128,4 +128,45 @@ public class ViewerSettingsServiceTests : IDisposable
         }
         finally { File.Delete(path); }
     }
+
+    [Fact]
+    public void LlmEnabled_DefaultValue_IsFalse()
+    {
+        var settings = new ViewerSettings();
+        Assert.False(settings.LlmEnabled);
+    }
+
+    [Fact]
+    public void LlmEnabled_PersistsAcrossSaveLoad()
+    {
+        var path = Path.GetTempFileName();
+        try
+        {
+            var svc = new ViewerSettingsService(path);
+            var settings = svc.Load();
+            settings.LlmEnabled = true;
+            svc.Save(settings);
+
+            var loaded = svc.Load();
+            Assert.True(loaded.LlmEnabled);
+        }
+        finally { File.Delete(path); }
+    }
+
+    [Fact]
+    public void SelectedModelId_PersistsAcrossSaveLoad()
+    {
+        var path = Path.GetTempFileName();
+        try
+        {
+            var svc = new ViewerSettingsService(path);
+            var settings = svc.Load();
+            settings.SelectedModelId = "some-model-id";
+            svc.Save(settings);
+
+            var loaded = svc.Load();
+            Assert.Equal("some-model-id", loaded.SelectedModelId);
+        }
+        finally { File.Delete(path); }
+    }
 }
