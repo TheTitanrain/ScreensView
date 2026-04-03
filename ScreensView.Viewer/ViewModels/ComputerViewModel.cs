@@ -7,6 +7,17 @@ namespace ScreensView.Viewer.ViewModels;
 
 public enum ComputerStatus { Unknown, Online, Offline, Error, Locked, Disabled }
 
+public enum LlmTileStatus
+{
+    Inactive,      // service not running
+    NoDescription, // service running but description is null/empty
+    Waiting,       // has description, waiting for first check or screenshot
+    Checking,      // IsLlmChecking = true
+    Match,         // LastLlmCheck.IsMatch && !IsError
+    Mismatch,      // !LastLlmCheck.IsMatch && !IsError
+    Error          // LastLlmCheck.IsError
+}
+
 public partial class ComputerViewModel : ObservableObject
 {
     private const string DisabledMessage = "Компьютер отключён в Управлении компьютерами.";
@@ -26,6 +37,8 @@ public partial class ComputerViewModel : ObservableObject
     [ObservableProperty] private string? _description;
     [ObservableProperty] private LlmCheckResult? _lastLlmCheck;
     [ObservableProperty] private bool _isLlmChecking;
+    [ObservableProperty] private bool _isLlmServiceActive;
+    [ObservableProperty] private LlmTileStatus _llmStatus = LlmTileStatus.Inactive;
 
     public ComputerViewModel(ComputerConfig config)
     {
@@ -98,7 +111,25 @@ public partial class ComputerViewModel : ObservableObject
     {
         if (string.IsNullOrEmpty(value))
             LastLlmCheck = null;
+        UpdateLlmStatus();
     }
+
+    partial void OnIsLlmServiceActiveChanged(bool value) => UpdateLlmStatus();
+    partial void OnIsLlmCheckingChanged(bool value) => UpdateLlmStatus();
+    partial void OnLastLlmCheckChanged(LlmCheckResult? value) => UpdateLlmStatus();
+
+    private LlmTileStatus ComputeLlmStatus() => _isLlmServiceActive switch
+    {
+        false => LlmTileStatus.Inactive,
+        true when string.IsNullOrEmpty(_description)   => LlmTileStatus.NoDescription,
+        true when _isLlmChecking                       => LlmTileStatus.Checking,
+        true when _lastLlmCheck is null                => LlmTileStatus.Waiting,
+        true when _lastLlmCheck.IsError                => LlmTileStatus.Error,
+        true when _lastLlmCheck.IsMatch                => LlmTileStatus.Match,
+        _                                              => LlmTileStatus.Mismatch
+    };
+
+    private void UpdateLlmStatus() => LlmStatus = ComputeLlmStatus();
 
     private void ApplyEnabledState(bool isEnabled)
     {

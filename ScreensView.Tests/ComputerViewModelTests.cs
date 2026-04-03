@@ -240,6 +240,78 @@ public class ComputerViewModelTests
         Assert.Same(result, vm.LastLlmCheck);
     }
 
+    // ---- LlmStatus computed property tests ----
+
+    [Fact]
+    public void LlmStatus_WhenServiceInactive_IsInactive()
+    {
+        var vm = new ComputerViewModel(MakeConfig(c => c.Description = "some description"));
+        Assert.Equal(LlmTileStatus.Inactive, vm.LlmStatus);
+    }
+
+    [Fact]
+    public void LlmStatus_WhenServiceActiveAndNoDescription_IsNoDescription()
+    {
+        var vm = new ComputerViewModel(MakeConfig(c => c.Description = null));
+        vm.IsLlmServiceActive = true;
+        Assert.Equal(LlmTileStatus.NoDescription, vm.LlmStatus);
+    }
+
+    [Fact]
+    public void LlmStatus_WhenServiceActiveAndHasDescriptionAndNoCheck_IsWaiting()
+    {
+        var vm = new ComputerViewModel(MakeConfig(c => c.Description = "show desktop"));
+        vm.IsLlmServiceActive = true;
+        Assert.Equal(LlmTileStatus.Waiting, vm.LlmStatus);
+    }
+
+    [Fact]
+    public void LlmStatus_WhenIsLlmChecking_IsChecking()
+    {
+        var vm = new ComputerViewModel(MakeConfig(c => c.Description = "show desktop"));
+        vm.IsLlmServiceActive = true;
+        vm.IsLlmChecking = true;
+        Assert.Equal(LlmTileStatus.Checking, vm.LlmStatus);
+    }
+
+    [Fact]
+    public void LlmStatus_WhenMatchResult_IsMatch()
+    {
+        var vm = new ComputerViewModel(MakeConfig(c => c.Description = "show desktop"));
+        vm.IsLlmServiceActive = true;
+        vm.LastLlmCheck = new LlmCheckResult(IsMatch: true, Explanation: "ok", IsError: false, CheckedAt: DateTime.UtcNow);
+        Assert.Equal(LlmTileStatus.Match, vm.LlmStatus);
+    }
+
+    [Fact]
+    public void LlmStatus_WhenMismatchResult_IsMismatch()
+    {
+        var vm = new ComputerViewModel(MakeConfig(c => c.Description = "show desktop"));
+        vm.IsLlmServiceActive = true;
+        vm.LastLlmCheck = new LlmCheckResult(IsMatch: false, Explanation: "nope", IsError: false, CheckedAt: DateTime.UtcNow);
+        Assert.Equal(LlmTileStatus.Mismatch, vm.LlmStatus);
+    }
+
+    [Fact]
+    public void LlmStatus_WhenErrorResult_IsError()
+    {
+        var vm = new ComputerViewModel(MakeConfig(c => c.Description = "show desktop"));
+        vm.IsLlmServiceActive = true;
+        vm.LastLlmCheck = new LlmCheckResult(IsMatch: false, Explanation: "err", IsError: true, CheckedAt: DateTime.UtcNow);
+        Assert.Equal(LlmTileStatus.Error, vm.LlmStatus);
+    }
+
+    [Fact]
+    public void LlmStatus_WhenDescriptionCleared_ReturnsToNoDescription()
+    {
+        var vm = new ComputerViewModel(MakeConfig(c => c.Description = "show desktop"));
+        vm.IsLlmServiceActive = true;
+        vm.LastLlmCheck = new LlmCheckResult(true, "ok", false, DateTime.UtcNow);
+        vm.Description = null; // clear — should clear check and move to NoDescription
+        Assert.Equal(LlmTileStatus.NoDescription, vm.LlmStatus);
+        Assert.Null(vm.LastLlmCheck);
+    }
+
     private static string CreateMinimalJpegBase64()
     {
         using var bmp = new System.Drawing.Bitmap(4, 4);
