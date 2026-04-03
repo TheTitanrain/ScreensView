@@ -60,31 +60,8 @@ public partial class App : Application
             downloadService);
 
         mainWindow = new MainWindow(viewModel, controller, settingsService);
-        if (!downloadService.IsModelReady)
-            StartModelDownloadAsync(downloadService, viewModel);
         MainWindow = mainWindow;
         mainWindow.Show();
-    }
-
-    private static async void StartModelDownloadAsync(
-        ModelDownloadService downloadService,
-        MainViewModel viewModel)
-    {
-        var progress = new Progress<double>(p => viewModel.ModelDownloadProgress = p);
-        try
-        {
-            await downloadService.DownloadAsync(progress, viewModel.AppToken);
-            viewModel.ModelDownloadProgress = -1;
-        }
-        catch (OperationCanceledException)
-        {
-            viewModel.ModelDownloadProgress = -1;
-        }
-        catch (Exception ex)
-        {
-            viewModel.ModelDownloadProgress = -1;
-            viewModel.ReportDownloadError(ex.Message);
-        }
     }
 
     private ResolveConnectionsSourceResult? ResolveStartupSource(
