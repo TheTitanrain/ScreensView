@@ -114,6 +114,11 @@ public partial class MainWindow : Window
         new AboutWindow { Owner = this }.ShowDialog();
     }
 
+    private void Settings_Click(object sender, RoutedEventArgs e)
+    {
+        // TODO: open SettingsWindow
+    }
+
     private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)
     {
         _vm.Dispose();

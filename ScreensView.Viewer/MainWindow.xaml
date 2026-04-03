@@ -178,48 +178,12 @@
 
                     <Rectangle Style="{StaticResource ToolbarSeparator}"/>
 
-                    <!-- LLM interval -->
-                    <TextBlock Text="LLM:" VerticalAlignment="Center" Margin="4,0,2,0" FontSize="12"/>
-                    <Slider Minimum="1" Maximum="60" Width="80" VerticalAlignment="Center"
-                            Value="{Binding LlmCheckIntervalMinutes}"
-                            Margin="4,0" TickFrequency="1" IsSnapToTickEnabled="True"/>
-                    <TextBlock Text="{Binding LlmCheckIntervalMinutes, StringFormat='{}{0} min'}"
-                               VerticalAlignment="Center" Width="42"
-                               FontSize="13" FontWeight="SemiBold" Foreground="#1A1A1A"/>
-
-                    <!-- Model download progress (hidden when not downloading) -->
-                    <Rectangle>
-                        <Rectangle.Style>
-                            <Style TargetType="Rectangle" BasedOn="{StaticResource ToolbarSeparator}">
-                                <Setter Property="Visibility" Value="Collapsed"/>
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding ModelDownloadProgress,
-                                        Converter={StaticResource ModelDownloadActive}}" Value="True">
-                                        <Setter Property="Visibility" Value="Visible"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </Rectangle.Style>
-                    </Rectangle>
-                    <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                        <StackPanel.Style>
-                            <Style TargetType="StackPanel">
-                                <Setter Property="Visibility" Value="Collapsed"/>
-                                <Style.Triggers>
-                                    <DataTrigger Binding="{Binding ModelDownloadProgress,
-                                        Converter={StaticResource ModelDownloadActive}}" Value="True">
-                                        <Setter Property="Visibility" Value="Visible"/>
-                                    </DataTrigger>
-                                </Style.Triggers>
-                            </Style>
-                        </StackPanel.Style>
-                        <TextBlock Text="Downloading model: " VerticalAlignment="Center" FontSize="12"/>
-                        <ProgressBar Width="120" Height="14" VerticalAlignment="Center"
-                                     Minimum="0" Maximum="100"
-                                     Value="{Binding ModelDownloadProgress, Mode=OneWay}"/>
-                        <TextBlock Text="{Binding ModelDownloadProgress, StringFormat='{} {0:0}%'}"
-                                   VerticalAlignment="Center" Margin="4,0,0,0" FontSize="12"/>
-                    </StackPanel>
+                    <Button Style="{StaticResource ToolbarButton}" Click="Settings_Click">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE713;" FontSize="14" VerticalAlignment="Center"/>
+                            <TextBlock Text=" Настройки" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
 
                 </StackPanel>
 
