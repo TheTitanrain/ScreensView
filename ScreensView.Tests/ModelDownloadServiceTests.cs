@@ -20,6 +20,9 @@ public class ModelDownloadServiceTests : IDisposable
     private ModelDownloadService Make(HttpMessageHandler? handler = null)
         => new(handler ?? new NoOpHandler(), _tempDir);
 
+    private string ModelPath => Make().ModelPath;
+    private string ProjectorPath => Make().ProjectorPath;
+
     // ---- IsModelReady ----
 
     [Fact]
@@ -31,32 +34,40 @@ public class ModelDownloadServiceTests : IDisposable
     [Fact]
     public void IsModelReady_WhenOnlyPartFileExists_ReturnsFalse()
     {
-        File.WriteAllText(Path.Combine(_tempDir, "qwen3.5-2b-q4_k_m.gguf.part"), "partial");
+        File.WriteAllText(ModelPath + ".part", "partial");
         Assert.False(Make().IsModelReady);
     }
 
     [Fact]
-    public void IsModelReady_WhenFinalFileExistsAndNoPartFile_ReturnsTrue()
+    public void IsModelReady_WhenOnlyMainModelExists_ReturnsFalse()
     {
-        File.WriteAllText(Path.Combine(_tempDir, "qwen3.5-2b-q4_k_m.gguf"), "model");
+        File.WriteAllText(ModelPath, "model");
+        Assert.False(Make().IsModelReady);
+    }
+
+    [Fact]
+    public void IsModelReady_WhenOnlyProjectorExists_ReturnsFalse()
+    {
+        File.WriteAllText(ProjectorPath, "projector");
+        Assert.False(Make().IsModelReady);
+    }
+
+    [Fact]
+    public void IsModelReady_WhenMainModelAndProjectorExist_ReturnsTrue()
+    {
+        File.WriteAllText(ModelPath, "model");
+        File.WriteAllText(ProjectorPath, "projector");
         Assert.True(Make().IsModelReady);
-    }
-
-    [Fact]
-    public void IsModelReady_WhenBothFilesExist_ReturnsFalse()
-    {
-        File.WriteAllText(Path.Combine(_tempDir, "qwen3.5-2b-q4_k_m.gguf"), "model");
-        File.WriteAllText(Path.Combine(_tempDir, "qwen3.5-2b-q4_k_m.gguf.part"), "partial");
-        Assert.False(Make().IsModelReady);
     }
 
     // ---- Download writes file ----
 
     [Fact]
-    public async Task DownloadAsync_OnSuccess_WritesFileAndFiresModelReady()
+    public async Task DownloadAsync_OnSuccess_WritesBothFilesAndFiresModelReady()
     {
-        var content = "fake-model-bytes"u8.ToArray();
-        var handler = new FakeHandler(HttpStatusCode.OK, content);
+        var handler = new RoutingHandler(
+            "fake-model-bytes"u8.ToArray(),
+            "fake-mmproj-bytes"u8.ToArray());
         var svc = Make(handler);
         bool modelReadyFired = false;
         svc.ModelReady += (_, _) => modelReadyFired = true;
@@ -65,7 +76,10 @@ public class ModelDownloadServiceTests : IDisposable
 
         Assert.True(svc.IsModelReady);
         Assert.True(modelReadyFired);
-        Assert.False(File.Exists(Path.Combine(_tempDir, "qwen3.5-2b-q4_k_m.gguf.part")));
+        Assert.True(File.Exists(ModelPath));
+        Assert.True(File.Exists(ProjectorPath));
+        Assert.False(File.Exists(ModelPath + ".part"));
+        Assert.False(File.Exists(ProjectorPath + ".part"));
     }
 
     // ---- Resume via Range header ----
@@ -74,12 +88,17 @@ public class ModelDownloadServiceTests : IDisposable
     public async Task DownloadAsync_WhenPartFileExists_SendsRangeHeader()
     {
         var existingBytes = "existing"u8.ToArray();
-        File.WriteAllBytes(Path.Combine(_tempDir, "qwen3.5-2b-q4_k_m.gguf.part"), existingBytes);
+        File.WriteAllBytes(ModelPath + ".part", existingBytes);
 
         string? rangeHeader = null;
-        var remaining = "more"u8.ToArray();
-        var handler = new CapturingHandler(HttpStatusCode.PartialContent, remaining,
-            req => rangeHeader = req.Headers.Range?.ToString());
+        var handler = new RoutingHandler(
+            "more"u8.ToArray(),
+            "projector"u8.ToArray(),
+            capture: req =>
+            {
+                if (req.RequestUri?.AbsoluteUri.Contains("Qwen3.5-2B-Q4_K_M.gguf", StringComparison.OrdinalIgnoreCase) == true)
+                    rangeHeader = req.Headers.Range?.ToString();
+            });
         var svc = Make(handler);
 
         await svc.DownloadAsync(new Progress<double>(), CancellationToken.None);
@@ -100,7 +119,7 @@ public class ModelDownloadServiceTests : IDisposable
         await Assert.ThrowsAsync<OperationCanceledException>(
             () => svc.DownloadAsync(new Progress<double>(), cts.Token));
 
-        Assert.True(File.Exists(Path.Combine(_tempDir, "qwen3.5-2b-q4_k_m.gguf.part")));
+        Assert.True(File.Exists(ModelPath + ".part"));
         Assert.False(svc.IsModelReady);
     }
 
@@ -115,24 +134,17 @@ public class ModelDownloadServiceTests : IDisposable
             });
     }
 
-    private class FakeHandler(HttpStatusCode status, byte[] content) : HttpMessageHandler
-    {
-        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage req, CancellationToken ct)
-            => Task.FromResult(new HttpResponseMessage(status)
-            {
-                Content = new ByteArrayContent(content)
-            });
-    }
-
-    private class CapturingHandler(HttpStatusCode status, byte[] content, Action<HttpRequestMessage> capture)
+    private class RoutingHandler(byte[] modelBytes, byte[] projectorBytes, Action<HttpRequestMessage>? capture = null)
         : HttpMessageHandler
     {
         protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage req, CancellationToken ct)
         {
-            capture(req);
-            return Task.FromResult(new HttpResponseMessage(status)
+            capture?.Invoke(req);
+            var isProjector = req.RequestUri?.AbsoluteUri.Contains("mmproj", StringComparison.OrdinalIgnoreCase) == true;
+            return Task.FromResult(new HttpResponseMessage(
+                req.Headers.Range is null ? HttpStatusCode.OK : HttpStatusCode.PartialContent)
             {
-                Content = new ByteArrayContent(content)
+                Content = new ByteArrayContent(isProjector ? projectorBytes : modelBytes)
             });
         }
     }

@@ -70,14 +70,16 @@ public record LlmCheckResult(
 
 ### `ModelDownloadService` — `ScreensView.Viewer/Services/ModelDownloadService.cs`
 
-Downloads the GGUF model file on first use.
+Downloads the GGUF model artifacts on first use.
 
-- Target path: `%AppData%\ScreensView\models\qwen3.5-2b-q4_k_m.gguf`
-- Download URL: direct HuggingFace CDN link to the Q4_K_M quantization file
-- Download writes to `<target>.part` temporary file, renamed atomically to final path on success
-- Supports resume via `Range` header if `.part` file exists
-- Progress reported via `IProgress<double>` (0.0–100.0)
-- **`IsModelReady`**: returns true only if the final file exists **and** no `.part` file is present
+- Target paths:
+  - `%AppData%\ScreensView\models\Qwen3.5-2B-Q4_K_M.gguf`
+  - `%AppData%\ScreensView\models\mmproj-F16.gguf`
+- Download URLs: direct HuggingFace CDN links to the Q4_K_M model file and the matching `mmproj-F16.gguf` projector
+- Each artifact downloads to its own `<target>.part` temporary file, then is renamed atomically to final path on success
+- Supports resume via `Range` header if a `.part` file exists
+- Progress reported via `IProgress<double>` (0.0–100.0), split across the two downloads
+- **`IsModelReady`**: returns true only if both final files exist **and** neither `.part` file is present
 - Accepts `CancellationToken`; on cancellation, leaves the `.part` file for next-startup resume
 - Exposes `event EventHandler ModelReady` — fired once when model becomes ready (triggers `LlmCheckService.Start()`)
 
@@ -86,6 +88,7 @@ Interface:
 ```csharp
 bool IsModelReady { get; }
 string ModelPath { get; }
+string ProjectorPath { get; }
 event EventHandler ModelReady;
 Task DownloadAsync(IProgress<double> progress, CancellationToken ct);
 ```
@@ -96,16 +99,21 @@ No `Cancel()` method — cancellation is entirely through the `CancellationToken
 
 Wraps LLamaSharp to run vision inference.
 
-- Lazy-loads model into memory on first call using `ModelDownloadService.ModelPath`
+- Lazy-loads both the model and the projector on first call using `ModelDownloadService.ModelPath` and `ProjectorPath`
 - Accepts `CancellationToken` for timeout enforcement
 - Method: `Task<LlmCheckResult> AnalyzeAsync(BitmapImage screenshot, string description, CancellationToken ct)`
-- Converts `BitmapImage` → JPEG bytes → base64 for multimodal input
+- Converts `BitmapImage` → JPEG bytes for multimodal input
 - Fixed English prompt:
-  > `"Does the screen match this description: '{description}'? Reply with YES or NO and one sentence explanation."`
+  > `"<image>\nUSER:\nDoes the screen match this description: '{description}'? Reply with YES or NO and one sentence explanation.\nASSISTANT:\n"`
+- Uses the LLamaSharp 0.20.0 multimodal pattern from docs/samples:
+  - `LLamaWeights.LoadFromFileAsync(modelParams, ct)`
+  - `LLavaWeights.LoadFromFileAsync(projectorPath, ct)`
+  - `new InteractiveExecutor(context, clipModel)`
+  - `executor.Images.Add(jpegBytes)`
 - Parses: first word YES/NO → `IsMatch`, remainder → `Explanation`
 - On parse failure or exception: returns `new LlmCheckResult(IsMatch: false, Explanation: ex.Message, IsError: true, CheckedAt: DateTime.Now)`
 
-**LLamaSharp vision risk:** LLavaWeights multimodal support is experimental. If it proves incompatible with Qwen3.5 GGUF at implementation time, the fallback is to use a different model file that IS confirmed to work with LLamaSharp (e.g. a LLaVA-based GGUF). The download URL in `ModelDownloadService` and the inference internals change, but the service interface and the rest of the architecture stay the same. **Ollama is not a fallback** — switching to Ollama would make `ModelDownloadService` obsolete and require separate installation/readiness-checking outside the scope of this spec.
+**Compatibility note:** For the current implementation target, the HuggingFace `unsloth/Qwen3.5-2B-GGUF` repo provides both `Qwen3.5-2B-Q4_K_M.gguf` and `mmproj-F16.gguf`, and LLamaSharp 0.20.0 samples show this projector-based `LLavaWeights + InteractiveExecutor` workflow. If a later model revision stops working with LLamaSharp vision APIs, the fallback is still to switch to a confirmed-compatible GGUF + projector pair. **Ollama is not a fallback** — switching to Ollama would make `ModelDownloadService` obsolete and require separate installation/readiness-checking outside the scope of this spec.
 
 **NuGet dependencies:**
 

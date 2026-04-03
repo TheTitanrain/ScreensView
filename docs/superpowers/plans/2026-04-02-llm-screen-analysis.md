@@ -1831,33 +1831,36 @@ The LLamaSharp vision API is experimental — a full implementation is deferred.
 
 > **Prerequisites:** Verify at [github.com/SciSharp/LLamaSharp](https://github.com/SciSharp/LLamaSharp) that the installed version supports multimodal/vision inference with Qwen3.5 GGUF. If `LLavaWeights` is incompatible, download a LLaVA-based GGUF instead and update `ModelDownloadService.DownloadUrl` and `ModelFileName` accordingly.
 
-- [ ] **Step 1: Confirm LLamaSharp vision API**
+- [x] **Step 1: Confirm LLamaSharp vision API**
 
-  Create a scratch console app or check LLamaSharp docs/samples to confirm:
-  - `LLavaWeights` can load alongside a GGUF model
-  - `ChatSession` or equivalent accepts image + text in a single prompt
-  - Qwen3.5-2B-GGUF works, or identify which GGUF to use
+  Checked LLamaSharp `v0.20.0` docs/samples and verified the supported multimodal path is:
+  - `LLamaWeights.LoadFromFileAsync(modelParams, ct)`
+  - `LLavaWeights.LoadFromFileAsync(projectorPath, ct)`
+  - `new InteractiveExecutor(context, clipModel)`
+  - `executor.Images.Add(jpegBytes)`
+  - prompt includes `<image>` and the `USER` / `ASSISTANT` turn markers
 
-- [ ] **Step 2: Implement AnalyzeAsync**
+  The current `unsloth/Qwen3.5-2B-GGUF` release provides both `Qwen3.5-2B-Q4_K_M.gguf` and `mmproj-F16.gguf`, so the app must download both files.
 
-  Replace the `NotImplementedException` stub in `LlmInferenceService.AnalyzeAsync` with:
+- [x] **Step 2: Implement AnalyzeAsync**
+
+  Replace the `NotImplementedException` stub in `LlmInferenceService.AnalyzeAsync` with the actual multimodal call:
 
   ```csharp
-  private LLamaWeights? _model;
-  private LLavaWeights? _vision;
+  private ILlmVisionRuntime? _runtime;
   private readonly SemaphoreSlim _loadLock = new(1, 1);
 
-  private async Task EnsureLoadedAsync()
+  private async Task EnsureLoadedAsync(CancellationToken ct)
   {
-      if (_model is not null) return;
-      await _loadLock.WaitAsync();
+      if (_runtime is not null) return;
+      await _loadLock.WaitAsync(ct);
       try
       {
-          if (_model is not null) return;
-          var parameters = new ModelParams(_download.ModelPath) { ContextSize = 2048 };
-          _model = LLamaWeights.LoadFromFile(parameters);
-          // Load vision projector if separate file required (model-dependent)
-          // _vision = LLavaWeights.LoadFromFile(parameters, projectorPath);
+          if (_runtime is not null) return;
+          _runtime = await _runtimeFactory.CreateAsync(
+              _download.ModelPath,
+              _download.ProjectorPath,
+              ct);
       }
       finally { _loadLock.Release(); }
   }
@@ -1867,34 +1870,19 @@ The LLamaSharp vision API is experimental — a full implementation is deferred.
   {
       try
       {
-          await EnsureLoadedAsync();
+          await EnsureLoadedAsync(ct);
 
-          // Encode screenshot to JPEG bytes
-          byte[] jpegBytes = await System.Windows.Application.Current.Dispatcher.InvokeAsync(() =>
-          {
-              var encoder = new System.Windows.Media.Imaging.JpegBitmapEncoder();
-              encoder.Frames.Add(System.Windows.Media.Imaging.BitmapFrame.Create(screenshot));
-              using var ms = new System.IO.MemoryStream();
-              encoder.Save(ms);
-              return ms.ToArray();
-          });
+          var jpegBytes = await EncodeJpegAsync(screenshot);
+          var prompt = "<image>\nUSER:\nDoes the screen match this description: " +
+                       $"'{description}'? Reply with YES or NO and one sentence explanation.\nASSISTANT:\n";
+          var rawResponse = await _runtime!.InferAsync(jpegBytes, prompt, ct);
+          var (isMatch, explanation) = ParseModelResponse(rawResponse);
 
-          // TODO: adapt to actual LLamaSharp vision API for the chosen model
-          // See: https://github.com/SciSharp/LLamaSharp/tree/master/LLama.Examples
-          var prompt = $"Does the screen match this description: '{description}'? " +
-                       "Reply with YES or NO and one sentence explanation.";
-
-          // Placeholder — replace with actual LLamaSharp multimodal call:
-          throw new NotImplementedException(
-              "Replace this with LLamaSharp vision API call. See Task 11 step 2 notes.");
+          return new LlmCheckResult(isMatch, explanation, IsError: false, DateTime.Now);
       }
       catch (OperationCanceledException)
       {
-          throw; // propagate cancellation
-      }
-      catch (NotImplementedException)
-      {
-          throw; // surface stub
+          throw;
       }
       catch (Exception ex)
       {
@@ -1903,13 +1891,16 @@ The LLamaSharp vision API is experimental — a full implementation is deferred.
   }
   ```
 
-  > **Note:** The exact LLamaSharp vision API depends on the version installed and model used. Consult the installed package's samples in `LLama.Examples` for the correct `LLavaWeights` + `ChatSession` pattern. This step may require iteration.
+  Implementation notes:
+  - `ModelDownloadService` must expose both `ModelPath` and `ProjectorPath`
+  - The production runtime should serialize inference calls and create `InteractiveExecutor(context, projector)` per request
+  - Parse `YES` / `NO` from the first token and treat malformed output as an error result
 
-- [ ] **Step 3: Commit stub or working implementation**
+- [x] **Step 3: Commit working implementation**
 
   ```bash
-  git add ScreensView.Viewer/Services/LlmInferenceService.cs
-  git commit -m "feat: LlmInferenceService vision implementation (WIP — LLamaSharp API TBD)"
+  git add ScreensView.Viewer/Services/LlmInferenceService.cs ScreensView.Viewer/Services/ModelDownloadService.cs ScreensView.Tests/LlmInferenceServiceTests.cs ScreensView.Tests/ModelDownloadServiceTests.cs ScreensView.Tests/MainViewModelTests.cs docs/superpowers/specs/2026-04-02-llm-screen-analysis-design.md docs/superpowers/plans/2026-04-02-llm-screen-analysis.md
+  git commit -m "feat: implement LLamaSharp multimodal screen analysis"
   ```
 
 ---
