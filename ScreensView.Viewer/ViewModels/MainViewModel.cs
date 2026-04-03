@@ -172,7 +172,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             ModelDownloadProgress = -1;
-            ReportError("Model download", ex.Message);
+            var msg = ex.InnerException is not null
+                ? $"{ex.Message}\n\n{ex.InnerException.Message}"
+                : ex.Message;
+            ReportError("Model download", msg);
         }
     }
 

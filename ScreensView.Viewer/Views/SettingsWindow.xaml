@@ -72,13 +72,14 @@
                 </ProgressBar.Style>
             </ProgressBar>
 
-            <!-- Download percentage text — visible only during download -->
+            <!-- Download percentage text — visible only when progress >= 0 -->
             <TextBlock Margin="0,0,0,8">
                 <TextBlock.Style>
                     <Style TargetType="TextBlock">
                         <Setter Property="Visibility" Value="Collapsed"/>
                         <Style.Triggers>
-                            <DataTrigger Binding="{Binding DownloadModelCommand.IsRunning}" Value="True">
+                            <DataTrigger Binding="{Binding ModelDownloadProgress,
+                                Converter={StaticResource ModelDownloadActive}}" Value="True">
                                 <Setter Property="Visibility" Value="Visible"/>
                             </DataTrigger>
                         </Style.Triggers>
