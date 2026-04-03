@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ScreensView.Shared.Models;
+using ScreensView.Viewer.Models;
 using ScreensView.Viewer.Services;
 
 namespace ScreensView.Viewer.ViewModels;
@@ -22,6 +23,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private bool _isSynchronizingAutostart;
     private readonly ILlmCheckService _llmCheckService;
     private readonly IModelDownloadService _downloadService;
+    private readonly ILlmInferenceService _inferenceService;
     private readonly CancellationTokenSource _appCts = new();
 
     public ObservableCollection<ComputerViewModel> Computers { get; } = [];
@@ -31,6 +33,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private bool _isAutostartEnabled;
     [ObservableProperty] private int _llmCheckIntervalMinutes = 5;
     [ObservableProperty] private double _modelDownloadProgress = -1;
+    [ObservableProperty] private bool _isLlmEnabled;
+    [ObservableProperty] private ModelDefinition _selectedModel = ModelDefinition.Default;
 
     public CancellationToken AppToken => _appCts.Token;
 
@@ -46,7 +50,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
         IAutostartService autostartService,
         Action<string, string>? reportError = null,
         ILlmCheckService? llmCheckService = null,
-        IModelDownloadService? downloadService = null)
+        IModelDownloadService? downloadService = null,
+        ILlmInferenceService? inferenceService = null)
     {
         _storage = storage;
         _poller = poller;
@@ -65,18 +70,28 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _poller.Start(Computers, _refreshInterval);
         _isPolling = true;
 
-        _llmCheckService = llmCheckService ?? new LlmCheckService(
-            new LlmInferenceService(new ModelDownloadService()));
         _downloadService = downloadService ?? new ModelDownloadService();
+        _inferenceService = inferenceService ?? new LlmInferenceService(_downloadService);
+        _llmCheckService = llmCheckService ?? new LlmCheckService(_inferenceService);
 
         _llmCheckIntervalMinutes = NormalizeLlmCheckInterval(
             _viewerSettings.LlmCheckIntervalMinutes);
         _viewerSettings.LlmCheckIntervalMinutes = _llmCheckIntervalMinutes;
 
-        _downloadService.ModelReady += (_, _) =>
-            _llmCheckService.Start(Computers, _llmCheckIntervalMinutes);
+        // Load persisted LLM settings
+        _isLlmEnabled = _viewerSettings.LlmEnabled;
+        _selectedModel = ModelDefinition.Available.FirstOrDefault(m => m.Id == _viewerSettings.SelectedModelId)
+                         ?? ModelDefinition.Default;
+        _downloadService.SelectModel(_selectedModel); // sync service to persisted selection
 
-        if (_downloadService.IsModelReady)
+        _downloadService.ModelReady += (_, _) =>
+        {
+            OnPropertyChanged(nameof(ModelStatusText));
+            if (_isLlmEnabled)
+                _llmCheckService.Start(Computers, _llmCheckIntervalMinutes);
+        };
+
+        if (_isLlmEnabled && _downloadService.IsModelReady)
             _llmCheckService.Start(Computers, _llmCheckIntervalMinutes);
     }
 
@@ -133,6 +148,58 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _viewerSettingsService.Save(_viewerSettings);
 
         _llmCheckService.UpdateInterval(value);
+    }
+
+    public string ModelStatusText =>
+        _downloadService.IsModelReady ? "Готово ✓" : "Не скачана";
+
+    [RelayCommand(IncludeCancelCommand = true, AllowConcurrentExecutions = false)]
+    private async Task DownloadModelAsync(CancellationToken ct)
+    {
+        var model = _selectedModel; // snapshot to prevent race
+        _downloadService.SelectModel(model);
+
+        var progress = new Progress<double>(p => ModelDownloadProgress = p);
+        try
+        {
+            await _downloadService.DownloadAsync(progress, ct);
+            ModelDownloadProgress = -1;
+            OnPropertyChanged(nameof(ModelStatusText));
+            if (_isLlmEnabled)
+                _llmCheckService.Start(Computers, _llmCheckIntervalMinutes);
+        }
+        catch (OperationCanceledException) { ModelDownloadProgress = -1; }
+        catch (Exception ex)
+        {
+            ModelDownloadProgress = -1;
+            ReportError("Model download", ex.Message);
+        }
+    }
+
+    partial void OnIsLlmEnabledChanged(bool value)
+    {
+        _viewerSettings.LlmEnabled = value;
+        _viewerSettingsService.Save(_viewerSettings);
+
+        if (value && _downloadService.IsModelReady)
+            _llmCheckService.Start(Computers, _llmCheckIntervalMinutes);
+        else if (!value)
+            _llmCheckService.Stop();
+    }
+
+    partial void OnSelectedModelChanged(ModelDefinition value)
+    {
+        _viewerSettings.SelectedModelId = value.Id;
+        _viewerSettingsService.Save(_viewerSettings);
+
+        // Stop → reset runtime → switch model path → restart if conditions met
+        _llmCheckService.Stop();
+        _inferenceService.Reset();
+        _downloadService.SelectModel(value);
+        OnPropertyChanged(nameof(ModelStatusText));
+
+        if (_isLlmEnabled && _downloadService.IsModelReady)
+            _llmCheckService.Start(Computers, _llmCheckIntervalMinutes);
     }
 
     partial void OnIsAutostartEnabledChanged(bool value)
@@ -241,6 +308,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     {
         _poller.Dispose();
         _llmCheckService.Stop();
+        _inferenceService.Reset();
         _appCts.Cancel();
         _appCts.Dispose();
     }

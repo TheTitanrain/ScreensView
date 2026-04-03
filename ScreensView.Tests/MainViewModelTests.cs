@@ -593,7 +593,8 @@ public class MainViewModelTests : IDisposable
         IAutostartService? autostartService = null,
         ILlmCheckService? llmCheckService = null,
         IModelDownloadService? downloadService = null,
-        Action<string, string>? reportError = null)
+        Action<string, string>? reportError = null,
+        ILlmInferenceService? inferenceService = null)
     {
         var storage = new ComputerStorageService(_tempFile);
         var poller = new ScreenshotPollerService(new AgentHttpClient());
@@ -603,7 +604,8 @@ public class MainViewModelTests : IDisposable
             autostartService ?? new FakeAutostartService(false),
             reportError,
             llmCheckService ?? new FakeLlmCheckService(),
-            downloadService ?? new FakeModelDownloadService());
+            downloadService ?? new FakeModelDownloadService(),
+            inferenceService);
     }
 
     [Fact]
@@ -615,12 +617,22 @@ public class MainViewModelTests : IDisposable
     }
 
     [Fact]
-    public void Constructor_WhenModelReady_StartsLlmCheckService()
+    public void Constructor_WhenModelReadyAndLlmEnabled_StartsLlmCheckService()
+    {
+        var settings = new FakeViewerSettingsService(false, llmEnabled: true);
+        var download = new FakeModelDownloadService { IsModelReady = true };
+        var llm = new FakeLlmCheckService();
+        using var vm = CreateVmWithLlm(settingsService: settings, llmCheckService: llm, downloadService: download);
+        Assert.Single(llm.StartCalls);
+    }
+
+    [Fact]
+    public void Constructor_WhenModelReadyButLlmDisabled_DoesNotStartLlmCheckService()
     {
         var download = new FakeModelDownloadService { IsModelReady = true };
         var llm = new FakeLlmCheckService();
-        using var vm = CreateVmWithLlm(llmCheckService: llm, downloadService: download);
-        Assert.Single(llm.StartCalls);
+        using var vm = CreateVmWithLlm(llmCheckService: llm, downloadService: download); // llmEnabled defaults to false
+        Assert.Empty(llm.StartCalls);
     }
 
     [Fact]
@@ -633,15 +645,86 @@ public class MainViewModelTests : IDisposable
     }
 
     [Fact]
-    public void ModelReady_Event_StartsLlmCheckService()
+    public void ModelReady_Event_WhenLlmEnabled_StartsLlmCheckService()
     {
+        var settings = new FakeViewerSettingsService(false, llmEnabled: true);
         var download = new FakeModelDownloadService { IsModelReady = false };
         var llm = new FakeLlmCheckService();
-        using var vm = CreateVmWithLlm(llmCheckService: llm, downloadService: download);
+        using var vm = CreateVmWithLlm(settingsService: settings, llmCheckService: llm, downloadService: download);
 
         download.FireModelReady();
 
         Assert.Single(llm.StartCalls);
+    }
+
+    [Fact]
+    public void ModelReady_Event_WhenLlmDisabled_DoesNotStartLlmCheckService()
+    {
+        var download = new FakeModelDownloadService { IsModelReady = false };
+        var llm = new FakeLlmCheckService();
+        using var vm = CreateVmWithLlm(llmCheckService: llm, downloadService: download);
+        download.FireModelReady();
+        Assert.Empty(llm.StartCalls);
+    }
+
+    [Fact]
+    public void IsLlmEnabled_WhenEnabledAndModelReady_StartsService()
+    {
+        var download = new FakeModelDownloadService { IsModelReady = true };
+        var llm = new FakeLlmCheckService();
+        using var vm = CreateVmWithLlm(llmCheckService: llm, downloadService: download);
+        vm.IsLlmEnabled = true;
+        Assert.NotEmpty(llm.StartCalls);
+    }
+
+    [Fact]
+    public void IsLlmEnabled_WhenDisabled_StopsService()
+    {
+        var settings = new FakeViewerSettingsService(false, llmEnabled: true);
+        var download = new FakeModelDownloadService { IsModelReady = true };
+        var llm = new FakeLlmCheckService();
+        using var vm = CreateVmWithLlm(settingsService: settings, llmCheckService: llm, downloadService: download);
+        vm.IsLlmEnabled = false;
+        Assert.NotEmpty(llm.StopCalls);
+    }
+
+    [Fact]
+    public void IsLlmEnabled_WhenChanged_SavesSettings()
+    {
+        var settings = new FakeViewerSettingsService(false);
+        using var vm = CreateVmWithLlm(settingsService: settings);
+        vm.IsLlmEnabled = true;
+        Assert.True(settings.Current.LlmEnabled);
+    }
+
+    [Fact]
+    public void SelectedModel_WhenChanged_CallsSelectModelOnDownloadService()
+    {
+        var download = new FakeModelDownloadService();
+        using var vm = CreateVmWithLlm(downloadService: download);
+        var newModel = new ModelDefinition("test", "Test", "test.gguf", "https://example.com/test.gguf", null, null);
+        vm.SelectedModel = newModel;
+        Assert.Contains(newModel, download.SelectModelCalls);
+    }
+
+    [Fact]
+    public void SelectedModel_WhenChanged_CallsResetOnInferenceService()
+    {
+        var inference = new FakeLlmInferenceService();
+        using var vm = CreateVmWithLlm(inferenceService: inference);
+        var newModel = new ModelDefinition("test", "Test", "test.gguf", "https://example.com/test.gguf", null, null);
+        vm.SelectedModel = newModel;
+        Assert.Equal(1, inference.ResetCalls);
+    }
+
+    [Fact]
+    public void SelectedModel_WhenChanged_SavesSettings()
+    {
+        var settings = new FakeViewerSettingsService(false);
+        using var vm = CreateVmWithLlm(settingsService: settings);
+        var newModel = new ModelDefinition("test", "Test", "test.gguf", "https://example.com/test.gguf", null, null);
+        vm.SelectedModel = newModel;
+        Assert.Equal("test", settings.Current.SelectedModelId);
     }
 
     [Fact]
@@ -676,7 +759,7 @@ public class MainViewModelTests : IDisposable
         var llm = new FakeLlmCheckService();
         var vm = CreateVmWithLlm(llmCheckService: llm);
         vm.Dispose();
-        Assert.Equal(1, llm.StopCalls);
+        Assert.Single(llm.StopCalls);
     }
 
     [Fact]
@@ -728,13 +811,14 @@ public class MainViewModelTests : IDisposable
     }
 
     private class FakeViewerSettingsService(bool initialValue, int refreshIntervalSeconds = 5,
-        int llmCheckIntervalMinutes = 5) : IViewerSettingsService
+        int llmCheckIntervalMinutes = 5, bool llmEnabled = false) : IViewerSettingsService
     {
         public ViewerSettings Current { get; private set; } = new()
         {
             LaunchAtStartup = initialValue,
             RefreshIntervalSeconds = refreshIntervalSeconds,
-            LlmCheckIntervalMinutes = llmCheckIntervalMinutes
+            LlmCheckIntervalMinutes = llmCheckIntervalMinutes,
+            LlmEnabled = llmEnabled
         };
         public int SaveCalls { get; private set; }
 
@@ -742,7 +826,9 @@ public class MainViewModelTests : IDisposable
         {
             LaunchAtStartup = Current.LaunchAtStartup,
             RefreshIntervalSeconds = Current.RefreshIntervalSeconds,
-            LlmCheckIntervalMinutes = Current.LlmCheckIntervalMinutes
+            LlmCheckIntervalMinutes = Current.LlmCheckIntervalMinutes,
+            LlmEnabled = Current.LlmEnabled,
+            SelectedModelId = Current.SelectedModelId
         };
 
         public void Save(ViewerSettings settings)
@@ -752,7 +838,9 @@ public class MainViewModelTests : IDisposable
             {
                 LaunchAtStartup = settings.LaunchAtStartup,
                 RefreshIntervalSeconds = settings.RefreshIntervalSeconds,
-                LlmCheckIntervalMinutes = settings.LlmCheckIntervalMinutes
+                LlmCheckIntervalMinutes = settings.LlmCheckIntervalMinutes,
+                LlmEnabled = settings.LlmEnabled,
+                SelectedModelId = settings.SelectedModelId
             };
         }
     }
@@ -761,7 +849,7 @@ public class MainViewModelTests : IDisposable
     {
         public List<(IReadOnlyList<string> Names, int IntervalMinutes)> StartCalls { get; } = [];
         public List<int> UpdateIntervalCalls { get; } = [];
-        public int StopCalls { get; private set; }
+        public List<object> StopCalls { get; } = [];
 
         public void Start(IReadOnlyList<ComputerViewModel> computers, int intervalMinutes)
             => StartCalls.Add((computers.Select(vm => vm.Name).ToList(), intervalMinutes));
@@ -769,7 +857,7 @@ public class MainViewModelTests : IDisposable
         public void UpdateInterval(int intervalMinutes)
             => UpdateIntervalCalls.Add(intervalMinutes);
 
-        public void Stop() => StopCalls++;
+        public void Stop() => StopCalls.Add(new object());
     }
 
     private sealed class FakeModelDownloadService : IModelDownloadService
@@ -877,5 +965,13 @@ public class MainViewModelTests : IDisposable
     {
         public int SaveCount { get; private set; }
         public override void SaveComputers() => SaveCount++;
+    }
+
+    private class FakeLlmInferenceService : ILlmInferenceService
+    {
+        public int ResetCalls { get; private set; }
+        public void Reset() => ResetCalls++;
+        public Task<LlmCheckResult> AnalyzeAsync(System.Windows.Media.Imaging.BitmapImage screenshot, string description, CancellationToken ct)
+            => Task.FromResult(new LlmCheckResult(false, "fake", false, DateTime.UtcNow));
     }
 }
