@@ -2,6 +2,7 @@ using System.IO;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Headers;
+using ScreensView.Viewer.Models;
 
 namespace ScreensView.Viewer.Services;
 
@@ -10,18 +11,15 @@ public interface IModelDownloadService
     bool IsModelReady { get; }
     string ModelPath { get; }
     string ProjectorPath { get; }
+    ModelDefinition SelectedModel { get; }
+    void SelectModel(ModelDefinition model);
     event EventHandler ModelReady;
     Task DownloadAsync(IProgress<double> progress, CancellationToken ct);
 }
 
 public class ModelDownloadService : IModelDownloadService
 {
-    private const string ModelFileName = "Qwen3.5-2B-Q4_K_M.gguf";
-    private const string ProjectorFileName = "mmproj-F16.gguf";
-    private const string ModelDownloadUrl =
-        "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf";
-    private const string ProjectorDownloadUrl =
-        "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/mmproj-F16.gguf";
+    private ModelDefinition _selectedModel = ModelDefinition.Default;
 
     private readonly HttpClient _http;
     private readonly string _basePath;
@@ -44,6 +42,12 @@ public class ModelDownloadService : IModelDownloadService
     {
     }
 
+    // Testable constructor — path only (no HTTP needed for file-system tests)
+    internal ModelDownloadService(string basePath)
+        : this(new HttpClient(), basePath)
+    {
+    }
+
     private ModelDownloadService(HttpClient http, string basePath)
     {
         _http = http;
@@ -51,34 +55,31 @@ public class ModelDownloadService : IModelDownloadService
         Directory.CreateDirectory(_basePath);
     }
 
-    public string ModelPath => Path.Combine(_basePath, ModelFileName);
-    public string ProjectorPath => Path.Combine(_basePath, ProjectorFileName);
+    public ModelDefinition SelectedModel => _selectedModel;
 
-    private string PartPath => ModelPath + ".part";
-    private string ProjectorPartPath => ProjectorPath + ".part";
+    public void SelectModel(ModelDefinition model)
+    {
+        _selectedModel = model;
+    }
+
+    public string ModelPath => Path.Combine(_basePath, _selectedModel.FileName);
+    public string ProjectorPath => Path.Combine(_basePath, _selectedModel.ProjectorFileName ?? "mmproj.gguf");
 
     public bool IsModelReady =>
-        File.Exists(ModelPath)
-        && File.Exists(ProjectorPath)
-        && !File.Exists(PartPath)
-        && !File.Exists(ProjectorPartPath);
+        File.Exists(ModelPath) && !File.Exists(ModelPath + ".part")
+        && (_selectedModel.ProjectorFileName is null
+            || (File.Exists(ProjectorPath) && !File.Exists(ProjectorPath + ".part")));
 
     public async Task DownloadAsync(IProgress<double> progress, CancellationToken ct)
     {
-        await DownloadArtifactAsync(
-            ModelDownloadUrl,
-            ModelPath,
-            progress,
-            progressOffset: 0,
-            progressSpan: 50,
-            ct);
-        await DownloadArtifactAsync(
-            ProjectorDownloadUrl,
-            ProjectorPath,
-            progress,
-            progressOffset: 50,
-            progressSpan: 50,
-            ct);
+        var model = _selectedModel; // snapshot — prevents race if SelectModel called during download
+        var hasProjector = model.ProjectorDownloadUrl is not null;
+        var modelSpan = hasProjector ? 50.0 : 100.0;
+
+        await DownloadArtifactAsync(model.DownloadUrl, ModelPath, progress, 0, modelSpan, ct);
+
+        if (hasProjector)
+            await DownloadArtifactAsync(model.ProjectorDownloadUrl!, ProjectorPath, progress, 50, 50, ct);
 
         progress.Report(100.0);
         ModelReady?.Invoke(this, EventArgs.Empty);

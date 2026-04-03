@@ -777,6 +777,13 @@ public class MainViewModelTests : IDisposable
         public bool IsModelReady { get; set; }
         public string ModelPath => string.Empty;
         public string ProjectorPath => string.Empty;
+        public ModelDefinition SelectedModel { get; private set; } = ModelDefinition.Default;
+        public List<ModelDefinition> SelectModelCalls { get; } = [];
+        public void SelectModel(ModelDefinition model)
+        {
+            SelectedModel = model;
+            SelectModelCalls.Add(model);
+        }
         public event EventHandler? ModelReady;
         public void FireModelReady() => ModelReady?.Invoke(this, EventArgs.Empty);
         public Task DownloadAsync(IProgress<double> progress, CancellationToken ct) => Task.CompletedTask;

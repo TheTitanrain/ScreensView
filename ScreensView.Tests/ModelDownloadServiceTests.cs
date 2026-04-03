@@ -1,6 +1,7 @@
 using System.Net;
 using System.Net.Http;
 using System.Text;
+using ScreensView.Viewer.Models;
 using ScreensView.Viewer.Services;
 
 namespace ScreensView.Tests;
@@ -121,6 +122,53 @@ public class ModelDownloadServiceTests : IDisposable
 
         Assert.True(File.Exists(ModelPath + ".part"));
         Assert.False(svc.IsModelReady);
+    }
+
+    // ---- SelectModel ----
+
+    [Fact]
+    public void SelectModel_ChangesIsModelReady()
+    {
+        var svc = new ModelDownloadService(_tempDir);
+
+        // Write the default model files so IsModelReady is true for the default model
+        File.WriteAllBytes(Path.Combine(_tempDir, ModelDefinition.Default.FileName), []);
+        if (ModelDefinition.Default.ProjectorFileName is not null)
+            File.WriteAllBytes(Path.Combine(_tempDir, ModelDefinition.Default.ProjectorFileName), []);
+        Assert.True(svc.IsModelReady);
+
+        // Switch to a model whose files don't exist
+        var otherModel = new ModelDefinition("other", "Other", "other.gguf",
+            "https://example.com/other.gguf", null, null);
+        svc.SelectModel(otherModel);
+        Assert.False(svc.IsModelReady);
+    }
+
+    [Fact]
+    public void IsModelReady_WhenNoProjectorConfigured_ChecksOnlyMainFile()
+    {
+        var svc = new ModelDownloadService(_tempDir);
+
+        var noProjector = new ModelDefinition("no-proj", "No Projector", "model.gguf",
+            "https://example.com/model.gguf", null, null);
+        svc.SelectModel(noProjector);
+
+        // Only main file exists, no projector
+        File.WriteAllBytes(Path.Combine(_tempDir, "model.gguf"), []);
+        Assert.True(svc.IsModelReady);
+    }
+
+    [Fact]
+    public void SelectModel_SelectedModelReflectsNewValue()
+    {
+        var svc = new ModelDownloadService(_tempDir);
+        Assert.Equal(ModelDefinition.Default, svc.SelectedModel);
+
+        var newModel = new ModelDefinition("test-id", "Test", "test.gguf",
+            "https://example.com/test.gguf", null, null);
+        svc.SelectModel(newModel);
+
+        Assert.Equal(newModel, svc.SelectedModel);
     }
 
     // ---- Helpers ----

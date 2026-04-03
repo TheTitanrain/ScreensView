@@ -64,6 +64,8 @@ public class LlmInferenceServiceTests
         public bool IsModelReady => true;
         public string ModelPath => @"C:\models\model.gguf";
         public string ProjectorPath => @"C:\models\mmproj.gguf";
+        public ModelDefinition SelectedModel { get; private set; } = ModelDefinition.Default;
+        public void SelectModel(ModelDefinition model) => SelectedModel = model;
         public event EventHandler? ModelReady
         {
             add { }
