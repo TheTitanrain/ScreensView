@@ -73,13 +73,15 @@ public class ModelDownloadService : IModelDownloadService
     public async Task DownloadAsync(IProgress<double> progress, CancellationToken ct)
     {
         var model = _selectedModel; // snapshot — prevents race if SelectModel called during download
+        var modelPath = Path.Combine(_basePath, model.FileName);
+        var projPath  = Path.Combine(_basePath, model.ProjectorFileName ?? "mmproj.gguf");
         var hasProjector = model.ProjectorDownloadUrl is not null;
         var modelSpan = hasProjector ? 50.0 : 100.0;
 
-        await DownloadArtifactAsync(model.DownloadUrl, ModelPath, progress, 0, modelSpan, ct);
+        await DownloadArtifactAsync(model.DownloadUrl, modelPath, progress, 0, modelSpan, ct);
 
         if (hasProjector)
-            await DownloadArtifactAsync(model.ProjectorDownloadUrl!, ProjectorPath, progress, 50, 50, ct);
+            await DownloadArtifactAsync(model.ProjectorDownloadUrl!, projPath, progress, 50, 50, ct);
 
         progress.Report(100.0);
         ModelReady?.Invoke(this, EventArgs.Empty);
