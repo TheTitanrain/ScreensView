@@ -662,6 +662,33 @@ public class MainViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task Constructor_WhenValidationIsSlow_DoesNotBlockStartup()
+    {
+        var settings = new FakeViewerSettingsService(false, llmEnabled: true);
+        var download = new FakeModelDownloadService { IsModelReady = true };
+        var llm = new FakeLlmCheckService();
+        var inference = new FakeLlmInferenceService
+        {
+            ValidateModelTask = new TaskCompletionSource<LlmRuntimeLoadException?>(
+                TaskCreationOptions.RunContinuationsAsynchronously)
+        };
+
+        var vmTask = Task.Run(() => CreateVmWithLlm(
+            settingsService: settings,
+            llmCheckService: llm,
+            downloadService: download,
+            inferenceService: inference));
+
+        await Task.Delay(150);
+
+        Assert.True(vmTask.IsCompleted);
+        Assert.Empty(llm.StartCalls);
+
+        inference.ValidateModelTask.TrySetResult(null);
+        using var vm = await vmTask;
+    }
+
+    [Fact]
     public void Constructor_WhenModelReadyButLlmDisabled_DoesNotStartLlmCheckService()
     {
         var download = new FakeModelDownloadService { IsModelReady = true };
@@ -1079,11 +1106,12 @@ public class MainViewModelTests : IDisposable
     {
         public int ResetCalls { get; private set; }
         public LlmRuntimeLoadException? ValidateModelResult { get; set; }
+        public TaskCompletionSource<LlmRuntimeLoadException?>? ValidateModelTask { get; set; }
 
         public void Reset() => ResetCalls++;
 
         public Task<LlmRuntimeLoadException?> ValidateModelAsync(CancellationToken ct)
-            => Task.FromResult(ValidateModelResult);
+            => ValidateModelTask?.Task ?? Task.FromResult(ValidateModelResult);
 
         public Task<LlmCheckResult> AnalyzeAsync(System.Windows.Media.Imaging.BitmapImage screenshot, string description, CancellationToken ct)
             => Task.FromResult(new LlmCheckResult(false, "fake", false, DateTime.UtcNow));

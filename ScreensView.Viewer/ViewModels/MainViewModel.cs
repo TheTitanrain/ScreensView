@@ -1,4 +1,5 @@
 using System.Collections.ObjectModel;
+using System.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using ScreensView.Shared.Models;
@@ -28,6 +29,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private readonly ILlmInferenceService _inferenceService;
     private readonly CancellationTokenSource _appCts = new();
     private string? _modelLoadErrorText;
+    private int _llmValidationVersion;
 
     public ObservableCollection<ComputerViewModel> Computers { get; } = [];
 
@@ -92,7 +94,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _downloadService.ModelReady += (_, _) => HandleModelReady();
 
         if (_isLlmEnabled && _downloadService.IsModelReady)
-            TryStartLlmService("startup");
+            BeginTryStartLlmService("startup");
     }
 
     [RelayCommand]
@@ -169,7 +171,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             ModelDownloadProgress = -1;
             OnPropertyChanged(nameof(ModelStatusText));
             if (_isLlmEnabled)
-                TryStartLlmService("download complete");
+                BeginTryStartLlmService("download complete");
         }
         catch (OperationCanceledException)
         {
@@ -194,9 +196,12 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _viewerSettingsService.Save(_viewerSettings);
 
         if (value && _downloadService.IsModelReady)
-            TryStartLlmService("toggle enabled");
+            BeginTryStartLlmService("toggle enabled");
         else if (!value)
+        {
+            InvalidateLlmValidation();
             _llmCheckService.Stop();
+        }
     }
 
     partial void OnSelectedModelChanged(ModelDefinition value)
@@ -206,6 +211,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _viewerSettingsService.Save(_viewerSettings);
 
         // Stop → reset runtime → switch model path → restart if conditions met
+        InvalidateLlmValidation();
         _llmCheckService.Stop();
         _inferenceService.Reset();
         _downloadService.SelectModel(value);
@@ -213,7 +219,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(ModelStatusText));
 
         if (_isLlmEnabled && _downloadService.IsModelReady)
-            TryStartLlmService("model changed");
+            BeginTryStartLlmService("model changed");
     }
 
     partial void OnIsAutostartEnabledChanged(bool value)
@@ -320,6 +326,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     public void Dispose()
     {
+        InvalidateLlmValidation();
         _poller.Dispose();
         _llmCheckService.Stop();
         _inferenceService.Reset();
@@ -359,10 +366,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
         OnPropertyChanged(nameof(ModelStatusText));
 
         if (_isLlmEnabled)
-            TryStartLlmService("model ready");
+            BeginTryStartLlmService("model ready");
     }
 
-    private void TryStartLlmService(string reason)
+    private void BeginTryStartLlmService(string reason)
     {
         _log.LogInfo(
             "MainViewModel.LlmStartAttempt",
@@ -371,34 +378,87 @@ public partial class MainViewModel : ObservableObject, IDisposable
         if (!_isLlmEnabled || !_downloadService.IsModelReady)
             return;
 
-        LlmRuntimeLoadException? validationError;
+        var version = Interlocked.Increment(ref _llmValidationVersion);
+        var validationTask = _inferenceService.ValidateModelAsync(_appCts.Token);
+        if (validationTask.IsCompleted)
+        {
+            HandleCompletedValidation(reason, version, validationTask);
+            return;
+        }
+
+        _ = FinishValidationAndStartAsync(validationTask, reason, version);
+    }
+
+    private async Task FinishValidationAndStartAsync(
+        Task<LlmRuntimeLoadException?> validationTask,
+        string reason,
+        int version)
+    {
         try
         {
-            validationError = _inferenceService.ValidateModelAsync(_appCts.Token)
-                .ConfigureAwait(false)
-                .GetAwaiter()
-                .GetResult();
+            var validationError = await validationTask.ConfigureAwait(false);
+            RunOnUiThread(() => ApplyValidationResult(reason, version, validationError));
         }
         catch (OperationCanceledException)
         {
-            return;
         }
+    }
 
-        if (validationError is not null)
+    private void HandleCompletedValidation(
+        string reason,
+        int version,
+        Task<LlmRuntimeLoadException?> validationTask)
+    {
+        try
         {
-            _llmCheckService.Stop();
-            SetModelLoadError(ModelLoadErrorStatusText);
-            _log.LogError(
-                "MainViewModel.LlmStartRejected",
-                $"LLM validation failed during '{reason}'. {validationError.DiagnosticMessage}",
-                validationError);
-            ReportError("Model load", $"{validationError.UserMessage}\n\n{validationError.DiagnosticMessage}");
+            ApplyValidationResult(reason, version, validationTask.GetAwaiter().GetResult());
+        }
+        catch (OperationCanceledException)
+        {
+        }
+    }
+
+    private void ApplyValidationResult(
+        string reason,
+        int version,
+        LlmRuntimeLoadException? validationError)
+    {
+        if (version != _llmValidationVersion || !_isLlmEnabled || !_downloadService.IsModelReady)
+            return;
+
+        if (validationError is null)
+        {
+            ClearModelLoadError();
+            _llmCheckService.Start(Computers, _llmCheckIntervalMinutes);
+            _log.LogInfo("MainViewModel.LlmStartSuccess", $"LLM service started after '{reason}'.");
             return;
         }
 
-        ClearModelLoadError();
-        _llmCheckService.Start(Computers, _llmCheckIntervalMinutes);
-        _log.LogInfo("MainViewModel.LlmStartSuccess", $"LLM service started after '{reason}'.");
+        _llmCheckService.Stop();
+        SetModelLoadError(ModelLoadErrorStatusText);
+        _log.LogError(
+            "MainViewModel.LlmStartRejected",
+            $"LLM validation failed during '{reason}'. {validationError.DiagnosticMessage}",
+            validationError);
+        ReportError("Model load", $"{validationError.UserMessage}\n\n{validationError.DiagnosticMessage}");
+    }
+
+    private void InvalidateLlmValidation()
+    {
+        Interlocked.Increment(ref _llmValidationVersion);
+    }
+
+    private static void RunOnUiThread(Action action)
+    {
+        var app = System.Windows.Application.Current;
+        if (app is not null)
+        {
+            app.Dispatcher.Invoke(action);
+        }
+        else
+        {
+            action();
+        }
     }
 
     private void SetModelLoadError(string value)
