@@ -47,6 +47,53 @@ public class LlmCheckServiceTests
         svc.UpdateInterval(10); // must not throw
     }
 
+    [Fact]
+    public void Start_SetsIsLlmServiceActiveOnAllComputers()
+    {
+        var inference = new FakeLlmInferenceService();
+        var svc = new LlmCheckService(inference);
+        var computers = new[] { MakeVm("desc 1"), MakeVm("desc 2") };
+
+        svc.Start(computers, intervalMinutes: 60);
+
+        Assert.All(computers, vm => Assert.True(vm.IsLlmServiceActive));
+
+        svc.Stop();
+    }
+
+    [Fact]
+    public void Stop_ClearsIsLlmServiceActiveOnAllComputers()
+    {
+        var inference = new FakeLlmInferenceService();
+        var svc = new LlmCheckService(inference);
+        var computers = new[] { MakeVm("desc 1"), MakeVm("desc 2") };
+
+        svc.Start(computers, intervalMinutes: 60);
+        svc.Stop();
+
+        Assert.All(computers, vm => Assert.False(vm.IsLlmServiceActive));
+    }
+
+    [Fact]
+    public async Task Start_RunsFirstCycleImmediately()
+    {
+        var expected = new LlmCheckResult(true, "ok", false, DateTime.UtcNow);
+        var inference = new FakeLlmInferenceService(expected);
+        var svc = new LlmCheckService(inference);
+        var vm = MakeVm("desc");
+        vm.Screenshot = ComputerViewModelTests.CreateMinimalBitmap();
+
+        svc.Start([vm], intervalMinutes: 60);
+
+        using var timeout = new CancellationTokenSource(TimeSpan.FromSeconds(1));
+        await inference.WaitForCallAsync(timeout.Token);
+
+        Assert.NotNull(vm.LastLlmCheck);
+        Assert.Equal(expected, vm.LastLlmCheck);
+
+        svc.Stop();
+    }
+
     // ---- Skips computers without description ----
 
     [Fact]
@@ -168,6 +215,7 @@ public class LlmCheckServiceTests
     {
         private readonly LlmCheckResult? _result;
         private readonly Exception? _throw;
+        private readonly TaskCompletionSource _callTcs = new(TaskCreationOptions.RunContinuationsAsynchronously);
 
         public List<(string Description, CancellationToken Ct)> Calls { get; } = [];
 
@@ -188,11 +236,15 @@ public class LlmCheckServiceTests
             CancellationToken ct)
         {
             Calls.Add((description, ct));
+            _callTcs.TrySetResult();
             if (_throw is not null)
                 throw _throw;
             OnBeforeReturn?.Invoke();
             return Task.FromResult(_result ?? new LlmCheckResult(true, "ok", false, DateTime.Now));
         }
+
+        public Task WaitForCallAsync(CancellationToken cancellationToken)
+            => _callTcs.Task.WaitAsync(cancellationToken);
 
         public int ResetCalls { get; private set; }
         public void Reset() => ResetCalls++;

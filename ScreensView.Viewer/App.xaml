@@ -6,6 +6,9 @@
         <local:NullToBoolConverter x:Key="NullToBool"/>
         <local:LlmBorderBrushConverter x:Key="LlmBorderBrush"/>
         <local:LlmBorderThicknessConverter x:Key="LlmBorderThickness"/>
+        <local:LlmStatusToTextConverter x:Key="LlmStatusText"/>
+        <local:LlmStatusToBackgroundConverter x:Key="LlmStatusBrush"/>
+        <local:LlmStatusToVisibilityConverter x:Key="LlmStatusVisible"/>
         <local:LlmTooltipConverter x:Key="LlmTooltip"/>
         <local:ModelDownloadActiveConverter x:Key="ModelDownloadActive"/>
     </Application.Resources>

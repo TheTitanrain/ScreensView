@@ -29,6 +29,7 @@ public class LlmCheckService : ILlmCheckService
             return; // idempotent — already running
 
         _computers = computers;
+        SetServiceActive(computers, isActive: true);
         _intervalMinutes = intervalMinutes;
         _cts = new CancellationTokenSource();
         _loopTask = RunLoopAsync(_cts.Token);
@@ -41,15 +42,21 @@ public class LlmCheckService : ILlmCheckService
 
     public void Stop()
     {
+        if (_computers is not null)
+            SetServiceActive(_computers, isActive: false);
+
         _cts?.Cancel();
         _cts?.Dispose();
         _cts = null;
+        _loopTask = null;
     }
 
     private async Task RunLoopAsync(CancellationToken ct)
     {
         while (!ct.IsCancellationRequested)
         {
+            await RunCycleAsync(_computers ?? [], ct);
+
             try
             {
                 await Task.Delay(TimeSpan.FromMinutes(_intervalMinutes), ct);
@@ -58,11 +65,6 @@ public class LlmCheckService : ILlmCheckService
             {
                 break;
             }
-
-            if (ct.IsCancellationRequested)
-                break;
-
-            await RunCycleAsync(_computers ?? [], ct);
         }
     }
 
@@ -126,5 +128,11 @@ public class LlmCheckService : ILlmCheckService
             app.Dispatcher.Invoke(action);
         else
             action(); // test path: no WPF dispatcher
+    }
+
+    private static void SetServiceActive(IEnumerable<ComputerViewModel> computers, bool isActive)
+    {
+        foreach (var vm in computers)
+            SetOnDispatcher(() => vm.IsLlmServiceActive = isActive);
     }
 }

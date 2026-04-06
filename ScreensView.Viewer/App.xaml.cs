@@ -167,6 +167,59 @@ public class LlmBorderThicknessConverter : IValueConverter
         => throw new NotImplementedException();
 }
 
+public class LlmStatusToTextConverter : IValueConverter
+{
+    public object? Convert(object? value, Type targetType, object parameter, CultureInfo culture)
+        => value is LlmTileStatus status ? status switch
+        {
+            LlmTileStatus.NoDescription => "?",
+            LlmTileStatus.Waiting => "LLM",
+            LlmTileStatus.Checking => "···",
+            LlmTileStatus.Match => "✓",
+            LlmTileStatus.Mismatch => "✗",
+            LlmTileStatus.Error => "!",
+            _ => null
+        } : null;
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotImplementedException();
+}
+
+public class LlmStatusToBackgroundConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object parameter, CultureInfo culture)
+    {
+        var color = value is LlmTileStatus status ? status switch
+        {
+            LlmTileStatus.Inactive or LlmTileStatus.NoDescription or LlmTileStatus.Waiting
+                => System.Windows.Media.Color.FromArgb(0x80, 0x88, 0x88, 0x88),
+            LlmTileStatus.Checking
+                => System.Windows.Media.Color.FromArgb(0x99, 0x44, 0x99, 0xDD),
+            LlmTileStatus.Match
+                => System.Windows.Media.Color.FromArgb(0x99, 0x44, 0xCC, 0x44),
+            LlmTileStatus.Mismatch
+                => System.Windows.Media.Color.FromArgb(0x99, 0xFF, 0x88, 0x00),
+            LlmTileStatus.Error
+                => System.Windows.Media.Color.FromArgb(0x99, 0xCC, 0x44, 0x44),
+            _ => System.Windows.Media.Colors.Transparent
+        } : System.Windows.Media.Colors.Transparent;
+
+        return new System.Windows.Media.SolidColorBrush(color);
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotImplementedException();
+}
+
+public class LlmStatusToVisibilityConverter : IValueConverter
+{
+    public object Convert(object? value, Type targetType, object parameter, CultureInfo culture)
+        => value is LlmTileStatus.Inactive ? Visibility.Collapsed : Visibility.Visible;
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotImplementedException();
+}
+
 public class LlmTooltipConverter : IValueConverter
 {
     public static readonly LlmTooltipConverter Instance = new();
