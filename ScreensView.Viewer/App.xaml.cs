@@ -16,6 +16,7 @@ public partial class App : Application
         await ViewerUpdateService.CheckAndUpdateAsync();
 
         var settingsService = new ViewerSettingsService();
+        var logService = new ViewerLogService();
         var controller = new ConnectionsStorageController(
             settingsService,
             () => new ComputerStorageService(),
@@ -42,8 +43,8 @@ public partial class App : Application
 
         var poller = new ScreenshotPollerService(http);
         var downloadService = new ModelDownloadService();
-        var inferenceService = new LlmInferenceService(downloadService);
-        var llmCheckService = new LlmCheckService(inferenceService);
+        var inferenceService = new LlmInferenceService(downloadService, new LLamaSharpVisionRuntimeFactory(), logService);
+        var llmCheckService = new LlmCheckService(inferenceService, logService);
         viewModel = new MainViewModel(
             startup.Storage!,
             poller,
@@ -57,7 +58,9 @@ public partial class App : Application
                     MessageBox.Show(mainWindow, message, title, MessageBoxButton.OK, MessageBoxImage.Error);
             },
             llmCheckService,
-            downloadService);
+            downloadService,
+            inferenceService,
+            logService);
 
         mainWindow = new MainWindow(viewModel, controller, settingsService);
         MainWindow = mainWindow;

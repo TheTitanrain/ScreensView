@@ -246,6 +246,9 @@ public class LlmCheckServiceTests
         public Task WaitForCallAsync(CancellationToken cancellationToken)
             => _callTcs.Task.WaitAsync(cancellationToken);
 
+        public Task<LlmRuntimeLoadException?> ValidateModelAsync(CancellationToken ct)
+            => Task.FromResult<LlmRuntimeLoadException?>(null);
+
         public int ResetCalls { get; private set; }
         public void Reset() => ResetCalls++;
     }

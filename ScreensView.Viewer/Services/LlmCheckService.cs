@@ -13,14 +13,21 @@ public interface ILlmCheckService
 public class LlmCheckService : ILlmCheckService
 {
     private readonly ILlmInferenceService _inference;
+    private readonly IViewerLogService _log;
     private volatile int _intervalMinutes = 5;
     private CancellationTokenSource? _cts;
     private Task? _loopTask;
     private IReadOnlyList<ComputerViewModel>? _computers;
 
     public LlmCheckService(ILlmInferenceService inference)
+        : this(inference, null)
+    {
+    }
+
+    internal LlmCheckService(ILlmInferenceService inference, IViewerLogService? log)
     {
         _inference = inference;
+        _log = log ?? new NullViewerLogService();
     }
 
     public void Start(IReadOnlyList<ComputerViewModel> computers, int intervalMinutes)
@@ -28,6 +35,7 @@ public class LlmCheckService : ILlmCheckService
         if (_cts is not null)
             return; // idempotent — already running
 
+        _log.LogInfo("LlmCheckService.Start", $"Starting service for {computers.Count} computers, interval={intervalMinutes} min.");
         _computers = computers;
         SetServiceActive(computers, isActive: true);
         _intervalMinutes = intervalMinutes;
@@ -42,6 +50,7 @@ public class LlmCheckService : ILlmCheckService
 
     public void Stop()
     {
+        _log.LogInfo("LlmCheckService.Stop", "Stopping service.");
         if (_computers is not null)
             SetServiceActive(_computers, isActive: false);
 
@@ -55,6 +64,7 @@ public class LlmCheckService : ILlmCheckService
     {
         while (!ct.IsCancellationRequested)
         {
+            _log.LogInfo("LlmCheckService.RunCycle", "Starting LLM check cycle.");
             await RunCycleAsync(_computers ?? [], ct);
 
             try
@@ -75,21 +85,27 @@ public class LlmCheckService : ILlmCheckService
         var snapshot = System.Windows.Application.Current is not null
             ? System.Windows.Application.Current.Dispatcher.Invoke(
                 () => computers
-                    .Where(vm => vm.IsEnabled && !string.IsNullOrEmpty(vm.Description))
+                    .Where(vm => vm.IsEnabled)
                     .ToList())
             : computers
-                .Where(vm => vm.IsEnabled && !string.IsNullOrEmpty(vm.Description))
+                .Where(vm => vm.IsEnabled)
                 .ToList(); // test path: no Application.Current
 
         foreach (var vm in snapshot)
         {
             var screenshotCopy = vm.Screenshot;
             if (screenshotCopy is null)
+            {
+                _log.LogInfo("LlmCheckService.SkipNoScreenshot", $"Skipping '{vm.Name}' because screenshot is missing.");
                 continue;
+            }
 
             var descriptionAtStart = vm.Description;
             if (string.IsNullOrEmpty(descriptionAtStart))
+            {
+                _log.LogInfo("LlmCheckService.SkipNoDescription", $"Skipping '{vm.Name}' because description is missing.");
                 continue;
+            }
 
             SetOnDispatcher(() => vm.IsLlmChecking = true);
 
@@ -105,6 +121,13 @@ public class LlmCheckService : ILlmCheckService
                     if (vm.Description == descriptionAtStart)
                         vm.LastLlmCheck = result;
                 });
+
+                if (result.IsError)
+                {
+                    _log.LogWarning(
+                        "LlmCheckService.ResultError",
+                        $"AnalyzeAsync returned error result for '{vm.Name}': {result.Explanation}");
+                }
             }
             catch (Exception ex)
             {
@@ -113,6 +136,7 @@ public class LlmCheckService : ILlmCheckService
                     if (vm.Description == descriptionAtStart)
                         vm.LastLlmCheck = new LlmCheckResult(false, ex.Message, IsError: true, DateTime.Now);
                 });
+                _log.LogError("LlmCheckService.ResultError", $"Stored error result for '{vm.Name}'.", ex);
             }
             finally
             {

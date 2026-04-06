@@ -605,7 +605,7 @@ public class MainViewModelTests : IDisposable
             reportError,
             llmCheckService ?? new FakeLlmCheckService(),
             downloadService ?? new FakeModelDownloadService(),
-            inferenceService);
+            inferenceService ?? new FakeLlmInferenceService());
     }
 
     [Fact]
@@ -624,6 +624,41 @@ public class MainViewModelTests : IDisposable
         var llm = new FakeLlmCheckService();
         using var vm = CreateVmWithLlm(settingsService: settings, llmCheckService: llm, downloadService: download);
         Assert.Single(llm.StartCalls);
+    }
+
+    [Fact]
+    public void Constructor_WhenValidationFails_DoesNotStartLlmCheckService_AndReportsError()
+    {
+        var settings = new FakeViewerSettingsService(false, llmEnabled: true);
+        var download = new FakeModelDownloadService { IsModelReady = true };
+        var llm = new FakeLlmCheckService();
+        var inference = new FakeLlmInferenceService
+        {
+            ValidateModelResult = new LlmRuntimeLoadException(
+                LlmRuntimeLoadStage.ModelLoad,
+                "Ошибка загрузки модели",
+                "Failed to load model",
+                @"C:\models\model.gguf",
+                @"C:\models\mmproj.gguf")
+        };
+        string? title = null;
+        string? message = null;
+
+        using var vm = CreateVmWithLlm(
+            settingsService: settings,
+            llmCheckService: llm,
+            downloadService: download,
+            inferenceService: inference,
+            reportError: (reportedTitle, reportedMessage) =>
+            {
+                title = reportedTitle;
+                message = reportedMessage;
+            });
+
+        Assert.Empty(llm.StartCalls);
+        Assert.Equal("Model load", title);
+        Assert.Contains("Ошибка загрузки модели", message);
+        Assert.Equal("Ошибка загрузки модели", vm.ModelStatusText);
     }
 
     [Fact]
@@ -652,9 +687,48 @@ public class MainViewModelTests : IDisposable
         var llm = new FakeLlmCheckService();
         using var vm = CreateVmWithLlm(settingsService: settings, llmCheckService: llm, downloadService: download);
 
+        download.IsModelReady = true;
         download.FireModelReady();
 
         Assert.Single(llm.StartCalls);
+    }
+
+    [Fact]
+    public void ModelReady_Event_WhenValidationFails_ReportsErrorAndDoesNotStartLlmCheckService()
+    {
+        var settings = new FakeViewerSettingsService(false, llmEnabled: true);
+        var download = new FakeModelDownloadService { IsModelReady = false };
+        var llm = new FakeLlmCheckService();
+        var inference = new FakeLlmInferenceService
+        {
+            ValidateModelResult = new LlmRuntimeLoadException(
+                LlmRuntimeLoadStage.ProjectorLoad,
+                "Ошибка загрузки модели",
+                "Failed to load projector",
+                @"C:\models\model.gguf",
+                @"C:\models\mmproj.gguf")
+        };
+        string? title = null;
+        string? message = null;
+
+        using var vm = CreateVmWithLlm(
+            settingsService: settings,
+            llmCheckService: llm,
+            downloadService: download,
+            inferenceService: inference,
+            reportError: (reportedTitle, reportedMessage) =>
+            {
+                title = reportedTitle;
+                message = reportedMessage;
+            });
+
+        download.IsModelReady = true;
+        download.FireModelReady();
+
+        Assert.Empty(llm.StartCalls);
+        Assert.Equal("Model load", title);
+        Assert.Contains("Ошибка загрузки модели", message);
+        Assert.Equal("Ошибка загрузки модели", vm.ModelStatusText);
     }
 
     [Fact]
@@ -735,6 +809,21 @@ public class MainViewModelTests : IDisposable
         var newModel = new ModelDefinition("test", "Test", "test.gguf", "https://example.com/test.gguf", null, null);
         vm.SelectedModel = newModel;
         Assert.NotEmpty(llm.StopCalls);
+    }
+
+    [Fact]
+    public void SelectedModel_WhenChanged_AndModelReadyAndValidationSucceeds_StartsLlmCheckService()
+    {
+        var settings = new FakeViewerSettingsService(false, llmEnabled: true);
+        var download = new FakeModelDownloadService { IsModelReady = true };
+        var llm = new FakeLlmCheckService();
+
+        using var vm = CreateVmWithLlm(settingsService: settings, llmCheckService: llm, downloadService: download);
+        var baselineStarts = llm.StartCalls.Count;
+
+        vm.SelectedModel = new ModelDefinition("test", "Test", "test.gguf", "https://example.com/test.gguf", null, null);
+
+        Assert.True(llm.StartCalls.Count > baselineStarts);
     }
 
     [Fact]
@@ -882,8 +971,8 @@ public class MainViewModelTests : IDisposable
     private sealed class FakeModelDownloadService : IModelDownloadService
     {
         public bool IsModelReady { get; set; }
-        public string ModelPath => string.Empty;
-        public string ProjectorPath => string.Empty;
+        public string ModelPath => @"C:\models\model.gguf";
+        public string ProjectorPath => @"C:\models\mmproj.gguf";
         public ModelDefinition SelectedModel { get; private set; } = ModelDefinition.Default;
         public List<ModelDefinition> SelectModelCalls { get; } = [];
         public void SelectModel(ModelDefinition model)
@@ -989,7 +1078,13 @@ public class MainViewModelTests : IDisposable
     private class FakeLlmInferenceService : ILlmInferenceService
     {
         public int ResetCalls { get; private set; }
+        public LlmRuntimeLoadException? ValidateModelResult { get; set; }
+
         public void Reset() => ResetCalls++;
+
+        public Task<LlmRuntimeLoadException?> ValidateModelAsync(CancellationToken ct)
+            => Task.FromResult(ValidateModelResult);
+
         public Task<LlmCheckResult> AnalyzeAsync(System.Windows.Media.Imaging.BitmapImage screenshot, string description, CancellationToken ct)
             => Task.FromResult(new LlmCheckResult(false, "fake", false, DateTime.UtcNow));
     }

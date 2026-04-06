@@ -11,6 +11,7 @@ namespace ScreensView.Viewer.Services;
 public interface ILlmInferenceService
 {
     Task<LlmCheckResult> AnalyzeAsync(BitmapImage screenshot, string description, CancellationToken ct);
+    Task<LlmRuntimeLoadException?> ValidateModelAsync(CancellationToken ct);
     void Reset(); // disposes cached runtime so next AnalyzeAsync loads from current model path
 }
 
@@ -33,18 +34,23 @@ public class LlmInferenceService : ILlmInferenceService, IDisposable
 {
     private readonly IModelDownloadService _download;
     private readonly ILlmVisionRuntimeFactory _runtimeFactory;
+    private readonly IViewerLogService _log;
     private ILlmVisionRuntime? _runtime;
     private readonly SemaphoreSlim _loadLock = new(1, 1);
 
     public LlmInferenceService(IModelDownloadService download)
-        : this(download, new LLamaSharpVisionRuntimeFactory())
+        : this(download, new LLamaSharpVisionRuntimeFactory(), null)
     {
     }
 
-    internal LlmInferenceService(IModelDownloadService download, ILlmVisionRuntimeFactory runtimeFactory)
+    internal LlmInferenceService(
+        IModelDownloadService download,
+        ILlmVisionRuntimeFactory runtimeFactory,
+        IViewerLogService? log = null)
     {
         _download = download;
         _runtimeFactory = runtimeFactory;
+        _log = log ?? new NullViewerLogService();
     }
 
     private async Task EnsureLoadedAsync(CancellationToken ct)
@@ -52,20 +58,62 @@ public class LlmInferenceService : ILlmInferenceService, IDisposable
         if (_runtime is not null)
             return;
 
-        await _loadLock.WaitAsync(ct);
+        _log.LogInfo(
+            "Llm.EnsureLoaded.Start",
+            $"Loading runtime. ModelPath='{_download.ModelPath}', ProjectorPath='{_download.ProjectorPath}'.");
+
+        await _loadLock.WaitAsync(ct).ConfigureAwait(false);
         try
         {
             if (_runtime is not null)
                 return;
 
-            _runtime = await _runtimeFactory.CreateAsync(
-                _download.ModelPath,
-                _download.ProjectorPath,
-                ct);
+            try
+            {
+                _runtime = await _runtimeFactory.CreateAsync(
+                    _download.ModelPath,
+                    _download.ProjectorPath,
+                    ct).ConfigureAwait(false);
+                _log.LogInfo("Llm.EnsureLoaded.Success", "Runtime loaded successfully.");
+            }
+            catch (LlmRuntimeLoadException ex)
+            {
+                _log.LogError("Llm.EnsureLoaded.Failed", ex.DiagnosticMessage, ex);
+                throw;
+            }
+            catch (Exception ex)
+            {
+                var wrapped = new LlmRuntimeLoadException(
+                    LlmRuntimeLoadStage.RuntimeInit,
+                    "Ошибка инициализации LLM runtime",
+                    $"Unexpected runtime initialization failure. {ex.Message}",
+                    _download.ModelPath,
+                    _download.ProjectorPath,
+                    ex);
+                _log.LogError("Llm.EnsureLoaded.Failed", wrapped.DiagnosticMessage, wrapped);
+                throw wrapped;
+            }
         }
         finally
         {
             _loadLock.Release();
+        }
+    }
+
+    public async Task<LlmRuntimeLoadException?> ValidateModelAsync(CancellationToken ct)
+    {
+        try
+        {
+            await EnsureLoadedAsync(ct).ConfigureAwait(false);
+            return null;
+        }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
+        catch (LlmRuntimeLoadException ex)
+        {
+            return ex;
         }
     }
 
@@ -74,11 +122,11 @@ public class LlmInferenceService : ILlmInferenceService, IDisposable
     {
         try
         {
-            await EnsureLoadedAsync(ct);
+            await EnsureLoadedAsync(ct).ConfigureAwait(false);
 
             var jpegBytes = await EncodeJpegAsync(screenshot);
             var prompt = BuildPrompt(description);
-            var rawResponse = await _runtime!.InferAsync(jpegBytes, prompt, ct);
+            var rawResponse = await _runtime!.InferAsync(jpegBytes, prompt, ct).ConfigureAwait(false);
             var (isMatch, explanation) = ParseModelResponse(rawResponse);
 
             return new LlmCheckResult(isMatch, explanation, IsError: false, DateTime.Now);
@@ -86,6 +134,10 @@ public class LlmInferenceService : ILlmInferenceService, IDisposable
         catch (OperationCanceledException)
         {
             throw;
+        }
+        catch (LlmRuntimeLoadException ex)
+        {
+            return new LlmCheckResult(false, ex.UserMessage, IsError: true, DateTime.Now);
         }
         catch (Exception ex)
         {
@@ -165,9 +217,39 @@ internal sealed class LLamaSharpVisionRuntimeFactory : ILlmVisionRuntimeFactory
         {
             ContextSize = 4096
         };
-        var model = await LLamaWeights.LoadFromFileAsync(parameters, ct);
-        var projector = await LLavaWeights.LoadFromFileAsync(projectorPath, ct);
-        return new LLamaSharpVisionRuntime(parameters, model, projector);
+
+        LLamaWeights model;
+        try
+        {
+            model = await LLamaWeights.LoadFromFileAsync(parameters, ct).ConfigureAwait(false);
+        }
+        catch (Exception ex)
+        {
+            throw new LlmRuntimeLoadException(
+                LlmRuntimeLoadStage.ModelLoad,
+                "Ошибка загрузки модели",
+                $"Failed to load model '{modelPath}'. {ex.Message}",
+                modelPath,
+                projectorPath,
+                ex);
+        }
+
+        try
+        {
+            var projector = await LLavaWeights.LoadFromFileAsync(projectorPath, ct).ConfigureAwait(false);
+            return new LLamaSharpVisionRuntime(parameters, model, projector);
+        }
+        catch (Exception ex)
+        {
+            model.Dispose();
+            throw new LlmRuntimeLoadException(
+                LlmRuntimeLoadStage.ProjectorLoad,
+                "Ошибка загрузки projector",
+                $"Failed to load projector '{projectorPath}'. {ex.Message}",
+                modelPath,
+                projectorPath,
+                ex);
+        }
     }
 }
 

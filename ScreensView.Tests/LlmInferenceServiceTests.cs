@@ -29,21 +29,64 @@ public class LlmInferenceServiceTests
     }
 
     [Fact]
-    public async Task AnalyzeAsync_CachesLoadedRuntime()
+    public async Task ValidateModelAsync_WhenRuntimeLoads_SucceedsAndCachesRuntime()
     {
         var runtime = new FakeVisionRuntime("YES ok.");
         var factory = new FakeVisionRuntimeFactory(runtime);
         using var sut = new LlmInferenceService(new FakeModelDownloadService(), factory);
-        var image = ComputerViewModelTests.CreateMinimalBitmap();
 
-        await sut.AnalyzeAsync(image, "first", CancellationToken.None);
-        await sut.AnalyzeAsync(image, "second", CancellationToken.None);
+        var validationError = await sut.ValidateModelAsync(CancellationToken.None);
+        var result = await sut.AnalyzeAsync(
+            ComputerViewModelTests.CreateMinimalBitmap(),
+            "desc",
+            CancellationToken.None);
 
+        Assert.Null(validationError);
+        Assert.False(result.IsError);
         Assert.Equal(1, factory.CreateCalls);
     }
 
     [Fact]
-    public async Task AnalyzeAsync_WhenResponseCannotBeParsed_ReturnsErrorResult()
+    public async Task ValidateModelAsync_WhenModelLoadFails_ReturnsModelLoadError()
+    {
+        var factory = new FakeVisionRuntimeFactory(
+            new LlmRuntimeLoadException(
+                LlmRuntimeLoadStage.ModelLoad,
+                "Ошибка загрузки модели",
+                "Failed to load model",
+                @"C:\models\model.gguf",
+                @"C:\models\mmproj.gguf"));
+        using var sut = new LlmInferenceService(new FakeModelDownloadService(), factory);
+
+        var error = await sut.ValidateModelAsync(CancellationToken.None);
+
+        Assert.NotNull(error);
+        Assert.Equal(LlmRuntimeLoadStage.ModelLoad, error.Stage);
+        Assert.Equal("Ошибка загрузки модели", error.UserMessage);
+        Assert.Equal(@"C:\models\model.gguf", error.ModelPath);
+    }
+
+    [Fact]
+    public async Task ValidateModelAsync_WhenProjectorLoadFails_ReturnsProjectorLoadError()
+    {
+        var factory = new FakeVisionRuntimeFactory(
+            new LlmRuntimeLoadException(
+                LlmRuntimeLoadStage.ProjectorLoad,
+                "Ошибка загрузки projector",
+                "Failed to load projector",
+                @"C:\models\model.gguf",
+                @"C:\models\mmproj.gguf"));
+        using var sut = new LlmInferenceService(new FakeModelDownloadService(), factory);
+
+        var error = await sut.ValidateModelAsync(CancellationToken.None);
+
+        Assert.NotNull(error);
+        Assert.Equal(LlmRuntimeLoadStage.ProjectorLoad, error.Stage);
+        Assert.Equal("Ошибка загрузки projector", error.UserMessage);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_WhenParseFails_ReturnsParseErrorButDoesNotPretendModelLoadFailure()
     {
         var runtime = new FakeVisionRuntime("Maybe this matches.");
         var factory = new FakeVisionRuntimeFactory(runtime);
@@ -57,6 +100,7 @@ public class LlmInferenceServiceTests
         Assert.False(result.IsMatch);
         Assert.True(result.IsError);
         Assert.Contains("YES or NO", result.Explanation);
+        Assert.DoesNotContain("load model", result.Explanation, StringComparison.OrdinalIgnoreCase);
     }
 
     private sealed class FakeModelDownloadService : IModelDownloadService
@@ -76,8 +120,21 @@ public class LlmInferenceServiceTests
             => Task.CompletedTask;
     }
 
-    private sealed class FakeVisionRuntimeFactory(FakeVisionRuntime runtime) : ILlmVisionRuntimeFactory
+    private sealed class FakeVisionRuntimeFactory : ILlmVisionRuntimeFactory
     {
+        private readonly FakeVisionRuntime? _runtime;
+        private readonly LlmRuntimeLoadException? _loadError;
+
+        public FakeVisionRuntimeFactory(FakeVisionRuntime runtime)
+        {
+            _runtime = runtime;
+        }
+
+        public FakeVisionRuntimeFactory(LlmRuntimeLoadException loadError)
+        {
+            _loadError = loadError;
+        }
+
         public int CreateCalls { get; private set; }
         public string? ModelPathSeen { get; private set; }
         public string? ProjectorPathSeen { get; private set; }
@@ -90,7 +147,11 @@ public class LlmInferenceServiceTests
             CreateCalls++;
             ModelPathSeen = modelPath;
             ProjectorPathSeen = projectorPath;
-            return Task.FromResult<ILlmVisionRuntime>(runtime);
+
+            if (_loadError is not null)
+                throw _loadError;
+
+            return Task.FromResult<ILlmVisionRuntime>(_runtime!);
         }
     }
 

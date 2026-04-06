@@ -66,9 +66,8 @@ public class ModelDownloadService : IModelDownloadService
     public string ProjectorPath => Path.Combine(_basePath, _selectedModel.ProjectorFileName ?? "mmproj.gguf");
 
     public bool IsModelReady =>
-        File.Exists(ModelPath) && !File.Exists(ModelPath + ".part")
-        && (_selectedModel.ProjectorFileName is null
-            || (File.Exists(ProjectorPath) && !File.Exists(ProjectorPath + ".part")));
+        IsCompleteArtifact(ModelPath)
+        && (_selectedModel.ProjectorFileName is null || IsCompleteArtifact(ProjectorPath));
 
     public async Task DownloadAsync(IProgress<double> progress, CancellationToken ct)
     {
@@ -85,6 +84,14 @@ public class ModelDownloadService : IModelDownloadService
 
         progress.Report(100.0);
         ModelReady?.Invoke(this, EventArgs.Empty);
+    }
+
+    private static bool IsCompleteArtifact(string path)
+    {
+        if (File.Exists(path + ".part") || !File.Exists(path))
+            return false;
+
+        return new FileInfo(path).Length > 0;
     }
 
     private async Task DownloadArtifactAsync(

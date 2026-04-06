@@ -61,6 +61,24 @@ public class ModelDownloadServiceTests : IDisposable
         Assert.True(Make().IsModelReady);
     }
 
+    [Fact]
+    public void IsModelReady_WhenModelFileIsZeroBytes_ReturnsFalse()
+    {
+        File.WriteAllBytes(ModelPath, []);
+        File.WriteAllText(ProjectorPath, "projector");
+
+        Assert.False(Make().IsModelReady);
+    }
+
+    [Fact]
+    public void IsModelReady_WhenProjectorFileIsZeroBytes_ReturnsFalse()
+    {
+        File.WriteAllText(ModelPath, "model");
+        File.WriteAllBytes(ProjectorPath, []);
+
+        Assert.False(Make().IsModelReady);
+    }
+
     // ---- Download writes file ----
 
     [Fact]
@@ -132,9 +150,9 @@ public class ModelDownloadServiceTests : IDisposable
         var svc = new ModelDownloadService(_tempDir);
 
         // Write the default model files so IsModelReady is true for the default model
-        File.WriteAllBytes(Path.Combine(_tempDir, ModelDefinition.Default.FileName), []);
+        File.WriteAllText(Path.Combine(_tempDir, ModelDefinition.Default.FileName), "model");
         if (ModelDefinition.Default.ProjectorFileName is not null)
-            File.WriteAllBytes(Path.Combine(_tempDir, ModelDefinition.Default.ProjectorFileName), []);
+            File.WriteAllText(Path.Combine(_tempDir, ModelDefinition.Default.ProjectorFileName), "projector");
         Assert.True(svc.IsModelReady);
 
         // Switch to a model whose files don't exist
@@ -154,7 +172,7 @@ public class ModelDownloadServiceTests : IDisposable
         svc.SelectModel(noProjector);
 
         // Only main file exists, no projector
-        File.WriteAllBytes(Path.Combine(_tempDir, "model.gguf"), []);
+        File.WriteAllText(Path.Combine(_tempDir, "model.gguf"), "model");
         Assert.True(svc.IsModelReady);
     }
 

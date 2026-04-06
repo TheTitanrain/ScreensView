@@ -12,12 +12,14 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private const int DefaultRefreshIntervalSeconds = 5;
     private const int MinRefreshIntervalSeconds = 1;
     private const int MaxRefreshIntervalSeconds = 60;
+    private const string ModelLoadErrorStatusText = "Ошибка загрузки модели";
 
     private IComputerStorageService _storage;
     private readonly IScreenshotPollerService _poller;
     private readonly IViewerSettingsService _viewerSettingsService;
     private readonly IAutostartService _autostartService;
     private readonly Action<string, string>? _reportError;
+    private readonly IViewerLogService _log;
 
     private ViewerSettings _viewerSettings = new();
     private bool _isSynchronizingAutostart;
@@ -25,6 +27,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private readonly IModelDownloadService _downloadService;
     private readonly ILlmInferenceService _inferenceService;
     private readonly CancellationTokenSource _appCts = new();
+    private string? _modelLoadErrorText;
 
     public ObservableCollection<ComputerViewModel> Computers { get; } = [];
 
@@ -51,13 +54,15 @@ public partial class MainViewModel : ObservableObject, IDisposable
         Action<string, string>? reportError = null,
         ILlmCheckService? llmCheckService = null,
         IModelDownloadService? downloadService = null,
-        ILlmInferenceService? inferenceService = null)
+        ILlmInferenceService? inferenceService = null,
+        IViewerLogService? log = null)
     {
         _storage = storage;
         _poller = poller;
         _viewerSettingsService = viewerSettingsService;
         _autostartService = autostartService;
         _reportError = reportError;
+        _log = log ?? new NullViewerLogService();
 
         foreach (var config in _storage.Load())
             Computers.Add(new ComputerViewModel(config));
@@ -84,15 +89,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
                          ?? ModelDefinition.Default;
         _downloadService.SelectModel(_selectedModel); // sync service to persisted selection
 
-        _downloadService.ModelReady += (_, _) =>
-        {
-            OnPropertyChanged(nameof(ModelStatusText));
-            if (_isLlmEnabled)
-                _llmCheckService.Start(Computers, _llmCheckIntervalMinutes);
-        };
+        _downloadService.ModelReady += (_, _) => HandleModelReady();
 
         if (_isLlmEnabled && _downloadService.IsModelReady)
-            _llmCheckService.Start(Computers, _llmCheckIntervalMinutes);
+            TryStartLlmService("startup");
     }
 
     [RelayCommand]
@@ -151,12 +151,15 @@ public partial class MainViewModel : ObservableObject, IDisposable
     }
 
     public string ModelStatusText =>
+        !string.IsNullOrEmpty(_modelLoadErrorText) ? _modelLoadErrorText :
         _downloadService.IsModelReady ? "Готово ✓" : "Не скачана";
 
     [RelayCommand(IncludeCancelCommand = true, AllowConcurrentExecutions = false)]
     private async Task DownloadModelAsync(CancellationToken ct)
     {
         var model = _selectedModel; // snapshot to prevent race
+        _log.LogInfo("MainViewModel.DownloadModel.Start", $"Starting model download for '{model.Id}'.");
+        ClearModelLoadError();
         _downloadService.SelectModel(model);
 
         var progress = new Progress<double>(p => ModelDownloadProgress = p);
@@ -166,32 +169,39 @@ public partial class MainViewModel : ObservableObject, IDisposable
             ModelDownloadProgress = -1;
             OnPropertyChanged(nameof(ModelStatusText));
             if (_isLlmEnabled)
-                _llmCheckService.Start(Computers, _llmCheckIntervalMinutes);
+                TryStartLlmService("download complete");
         }
-        catch (OperationCanceledException) { ModelDownloadProgress = -1; }
+        catch (OperationCanceledException)
+        {
+            ModelDownloadProgress = -1;
+            _log.LogWarning("MainViewModel.DownloadModel.Cancelled", $"Download cancelled for '{model.Id}'.");
+        }
         catch (Exception ex)
         {
             ModelDownloadProgress = -1;
             var msg = ex.InnerException is not null
                 ? $"{ex.Message}\n\n{ex.InnerException.Message}"
                 : ex.Message;
+            _log.LogError("MainViewModel.DownloadModel.Failed", $"Download failed for '{model.Id}'.", ex);
             ReportError("Model download", msg);
         }
     }
 
     partial void OnIsLlmEnabledChanged(bool value)
     {
+        _log.LogInfo("MainViewModel.LlmEnabledChanged", $"LlmEnabled={value}.");
         _viewerSettings.LlmEnabled = value;
         _viewerSettingsService.Save(_viewerSettings);
 
         if (value && _downloadService.IsModelReady)
-            _llmCheckService.Start(Computers, _llmCheckIntervalMinutes);
+            TryStartLlmService("toggle enabled");
         else if (!value)
             _llmCheckService.Stop();
     }
 
     partial void OnSelectedModelChanged(ModelDefinition value)
     {
+        _log.LogInfo("MainViewModel.SelectedModelChanged", $"Selected model changed to '{value.Id}'.");
         _viewerSettings.SelectedModelId = value.Id;
         _viewerSettingsService.Save(_viewerSettings);
 
@@ -199,10 +209,11 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _llmCheckService.Stop();
         _inferenceService.Reset();
         _downloadService.SelectModel(value);
+        ClearModelLoadError();
         OnPropertyChanged(nameof(ModelStatusText));
 
         if (_isLlmEnabled && _downloadService.IsModelReady)
-            _llmCheckService.Start(Computers, _llmCheckIntervalMinutes);
+            TryStartLlmService("model changed");
     }
 
     partial void OnIsAutostartEnabledChanged(bool value)
@@ -339,6 +350,73 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private void ReportError(string title, string message)
     {
         _reportError?.Invoke(title, message);
+    }
+
+    private void HandleModelReady()
+    {
+        _log.LogInfo("MainViewModel.ModelReady", $"ModelReady received. LlmEnabled={_isLlmEnabled}.");
+        ClearModelLoadError();
+        OnPropertyChanged(nameof(ModelStatusText));
+
+        if (_isLlmEnabled)
+            TryStartLlmService("model ready");
+    }
+
+    private void TryStartLlmService(string reason)
+    {
+        _log.LogInfo(
+            "MainViewModel.LlmStartAttempt",
+            $"Attempting to start LLM service. Reason='{reason}', Enabled={_isLlmEnabled}, FilesReady={_downloadService.IsModelReady}.");
+
+        if (!_isLlmEnabled || !_downloadService.IsModelReady)
+            return;
+
+        LlmRuntimeLoadException? validationError;
+        try
+        {
+            validationError = _inferenceService.ValidateModelAsync(_appCts.Token)
+                .ConfigureAwait(false)
+                .GetAwaiter()
+                .GetResult();
+        }
+        catch (OperationCanceledException)
+        {
+            return;
+        }
+
+        if (validationError is not null)
+        {
+            _llmCheckService.Stop();
+            SetModelLoadError(ModelLoadErrorStatusText);
+            _log.LogError(
+                "MainViewModel.LlmStartRejected",
+                $"LLM validation failed during '{reason}'. {validationError.DiagnosticMessage}",
+                validationError);
+            ReportError("Model load", $"{validationError.UserMessage}\n\n{validationError.DiagnosticMessage}");
+            return;
+        }
+
+        ClearModelLoadError();
+        _llmCheckService.Start(Computers, _llmCheckIntervalMinutes);
+        _log.LogInfo("MainViewModel.LlmStartSuccess", $"LLM service started after '{reason}'.");
+    }
+
+    private void SetModelLoadError(string value)
+    {
+        if (_modelLoadErrorText == value)
+            return;
+
+        _modelLoadErrorText = value;
+        OnPropertyChanged(nameof(ModelStatusText));
+    }
+
+    private void ClearModelLoadError()
+    {
+        if (string.IsNullOrEmpty(_modelLoadErrorText))
+            return;
+
+        _modelLoadErrorText = null;
+        OnPropertyChanged(nameof(ModelStatusText));
     }
 
     private void SetAutostartState(bool value)
