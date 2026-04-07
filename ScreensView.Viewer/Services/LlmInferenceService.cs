@@ -1,10 +1,10 @@
-using System.Windows.Media.Imaging;
-using LLama;
-using LLama.Common;
-using LLama.Sampling;
-using ScreensView.Viewer.Models;
+using System.Net.Http;
+using System.Net.Http.Json;
 using System.Text;
+using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
+using System.Windows.Media.Imaging;
+using ScreensView.Viewer.Models;
 
 namespace ScreensView.Viewer.Services;
 
@@ -25,11 +25,6 @@ internal interface ILlmVisionRuntimeFactory
     Task<ILlmVisionRuntime> CreateAsync(string modelPath, string projectorPath, CancellationToken ct);
 }
 
-/// <summary>
-/// LLamaSharp-based multimodal inference. Vision support is experimental —
-/// verify LLavaWeights compatibility with Qwen3.5 GGUF before shipping.
-/// See Task 11 in the implementation plan for details.
-/// </summary>
 public class LlmInferenceService : ILlmInferenceService, IDisposable
 {
     private readonly IModelDownloadService _download;
@@ -38,8 +33,16 @@ public class LlmInferenceService : ILlmInferenceService, IDisposable
     private ILlmVisionRuntime? _runtime;
     private readonly SemaphoreSlim _loadLock = new(1, 1);
 
-    public LlmInferenceService(IModelDownloadService download)
-        : this(download, new LLamaSharpVisionRuntimeFactory(), null)
+    public LlmInferenceService(
+        IModelDownloadService download,
+        ILlamaServerBinaryService binaryService,
+        Func<string> getBackend)
+        : this(download,
+               new LlamaServerVisionRuntimeFactory(
+                   binaryService,
+                   new LlamaServerProcessService(),
+                   getBackend),
+               null)
     {
     }
 
@@ -51,7 +54,6 @@ public class LlmInferenceService : ILlmInferenceService, IDisposable
         _download = download;
         _runtimeFactory = runtimeFactory;
         _log = log ?? new NullViewerLogService();
-        LlamaNativeDiagnostics.Configure(_log);
     }
 
     private async Task EnsureLoadedAsync(CancellationToken ct)
@@ -175,17 +177,20 @@ public class LlmInferenceService : ILlmInferenceService, IDisposable
         return ms.ToArray();
     }
 
-    private static string BuildPrompt(string description)
-    {
-        return $"<image>\nUSER:\nDoes the screen match this description: '{description}'? " +
-               "Reply with YES or NO and one sentence explanation.\nASSISTANT:\n";
-    }
+    private static string BuildPrompt(string description) =>
+        $"Does the screen match this description: '{description}'? " +
+        "Reply with YES or NO and one sentence explanation.";
 
     private static (bool IsMatch, string Explanation) ParseModelResponse(string rawResponse)
     {
         var normalized = rawResponse.Trim();
-        if (normalized.StartsWith("ASSISTANT:", StringComparison.OrdinalIgnoreCase))
-            normalized = normalized["ASSISTANT:".Length..].Trim();
+
+        // Strip <think>...</think> blocks (Qwen3 reasoning chain)
+        normalized = Regex.Replace(
+            normalized,
+            @"<think>[\s\S]*?</think>",
+            string.Empty,
+            RegexOptions.IgnoreCase | RegexOptions.CultureInvariant).Trim();
 
         normalized = Regex.Replace(
             normalized,
@@ -210,106 +215,146 @@ public class LlmInferenceService : ILlmInferenceService, IDisposable
     }
 }
 
-internal sealed class LLamaSharpVisionRuntimeFactory : ILlmVisionRuntimeFactory
+internal sealed class LlamaServerVisionRuntimeFactory : ILlmVisionRuntimeFactory
 {
-    public async Task<ILlmVisionRuntime> CreateAsync(string modelPath, string projectorPath, CancellationToken ct)
-    {
-        var nativeCursor = LlamaNativeDiagnostics.CaptureCursor();
-        var parameters = new ModelParams(modelPath)
-        {
-            ContextSize = 4096
-        };
+    private readonly ILlamaServerBinaryService _binary;
+    private readonly ILlamaServerProcessService _process;
+    private readonly Func<string> _getBackend;
 
-        LLamaWeights model;
+    public LlamaServerVisionRuntimeFactory(
+        ILlamaServerBinaryService binary,
+        ILlamaServerProcessService process,
+        Func<string> getBackend)
+    {
+        _binary = binary;
+        _process = process;
+        _getBackend = getBackend;
+    }
+
+    public async Task<ILlmVisionRuntime> CreateAsync(
+        string modelPath, string projectorPath, CancellationToken ct)
+    {
+        var backend = _getBackend();
+        var isCpu = backend == "cpu";
+        var isReady = isCpu ? _binary.IsCpuReady : _binary.IsGpuReady(backend);
+
+        if (!isReady)
+            throw new LlmRuntimeLoadException(
+                LlmRuntimeLoadStage.RuntimeInit,
+                "Скачайте llama-server в настройках (раздел «Бэкенд»).",
+                $"llama-server binary not found for backend '{backend}'.",
+                modelPath,
+                projectorPath);
+
+        var exePath = _binary.GetExePath(backend);
+
+        string baseUrl;
         try
         {
-            model = await LLamaWeights.LoadFromFileAsync(parameters, ct).ConfigureAwait(false);
+            baseUrl = await _process.StartAsync(exePath, modelPath, projectorPath, ct)
+                .ConfigureAwait(false);
         }
-        catch (Exception ex)
+        catch (OperationCanceledException)
         {
-            var nativeSummary = LlamaNativeDiagnostics.GetRelevantMessagesSince(nativeCursor);
+            throw;
+        }
+        catch (TimeoutException ex)
+        {
             throw new LlmRuntimeLoadException(
                 LlmRuntimeLoadStage.ModelLoad,
-                LlmLoadFailureDiagnostics.GetUserMessage(LlmRuntimeLoadStage.ModelLoad, nativeSummary),
-                LlmLoadFailureDiagnostics.GetDiagnosticMessage(
-                    $"Failed to load model '{modelPath}'. {ex.Message}",
-                    nativeSummary),
+                ex.Message,
+                ex.Message,
+                modelPath,
+                projectorPath,
+                ex);
+        }
+        catch (Exception ex)
+        {
+            throw new LlmRuntimeLoadException(
+                LlmRuntimeLoadStage.ModelLoad,
+                "Не удалось запустить llama-server.",
+                $"Failed to start llama-server: {ex.Message}",
                 modelPath,
                 projectorPath,
                 ex);
         }
 
-        try
-        {
-            var projector = await LLavaWeights.LoadFromFileAsync(projectorPath, ct).ConfigureAwait(false);
-            return new LLamaSharpVisionRuntime(parameters, model, projector);
-        }
-        catch (Exception ex)
-        {
-            model.Dispose();
-            var nativeSummary = LlamaNativeDiagnostics.GetRelevantMessagesSince(nativeCursor);
-            throw new LlmRuntimeLoadException(
-                LlmRuntimeLoadStage.ProjectorLoad,
-                LlmLoadFailureDiagnostics.GetUserMessage(LlmRuntimeLoadStage.ProjectorLoad, nativeSummary),
-                LlmLoadFailureDiagnostics.GetDiagnosticMessage(
-                    $"Failed to load projector '{projectorPath}'. {ex.Message}",
-                    nativeSummary),
-                modelPath,
-                projectorPath,
-                ex);
-        }
+        return new LlamaServerVisionRuntime(baseUrl, _process);
     }
 }
 
-internal sealed class LLamaSharpVisionRuntime : ILlmVisionRuntime
+internal sealed class LlamaServerVisionRuntime : ILlmVisionRuntime
 {
-    private readonly ModelParams _parameters;
-    private readonly LLamaWeights _model;
-    private readonly LLavaWeights _projector;
-    private readonly SemaphoreSlim _inferenceLock = new(1, 1);
+    private readonly string _baseUrl;
+    private readonly ILlamaServerProcessService _process;
+    private readonly HttpClient _http;
 
-    public LLamaSharpVisionRuntime(ModelParams parameters, LLamaWeights model, LLavaWeights projector)
+    public LlamaServerVisionRuntime(string baseUrl, ILlamaServerProcessService process)
     {
-        _parameters = parameters;
-        _model = model;
-        _projector = projector;
+        _baseUrl = baseUrl;
+        _process = process;
+        _http = new HttpClient { Timeout = TimeSpan.FromSeconds(300) };
     }
 
     public async Task<string> InferAsync(byte[] imageBytes, string prompt, CancellationToken ct)
     {
-        await _inferenceLock.WaitAsync(ct);
-        try
-        {
-            using var context = _model.CreateContext(_parameters);
-            var executor = new InteractiveExecutor(context, _projector);
-            executor.Images.Add(imageBytes);
+        var base64 = Convert.ToBase64String(imageBytes);
+        var dataUrl = $"data:image/jpeg;base64,{base64}";
 
-            var inferenceParams = new InferenceParams
-            {
-                MaxTokens = 128,
-                AntiPrompts = new List<string> { "\nUSER:" },
-                SamplingPipeline = new DefaultSamplingPipeline
-                {
-                    Temperature = 0.1f
-                }
-            };
+        var request = new ChatCompletionRequest(
+            Messages:
+            [
+                new ChatMessage("user",
+                [
+                    new ContentPart("image_url", ImageUrl: new ImageUrlValue(dataUrl)),
+                    new ContentPart("text", Text: prompt)
+                ])
+            ],
+            MaxTokens: 256,
+            Temperature: 0.1f);
 
-            var builder = new StringBuilder();
-            await foreach (var chunk in executor.InferAsync(prompt, inferenceParams, ct))
-                builder.Append(chunk);
+        using var response = await _http.PostAsJsonAsync(
+            $"{_baseUrl}/v1/chat/completions", request, ct).ConfigureAwait(false);
+        response.EnsureSuccessStatusCode();
 
-            return builder.ToString();
-        }
-        finally
-        {
-            _inferenceLock.Release();
-        }
+        var result = await response.Content.ReadFromJsonAsync<ChatCompletionResponse>(
+            cancellationToken: ct).ConfigureAwait(false)
+            ?? throw new InvalidOperationException("Empty response from llama-server.");
+
+        return result.Choices.FirstOrDefault()?.Message.Content
+            ?? throw new InvalidOperationException("No choices in llama-server response.");
     }
 
     public void Dispose()
     {
-        _projector.Dispose();
-        _model.Dispose();
-        _inferenceLock.Dispose();
+        _process.StopAsync().GetAwaiter().GetResult();
+        _http.Dispose();
     }
+
+    // Request/response DTOs
+    private sealed record ChatCompletionRequest(
+        [property: JsonPropertyName("messages")] List<ChatMessage> Messages,
+        [property: JsonPropertyName("max_tokens")] int MaxTokens,
+        [property: JsonPropertyName("temperature")] float Temperature);
+
+    private sealed record ChatMessage(
+        [property: JsonPropertyName("role")] string Role,
+        [property: JsonPropertyName("content")] List<ContentPart> Content);
+
+    private sealed record ContentPart(
+        [property: JsonPropertyName("type")] string Type,
+        [property: JsonPropertyName("text")] string? Text = null,
+        [property: JsonPropertyName("image_url")] ImageUrlValue? ImageUrl = null);
+
+    private sealed record ImageUrlValue(
+        [property: JsonPropertyName("url")] string Url);
+
+    private sealed record ChatCompletionResponse(
+        [property: JsonPropertyName("choices")] List<ChatChoice> Choices);
+
+    private sealed record ChatChoice(
+        [property: JsonPropertyName("message")] ChatChoiceMessage Message);
+
+    private sealed record ChatChoiceMessage(
+        [property: JsonPropertyName("content")] string Content);
 }

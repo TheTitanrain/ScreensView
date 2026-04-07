@@ -594,7 +594,8 @@ public class MainViewModelTests : IDisposable
         ILlmCheckService? llmCheckService = null,
         IModelDownloadService? downloadService = null,
         Action<string, string>? reportError = null,
-        ILlmInferenceService? inferenceService = null)
+        ILlmInferenceService? inferenceService = null,
+        ILlamaServerBinaryService? binaryService = null)
     {
         var storage = new ComputerStorageService(_tempFile);
         var poller = new ScreenshotPollerService(new AgentHttpClient());
@@ -605,7 +606,8 @@ public class MainViewModelTests : IDisposable
             reportError,
             llmCheckService ?? new FakeLlmCheckService(),
             downloadService ?? new FakeModelDownloadService(),
-            inferenceService ?? new FakeLlmInferenceService());
+            inferenceService ?? new FakeLlmInferenceService(),
+            binaryService ?? new FakeLlamaServerBinaryService());
     }
 
     [Fact]
@@ -1115,5 +1117,15 @@ public class MainViewModelTests : IDisposable
 
         public Task<LlmCheckResult> AnalyzeAsync(System.Windows.Media.Imaging.BitmapImage screenshot, string description, CancellationToken ct)
             => Task.FromResult(new LlmCheckResult(false, "fake", false, DateTime.UtcNow));
+    }
+
+    private sealed class FakeLlamaServerBinaryService : ILlamaServerBinaryService
+    {
+        public bool IsCpuReady { get; set; } = true;
+        public bool IsGpuReady(string variant) => false;
+        public string GetExePath(string variant) => @"C:\fake\llama-server.exe";
+        public string? GetInstalledVersion(string variant) => IsCpuReady ? "b9999" : null;
+        public Task DownloadAsync(string variant, IProgress<double> progress, CancellationToken ct)
+            => Task.CompletedTask;
     }
 }

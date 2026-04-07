@@ -67,6 +67,7 @@ public class ViewerSettings
     public int LlmCheckIntervalMinutes { get; set; } = 5;
     public bool LlmEnabled { get; set; } = false;
     public string SelectedModelId { get; set; } = "llava-v1.5-7b-q4";
+    public string LlamaServerBackend { get; set; } = "cpu"; // "cpu" | "vulkan" | "cuda"
     public string ConnectionsFilePath { get; set; } = string.Empty;
     public string ConnectionsFilePasswordEncrypted { get; set; } = string.Empty;
 }

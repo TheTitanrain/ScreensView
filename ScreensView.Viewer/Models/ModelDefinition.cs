@@ -25,6 +25,11 @@ public record ModelDefinition(
             "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/Qwen3.5-2B-Q4_K_M.gguf",
             "mmproj-F16.gguf",
             "https://huggingface.co/unsloth/Qwen3.5-2B-GGUF/resolve/main/mmproj-F16.gguf"),
+        new("qwen3-vl-2b-q4", "Qwen3-VL-2B-Instruct Q4_K_M (~1.1 + 0.8 GB) [experimental]",
+            "Qwen3-VL-2B-Instruct-Q4_K_M.gguf",
+            "https://huggingface.co/unsloth/Qwen3-VL-2B-Instruct-GGUF/resolve/main/Qwen3-VL-2B-Instruct-Q4_K_M.gguf",
+            "qwen3-vl-2b-instruct-mmproj-F16.gguf",
+            "https://huggingface.co/unsloth/Qwen3-VL-2B-Instruct-GGUF/resolve/main/mmproj-F16.gguf"),
     ];
 
     public static ModelDefinition Default => Available[0];

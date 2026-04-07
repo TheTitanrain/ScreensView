@@ -2,7 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:models="clr-namespace:ScreensView.Viewer.Models"
-        Title="Настройки" Height="380" Width="420"
+        Title="Настройки" Height="540" Width="420"
         ResizeMode="NoResize" WindowStartupLocation="CenterOwner"
         ShowInTaskbar="False">
     <Window.Resources>
@@ -97,6 +97,81 @@
                             <Setter Property="Visibility" Value="Collapsed"/>
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding DownloadModelCommand.IsRunning}" Value="True">
+                                    <Setter Property="Visibility" Value="Visible"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Button.Style>
+                </Button>
+            </StackPanel>
+
+            <!-- Separator -->
+            <Separator Margin="0,12,0,12"/>
+
+            <!-- Backend selection -->
+            <StackPanel Margin="0,0,0,4">
+                <TextBlock Text="Бэкенд llama-server:" Margin="0,0,0,4"/>
+                <ComboBox SelectedValue="{Binding SelectedBackend}" SelectedValuePath="Tag"
+                          HorizontalAlignment="Stretch">
+                    <ComboBox.Style>
+                        <Style TargetType="ComboBox">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding DownloadBinaryCommand.IsRunning}" Value="True">
+                                    <Setter Property="IsEnabled" Value="False"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </ComboBox.Style>
+                    <ComboBoxItem Tag="cpu" Content="CPU"/>
+                    <ComboBoxItem Tag="vulkan" Content="Vulkan (AMD / Intel)"/>
+                    <ComboBoxItem Tag="cuda" Content="CUDA (NVIDIA)"/>
+                </ComboBox>
+            </StackPanel>
+
+            <!-- Binary status -->
+            <TextBlock Text="{Binding BinaryStatusText}" Foreground="Gray" Margin="0,4,0,12"/>
+
+            <!-- Binary download progress bar -->
+            <ProgressBar Value="{Binding BinaryDownloadProgress, Mode=OneWay}" Minimum="0" Maximum="100"
+                         Height="6" Margin="0,0,0,8">
+                <ProgressBar.Style>
+                    <Style TargetType="ProgressBar">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding BinaryDownloadProgress,
+                                Converter={StaticResource ModelDownloadActive}}" Value="True">
+                                <Setter Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </ProgressBar.Style>
+            </ProgressBar>
+
+            <!-- Binary download percentage -->
+            <TextBlock Margin="0,0,0,8">
+                <TextBlock.Style>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Visibility" Value="Collapsed"/>
+                        <Style.Triggers>
+                            <DataTrigger Binding="{Binding BinaryDownloadProgress,
+                                Converter={StaticResource ModelDownloadActive}}" Value="True">
+                                <Setter Property="Visibility" Value="Visible"/>
+                            </DataTrigger>
+                        </Style.Triggers>
+                    </Style>
+                </TextBlock.Style>
+                <Run Text="{Binding BinaryDownloadProgress, Mode=OneWay, StringFormat='{}{0:0}%'}"/>
+            </TextBlock>
+
+            <!-- Binary download / Cancel buttons -->
+            <StackPanel Orientation="Horizontal">
+                <Button Content="Скачать бэкенд" Command="{Binding DownloadBinaryCommand}" Padding="12,4" Margin="0,0,8,0"/>
+                <Button Content="Отмена" Command="{Binding DownloadBinaryCancelCommand}" Padding="12,4">
+                    <Button.Style>
+                        <Style TargetType="Button">
+                            <Setter Property="Visibility" Value="Collapsed"/>
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding DownloadBinaryCommand.IsRunning}" Value="True">
                                     <Setter Property="Visibility" Value="Visible"/>
                                 </DataTrigger>
                             </Style.Triggers>

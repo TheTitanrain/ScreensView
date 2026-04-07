@@ -42,9 +42,6 @@ public partial class App : Application
         });
 
         var poller = new ScreenshotPollerService(http);
-        var downloadService = new ModelDownloadService();
-        var inferenceService = new LlmInferenceService(downloadService, new LLamaSharpVisionRuntimeFactory(), logService);
-        var llmCheckService = new LlmCheckService(inferenceService, logService);
         viewModel = new MainViewModel(
             startup.Storage!,
             poller,
@@ -57,10 +54,7 @@ public partial class App : Application
                 else
                     MessageBox.Show(mainWindow, message, title, MessageBoxButton.OK, MessageBoxImage.Error);
             },
-            llmCheckService,
-            downloadService,
-            inferenceService,
-            logService);
+            log: logService);
 
         mainWindow = new MainWindow(viewModel, controller, settingsService);
         MainWindow = mainWindow;

@@ -20,7 +20,6 @@ public class LlmInferenceServiceTests
         Assert.True(result.IsMatch);
         Assert.False(result.IsError);
         Assert.Equal("Screen looks correct.", result.Explanation);
-        Assert.Contains("<image>", runtime.LastPrompt);
         Assert.Contains("Spreadsheet dashboard", runtime.LastPrompt);
         Assert.NotNull(runtime.LastImageBytes);
         Assert.NotEmpty(runtime.LastImageBytes!);
@@ -86,16 +85,6 @@ public class LlmInferenceServiceTests
     }
 
     [Fact]
-    public void GetUserMessage_WhenNativeSummaryContainsUnknownArchitecture_ReturnsUnsupportedModelMessage()
-    {
-        var message = LlmLoadFailureDiagnostics.GetUserMessage(
-            LlmRuntimeLoadStage.ModelLoad,
-            "Error: llama_model_load: error loading model architecture: unknown model architecture: 'qwen35'");
-
-        Assert.Equal("Текущая модель не поддерживается LLama runtime (архитектура qwen35).", message);
-    }
-
-    [Fact]
     public async Task AnalyzeAsync_WhenParseFails_ReturnsParseErrorButDoesNotPretendModelLoadFailure()
     {
         var runtime = new FakeVisionRuntime("Maybe this matches.");
@@ -111,6 +100,17 @@ public class LlmInferenceServiceTests
         Assert.True(result.IsError);
         Assert.Contains("YES or NO", result.Explanation);
         Assert.DoesNotContain("load model", result.Explanation, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void GetUserMessage_ReturnsStageBasedMessage()
+    {
+        Assert.Equal("Ошибка загрузки модели",
+            LlmLoadFailureDiagnostics.GetUserMessage(LlmRuntimeLoadStage.ModelLoad));
+        Assert.Equal("Ошибка загрузки projector",
+            LlmLoadFailureDiagnostics.GetUserMessage(LlmRuntimeLoadStage.ProjectorLoad));
+        Assert.Equal("Ошибка инициализации LLM runtime",
+            LlmLoadFailureDiagnostics.GetUserMessage(LlmRuntimeLoadStage.RuntimeInit));
     }
 
     private sealed class FakeModelDownloadService : IModelDownloadService

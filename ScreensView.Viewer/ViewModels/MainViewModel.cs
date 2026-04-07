@@ -27,6 +27,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private readonly ILlmCheckService _llmCheckService;
     private readonly IModelDownloadService _downloadService;
     private readonly ILlmInferenceService _inferenceService;
+    private readonly ILlamaServerBinaryService _binaryService;
     private readonly CancellationTokenSource _appCts = new();
     private string? _modelLoadErrorText;
     private int _llmValidationVersion;
@@ -38,8 +39,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private bool _isAutostartEnabled;
     [ObservableProperty] private int _llmCheckIntervalMinutes = 5;
     [ObservableProperty] private double _modelDownloadProgress = -1;
+    [ObservableProperty] private double _binaryDownloadProgress = -1;
     [ObservableProperty] private bool _isLlmEnabled;
     [ObservableProperty] private ModelDefinition _selectedModel = ModelDefinition.Default;
+    [ObservableProperty] private string _selectedBackend = "cpu";
 
     public CancellationToken AppToken => _appCts.Token;
 
@@ -57,6 +60,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         ILlmCheckService? llmCheckService = null,
         IModelDownloadService? downloadService = null,
         ILlmInferenceService? inferenceService = null,
+        ILlamaServerBinaryService? binaryService = null,
         IViewerLogService? log = null)
     {
         _storage = storage;
@@ -77,23 +81,36 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _poller.Start(Computers, _refreshInterval);
         _isPolling = true;
 
+        // Load persisted LLM settings before creating inference service
+        _isLlmEnabled = _viewerSettings.LlmEnabled;
+        _selectedModel = ModelDefinition.Available.FirstOrDefault(m => m.Id == _viewerSettings.SelectedModelId)
+                         ?? ModelDefinition.Default;
+        _selectedBackend = _viewerSettings.LlamaServerBackend;
+
         _downloadService = downloadService ?? new ModelDownloadService();
-        _inferenceService = inferenceService ?? new LlmInferenceService(_downloadService);
-        _llmCheckService = llmCheckService ?? new LlmCheckService(_inferenceService);
+        _downloadService.SelectModel(_selectedModel);
+
+        _binaryService = binaryService ?? new LlamaServerBinaryService();
+        if (inferenceService is null)
+        {
+            var processService = new LlamaServerProcessService(_log);
+            var factory = new LlamaServerVisionRuntimeFactory(
+                _binaryService, processService, () => _selectedBackend);
+            _inferenceService = new LlmInferenceService(_downloadService, factory, _log);
+        }
+        else
+        {
+            _inferenceService = inferenceService;
+        }
+        _llmCheckService = llmCheckService ?? new LlmCheckService(_inferenceService, _log);
 
         _llmCheckIntervalMinutes = NormalizeLlmCheckInterval(
             _viewerSettings.LlmCheckIntervalMinutes);
         _viewerSettings.LlmCheckIntervalMinutes = _llmCheckIntervalMinutes;
 
-        // Load persisted LLM settings
-        _isLlmEnabled = _viewerSettings.LlmEnabled;
-        _selectedModel = ModelDefinition.Available.FirstOrDefault(m => m.Id == _viewerSettings.SelectedModelId)
-                         ?? ModelDefinition.Default;
-        _downloadService.SelectModel(_selectedModel); // sync service to persisted selection
-
         _downloadService.ModelReady += (_, _) => HandleModelReady();
 
-        if (_isLlmEnabled && _downloadService.IsModelReady)
+        if (_isLlmEnabled && IsReadyToStart)
             BeginTryStartLlmService("startup");
     }
 
@@ -152,9 +169,56 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _llmCheckService.UpdateInterval(value);
     }
 
+    private bool IsReadyToStart =>
+        _downloadService.IsModelReady && IsBinaryReady(_selectedBackend);
+
+    private bool IsBinaryReady(string backend) =>
+        backend == "cpu" ? _binaryService.IsCpuReady : _binaryService.IsGpuReady(backend);
+
     public string ModelStatusText =>
         !string.IsNullOrEmpty(_modelLoadErrorText) ? _modelLoadErrorText :
         _downloadService.IsModelReady ? "Готово ✓" : "Не скачана";
+
+    public string BinaryStatusText
+    {
+        get
+        {
+            var backend = _selectedBackend;
+            var version = _binaryService.GetInstalledVersion(backend);
+            return version is not null ? $"Готово ✓ ({version})" : "Не скачан";
+        }
+    }
+
+    [RelayCommand(IncludeCancelCommand = true, AllowConcurrentExecutions = false)]
+    private async Task DownloadBinaryAsync(CancellationToken ct)
+    {
+        var backend = _selectedBackend;
+        _log.LogInfo("MainViewModel.DownloadBinary.Start", $"Downloading llama-server binary for backend='{backend}'.");
+
+        var progress = new Progress<double>(p => BinaryDownloadProgress = p);
+        try
+        {
+            await _binaryService.DownloadAsync(backend, progress, ct);
+            BinaryDownloadProgress = -1;
+            OnPropertyChanged(nameof(BinaryStatusText));
+            if (_isLlmEnabled && IsReadyToStart)
+                BeginTryStartLlmService("binary downloaded");
+        }
+        catch (OperationCanceledException)
+        {
+            BinaryDownloadProgress = -1;
+            _log.LogWarning("MainViewModel.DownloadBinary.Cancelled", $"Binary download cancelled for '{backend}'.");
+        }
+        catch (Exception ex)
+        {
+            BinaryDownloadProgress = -1;
+            var msg = ex.InnerException is not null
+                ? $"{ex.Message}\n\n{ex.InnerException.Message}"
+                : ex.Message;
+            _log.LogError("MainViewModel.DownloadBinary.Failed", $"Binary download failed for '{backend}'.", ex);
+            ReportError("Binary download", msg);
+        }
+    }
 
     [RelayCommand(IncludeCancelCommand = true, AllowConcurrentExecutions = false)]
     private async Task DownloadModelAsync(CancellationToken ct)
@@ -195,13 +259,28 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _viewerSettings.LlmEnabled = value;
         _viewerSettingsService.Save(_viewerSettings);
 
-        if (value && _downloadService.IsModelReady)
+        if (value && IsReadyToStart)
             BeginTryStartLlmService("toggle enabled");
         else if (!value)
         {
             InvalidateLlmValidation();
             _llmCheckService.Stop();
         }
+    }
+
+    partial void OnSelectedBackendChanged(string value)
+    {
+        _log.LogInfo("MainViewModel.BackendChanged", $"Backend changed to '{value}'.");
+        _viewerSettings.LlamaServerBackend = value;
+        _viewerSettingsService.Save(_viewerSettings);
+
+        InvalidateLlmValidation();
+        _llmCheckService.Stop();
+        _inferenceService.Reset();
+        OnPropertyChanged(nameof(BinaryStatusText));
+
+        if (_isLlmEnabled && IsReadyToStart)
+            BeginTryStartLlmService("backend changed");
     }
 
     partial void OnSelectedModelChanged(ModelDefinition value)
@@ -218,7 +297,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         ClearModelLoadError();
         OnPropertyChanged(nameof(ModelStatusText));
 
-        if (_isLlmEnabled && _downloadService.IsModelReady)
+        if (_isLlmEnabled && IsReadyToStart)
             BeginTryStartLlmService("model changed");
     }
 
@@ -365,7 +444,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         ClearModelLoadError();
         OnPropertyChanged(nameof(ModelStatusText));
 
-        if (_isLlmEnabled)
+        if (_isLlmEnabled && IsReadyToStart)
             BeginTryStartLlmService("model ready");
     }
 
@@ -375,7 +454,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             "MainViewModel.LlmStartAttempt",
             $"Attempting to start LLM service. Reason='{reason}', Enabled={_isLlmEnabled}, FilesReady={_downloadService.IsModelReady}.");
 
-        if (!_isLlmEnabled || !_downloadService.IsModelReady)
+        if (!_isLlmEnabled || !IsReadyToStart)
             return;
 
         var version = Interlocked.Increment(ref _llmValidationVersion);
@@ -423,7 +502,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         int version,
         LlmRuntimeLoadException? validationError)
     {
-        if (version != _llmValidationVersion || !_isLlmEnabled || !_downloadService.IsModelReady)
+        if (version != _llmValidationVersion || !_isLlmEnabled || !IsReadyToStart)
             return;
 
         if (validationError is null)

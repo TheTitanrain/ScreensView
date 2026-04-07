@@ -109,7 +109,7 @@ public class LlmCheckService : ILlmCheckService
 
             SetOnDispatcher(() => vm.IsLlmChecking = true);
 
-            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(60));
+            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(300));
             using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
 
             try
