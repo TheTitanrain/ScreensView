@@ -115,7 +115,7 @@ public class ModelDownloadServiceTests : IDisposable
             "projector"u8.ToArray(),
             capture: req =>
             {
-                if (req.RequestUri?.AbsoluteUri.Contains("Qwen3.5-2B-Q4_K_M.gguf", StringComparison.OrdinalIgnoreCase) == true)
+                if (req.RequestUri?.AbsoluteUri.Contains(ModelDefinition.Default.FileName, StringComparison.OrdinalIgnoreCase) == true)
                     rangeHeader = req.Headers.Range?.ToString();
             });
         var svc = Make(handler);

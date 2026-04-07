@@ -1,4 +1,5 @@
 using System.Reflection;
+using ScreensView.Viewer.Models;
 using ScreensView.Viewer.Services;
 
 namespace ScreensView.Tests;
@@ -168,5 +169,13 @@ public class ViewerSettingsServiceTests : IDisposable
             Assert.Equal("some-model-id", loaded.SelectedModelId);
         }
         finally { File.Delete(path); }
+    }
+
+    [Fact]
+    public void SelectedModelId_DefaultValue_UsesDefaultModelId()
+    {
+        var settings = new ViewerSettings();
+
+        Assert.Equal(ModelDefinition.Default.Id, settings.SelectedModelId);
     }
 }
