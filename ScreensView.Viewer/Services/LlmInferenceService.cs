@@ -51,6 +51,7 @@ public class LlmInferenceService : ILlmInferenceService, IDisposable
         _download = download;
         _runtimeFactory = runtimeFactory;
         _log = log ?? new NullViewerLogService();
+        LlamaNativeDiagnostics.Configure(_log);
     }
 
     private async Task EnsureLoadedAsync(CancellationToken ct)
@@ -213,6 +214,7 @@ internal sealed class LLamaSharpVisionRuntimeFactory : ILlmVisionRuntimeFactory
 {
     public async Task<ILlmVisionRuntime> CreateAsync(string modelPath, string projectorPath, CancellationToken ct)
     {
+        var nativeCursor = LlamaNativeDiagnostics.CaptureCursor();
         var parameters = new ModelParams(modelPath)
         {
             ContextSize = 4096
@@ -225,10 +227,13 @@ internal sealed class LLamaSharpVisionRuntimeFactory : ILlmVisionRuntimeFactory
         }
         catch (Exception ex)
         {
+            var nativeSummary = LlamaNativeDiagnostics.GetRelevantMessagesSince(nativeCursor);
             throw new LlmRuntimeLoadException(
                 LlmRuntimeLoadStage.ModelLoad,
-                "Ошибка загрузки модели",
-                $"Failed to load model '{modelPath}'. {ex.Message}",
+                LlmLoadFailureDiagnostics.GetUserMessage(LlmRuntimeLoadStage.ModelLoad, nativeSummary),
+                LlmLoadFailureDiagnostics.GetDiagnosticMessage(
+                    $"Failed to load model '{modelPath}'. {ex.Message}",
+                    nativeSummary),
                 modelPath,
                 projectorPath,
                 ex);
@@ -242,10 +247,13 @@ internal sealed class LLamaSharpVisionRuntimeFactory : ILlmVisionRuntimeFactory
         catch (Exception ex)
         {
             model.Dispose();
+            var nativeSummary = LlamaNativeDiagnostics.GetRelevantMessagesSince(nativeCursor);
             throw new LlmRuntimeLoadException(
                 LlmRuntimeLoadStage.ProjectorLoad,
-                "Ошибка загрузки projector",
-                $"Failed to load projector '{projectorPath}'. {ex.Message}",
+                LlmLoadFailureDiagnostics.GetUserMessage(LlmRuntimeLoadStage.ProjectorLoad, nativeSummary),
+                LlmLoadFailureDiagnostics.GetDiagnosticMessage(
+                    $"Failed to load projector '{projectorPath}'. {ex.Message}",
+                    nativeSummary),
                 modelPath,
                 projectorPath,
                 ex);
