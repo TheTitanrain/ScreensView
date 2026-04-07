@@ -33,7 +33,8 @@ public class LocalConnectionsStorageTests : IDisposable
             Port = 5443,
             IsEnabled = true,
             ApiKey = "super-secret-key-xyz",
-            CertThumbprint = "AABBCCDDEEFF00112233445566778899AABBCCDD"
+            CertThumbprint = "AABBCCDDEEFF00112233445566778899AABBCCDD",
+            Description = "Desktop with monitoring dashboard"
         };
         var service = CreateService();
 
@@ -49,6 +50,7 @@ public class LocalConnectionsStorageTests : IDisposable
         Assert.Equal(original.IsEnabled, c.IsEnabled);
         Assert.Equal(original.ApiKey, c.ApiKey);
         Assert.Equal(original.CertThumbprint, c.CertThumbprint);
+        Assert.Equal(original.Description, c.Description);
     }
 
     [Fact]

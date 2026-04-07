@@ -46,7 +46,8 @@ public class ComputerStorageService : IComputerStorageService
                 Port = s.Port,
                 IsEnabled = s.IsEnabled,
                 ApiKey = TryDecrypt(s.ApiKeyEncrypted),
-                CertThumbprint = s.CertThumbprint
+                CertThumbprint = s.CertThumbprint,
+                Description = s.Description
             }).ToList();
         }
     }
@@ -61,7 +62,8 @@ public class ComputerStorageService : IComputerStorageService
             Port = c.Port,
             IsEnabled = c.IsEnabled,
             ApiKeyEncrypted = string.IsNullOrEmpty(c.ApiKey) ? string.Empty : DpapiHelper.Encrypt(c.ApiKey),
-            CertThumbprint = c.CertThumbprint
+            CertThumbprint = c.CertThumbprint,
+            Description = c.Description
         }).ToList();
 
         var json = JsonSerializer.Serialize(items, JsonOptions);
@@ -85,5 +87,6 @@ public class ComputerStorageService : IComputerStorageService
         public bool IsEnabled { get; set; }
         public string ApiKeyEncrypted { get; set; } = string.Empty;
         public string CertThumbprint { get; set; } = string.Empty;
+        public string? Description { get; set; }
     }
 }
