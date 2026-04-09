@@ -85,6 +85,17 @@ public class ComputerViewModelTests
     }
 
     [Fact]
+    public void SetError_ClearsLastLlmCheck()
+    {
+        var vm = new ComputerViewModel(MakeConfig());
+        vm.LastLlmCheck = new LlmCheckResult(true, "ok", false, DateTime.UtcNow);
+
+        vm.SetError("Connection refused");
+
+        Assert.Null(vm.LastLlmCheck);
+    }
+
+    [Fact]
     public void SetError_CanBeCalledMultipleTimes()
     {
         var vm = new ComputerViewModel(MakeConfig());
@@ -94,6 +105,18 @@ public class ComputerViewModelTests
 
         Assert.Equal(ComputerStatus.Offline, vm.Status);
         Assert.Equal("Second error", vm.StatusMessage);
+    }
+
+    [Fact]
+    public void SetLocked_ClearsLastLlmCheck()
+    {
+        var vm = new ComputerViewModel(MakeConfig());
+        vm.LastLlmCheck = new LlmCheckResult(true, "ok", false, DateTime.UtcNow);
+
+        vm.SetLocked("Locked");
+
+        Assert.Null(vm.LastLlmCheck);
+        Assert.Equal(ComputerStatus.Locked, vm.Status);
     }
 
     [Fact]

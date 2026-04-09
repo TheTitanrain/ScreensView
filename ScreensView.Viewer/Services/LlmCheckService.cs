@@ -13,8 +13,12 @@ public interface ILlmCheckService
 
 public class LlmCheckService : ILlmCheckService
 {
+    private const int MaxCachedChecksPerComputer = 16;
+
     private readonly ILlmInferenceService _inference;
     private readonly IViewerLogService _log;
+    private readonly TimeSpan _perComputerTimeout;
+    private readonly Dictionary<Guid, List<CachedLlmCheckEntry>> _recentChecks = [];
     private volatile int _intervalMinutes = 5;
     private CancellationTokenSource? _cts;
     private Task? _loopTask;
@@ -25,10 +29,14 @@ public class LlmCheckService : ILlmCheckService
     {
     }
 
-    internal LlmCheckService(ILlmInferenceService inference, IViewerLogService? log)
+    internal LlmCheckService(
+        ILlmInferenceService inference,
+        IViewerLogService? log,
+        TimeSpan? perComputerTimeout = null)
     {
         _inference = inference;
         _log = log ?? new NullViewerLogService();
+        _perComputerTimeout = perComputerTimeout ?? TimeSpan.FromSeconds(120);
     }
 
     public void Start(IReadOnlyList<ComputerViewModel> computers, int intervalMinutes)
@@ -36,6 +44,7 @@ public class LlmCheckService : ILlmCheckService
         if (_cts is not null)
             return; // idempotent — already running
 
+        ClearCache();
         _log.LogInfo("LlmCheckService.Start", $"Starting service for {computers.Count} computers, interval={intervalMinutes} min.");
         _computers = computers;
         SetServiceActive(computers, isActive: true);
@@ -55,6 +64,7 @@ public class LlmCheckService : ILlmCheckService
         if (_computers is not null)
             SetServiceActive(_computers, isActive: false);
 
+        ClearCache();
         _cts?.Cancel();
         _cts?.Dispose();
         _cts = null;
@@ -108,9 +118,32 @@ public class LlmCheckService : ILlmCheckService
                 continue;
             }
 
+            if (vm.Status != ComputerStatus.Online || vm.LastUpdated is null)
+            {
+                SetOnDispatcher(() => vm.LastLlmCheck = null);
+                _log.LogInfo(
+                    "LlmCheckService.SkipStaleScreenshot",
+                    $"Skipping '{vm.Name}' because screenshot is stale. Status={vm.Status}, LastUpdated={vm.LastUpdated?.ToString("O") ?? "null"}.");
+                continue;
+            }
+
+            var screenshotTimestampAtStart = vm.LastUpdated.Value;
+            var prepared = await InferenceImagePreprocessor.PrepareAsync(screenshotCopy).ConfigureAwait(false);
+            if (TryGetCachedResult(vm.Id, descriptionAtStart, prepared.Hash64, out var cachedResult))
+            {
+                SetOnDispatcher(() => vm.LastLlmCheck = cachedResult);
+                _log.LogInfo(
+                    "LlmCheckService.CacheHit",
+                    $"Reused cached result for '{vm.Name}'. description='{descriptionAtStart}', hash={prepared.Hash64}.");
+                continue;
+            }
+
+            _log.LogInfo(
+                "LlmCheckService.CacheMiss",
+                $"No cached result for '{vm.Name}'. description='{descriptionAtStart}', hash={prepared.Hash64}.");
             SetOnDispatcher(() => vm.IsLlmChecking = true);
 
-            using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(300));
+            using var timeoutCts = new CancellationTokenSource(_perComputerTimeout);
             using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
             var stopwatch = Stopwatch.StartNew();
 
@@ -122,12 +155,17 @@ public class LlmCheckService : ILlmCheckService
 
                 SetOnDispatcher(() =>
                 {
-                    if (vm.Description == descriptionAtStart)
+                    if (vm.Description == descriptionAtStart
+                        && vm.Status == ComputerStatus.Online
+                        && vm.LastUpdated == screenshotTimestampAtStart)
                     {
                         isDescriptionUnchanged = true;
                         vm.LastLlmCheck = result;
                     }
                 });
+
+                if (isDescriptionUnchanged && !result.IsError)
+                    StoreCachedResult(vm.Id, descriptionAtStart, prepared.Hash64, screenshotTimestampAtStart, result);
 
                 var outcome = result.IsError
                     ? "error"
@@ -142,6 +180,27 @@ public class LlmCheckService : ILlmCheckService
                         "LlmCheckService.ResultError",
                         $"AnalyzeAsync returned error result for '{vm.Name}': {result.Explanation}");
                 }
+            }
+            catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !ct.IsCancellationRequested)
+            {
+                stopwatch.Stop();
+                const string timeoutMessage = "Распознавание превысило лимит 120 секунд. Повторим в следующем цикле.";
+                SetOnDispatcher(() =>
+                {
+                    if (vm.Description == descriptionAtStart)
+                        vm.LastLlmCheck = new LlmCheckResult(false, timeoutMessage, IsError: true, DateTime.Now);
+                });
+                _log.LogWarning(
+                    "LlmCheckService.Timeout",
+                    $"AnalyzeAsync timed out for '{vm.Name}'. elapsedMs={stopwatch.ElapsedMilliseconds}, description='{descriptionAtStart}'.");
+            }
+            catch (OperationCanceledException) when (ct.IsCancellationRequested)
+            {
+                stopwatch.Stop();
+                _log.LogInfo(
+                    "LlmCheckService.Cancelled",
+                    $"Cancelling LLM cycle for '{vm.Name}'. elapsedMs={stopwatch.ElapsedMilliseconds}, description='{descriptionAtStart}'.");
+                break;
             }
             catch (Exception ex)
             {
@@ -177,4 +236,69 @@ public class LlmCheckService : ILlmCheckService
         foreach (var vm in computers)
             SetOnDispatcher(() => vm.IsLlmServiceActive = isActive);
     }
+
+    private bool TryGetCachedResult(Guid computerId, string description, ulong hash64, out LlmCheckResult result)
+    {
+        lock (_recentChecks)
+        {
+            if (_recentChecks.TryGetValue(computerId, out var entries))
+            {
+                var cached = entries.FirstOrDefault(entry =>
+                    entry.Description == description
+                    && entry.ScreenshotHash64 == hash64
+                    && !entry.Result.IsError);
+
+                if (cached is not null)
+                {
+                    result = cached.Result;
+                    return true;
+                }
+            }
+        }
+
+        result = null!;
+        return false;
+    }
+
+    private void StoreCachedResult(
+        Guid computerId,
+        string description,
+        ulong screenshotHash64,
+        DateTime screenshotTimestamp,
+        LlmCheckResult result)
+    {
+        lock (_recentChecks)
+        {
+            if (!_recentChecks.TryGetValue(computerId, out var entries))
+            {
+                entries = [];
+                _recentChecks[computerId] = entries;
+            }
+
+            entries.RemoveAll(entry =>
+                entry.Description == description
+                && entry.ScreenshotHash64 == screenshotHash64);
+
+            entries.Insert(0, new CachedLlmCheckEntry(
+                description,
+                screenshotHash64,
+                screenshotTimestamp,
+                result));
+
+            if (entries.Count > MaxCachedChecksPerComputer)
+                entries.RemoveRange(MaxCachedChecksPerComputer, entries.Count - MaxCachedChecksPerComputer);
+        }
+    }
+
+    private void ClearCache()
+    {
+        lock (_recentChecks)
+            _recentChecks.Clear();
+    }
+
+    private sealed record CachedLlmCheckEntry(
+        string Description,
+        ulong ScreenshotHash64,
+        DateTime ScreenshotTimestamp,
+        LlmCheckResult Result);
 }

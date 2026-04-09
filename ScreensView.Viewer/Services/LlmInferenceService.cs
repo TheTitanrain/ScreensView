@@ -1,9 +1,7 @@
 using System.Net.Http;
 using System.Net.Http.Json;
-using System.Text;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
-using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using ScreensView.Viewer.Models;
 
@@ -28,8 +26,6 @@ internal interface ILlmVisionRuntimeFactory
 
 public class LlmInferenceService : ILlmInferenceService, IDisposable
 {
-    private const int MaxInferenceImageDimension = 1024;
-
     private readonly IModelDownloadService _download;
     private readonly ILlmVisionRuntimeFactory _runtimeFactory;
     private readonly IViewerLogService _log;
@@ -130,9 +126,9 @@ public class LlmInferenceService : ILlmInferenceService, IDisposable
         {
             await EnsureLoadedAsync(ct).ConfigureAwait(false);
 
-            var jpegBytes = await EncodeJpegAsync(screenshot);
+            var prepared = await InferenceImagePreprocessor.PrepareAsync(screenshot).ConfigureAwait(false);
             var prompt = BuildPrompt(description);
-            var rawResponse = await _runtime!.InferAsync(jpegBytes, prompt, ct).ConfigureAwait(false);
+            var rawResponse = await _runtime!.InferAsync(prepared.JpegBytes, prompt, ct).ConfigureAwait(false);
             var (isMatch, explanation) = ParseModelResponse(rawResponse);
 
             return new LlmCheckResult(isMatch, explanation, IsError: false, DateTime.Now);
@@ -163,42 +159,8 @@ public class LlmInferenceService : ILlmInferenceService, IDisposable
         _loadLock.Dispose();
     }
 
-    private static Task<byte[]> EncodeJpegAsync(BitmapSource screenshot)
-    {
-        if (screenshot.IsFrozen || screenshot.Dispatcher.CheckAccess())
-            return Task.FromResult(EncodeJpeg(screenshot));
-
-        return screenshot.Dispatcher.InvokeAsync(() => EncodeJpeg(screenshot)).Task;
-    }
-
-    private static byte[] EncodeJpeg(BitmapSource screenshot)
-    {
-        var prepared = DownscaleForInference(screenshot);
-        var encoder = new JpegBitmapEncoder
-        {
-            QualityLevel = 90
-        };
-        encoder.Frames.Add(BitmapFrame.Create(prepared));
-        using var ms = new System.IO.MemoryStream();
-        encoder.Save(ms);
-        return ms.ToArray();
-    }
-
-    private static BitmapSource DownscaleForInference(BitmapSource screenshot)
-    {
-        var longestSide = Math.Max(screenshot.PixelWidth, screenshot.PixelHeight);
-        if (longestSide <= MaxInferenceImageDimension)
-            return screenshot;
-
-        var scale = (double)MaxInferenceImageDimension / longestSide;
-        var resized = new TransformedBitmap(screenshot, new ScaleTransform(scale, scale));
-        resized.Freeze();
-        return resized;
-    }
-
     private static string BuildPrompt(string description) =>
-        $"Does the screen match this description: '{description}'? " +
-        "Reply with YES or NO and one sentence explanation.";
+        $"Answer YES or NO. Does this screenshot match: '{description}'? Then give one short reason.";
 
     private static (bool IsMatch, string Explanation) ParseModelResponse(string rawResponse)
     {
@@ -308,10 +270,16 @@ internal sealed class LlamaServerVisionRuntime : ILlmVisionRuntime
     private readonly HttpClient _http;
 
     public LlamaServerVisionRuntime(string baseUrl, ILlamaServerProcessService process)
+        : this(baseUrl, process, null)
+    {
+    }
+
+    internal LlamaServerVisionRuntime(string baseUrl, ILlamaServerProcessService process, HttpClient? httpClient)
     {
         _baseUrl = baseUrl;
         _process = process;
-        _http = new HttpClient { Timeout = TimeSpan.FromSeconds(300) };
+        _http = httpClient ?? new HttpClient { Timeout = Timeout.InfiniteTimeSpan };
+        _http.Timeout = Timeout.InfiniteTimeSpan;
     }
 
     public async Task<string> InferAsync(byte[] imageBytes, string prompt, CancellationToken ct)
@@ -328,8 +296,8 @@ internal sealed class LlamaServerVisionRuntime : ILlmVisionRuntime
                     new ContentPart("text", Text: prompt)
                 ])
             ],
-            MaxTokens: 256,
-            Temperature: 0.1f);
+            MaxTokens: 64,
+            Temperature: 0.0f);
 
         using var response = await _http.PostAsJsonAsync(
             $"{_baseUrl}/v1/chat/completions", request, ct).ConfigureAwait(false);

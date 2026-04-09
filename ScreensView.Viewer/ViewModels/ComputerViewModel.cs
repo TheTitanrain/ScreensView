@@ -89,6 +89,7 @@ public partial class ComputerViewModel : ObservableObject
         if (!IsEnabled)
             return;
 
+        LastLlmCheck = null;
         Status = ComputerStatus.Offline;
         StatusMessage = message;
     }
@@ -98,6 +99,7 @@ public partial class ComputerViewModel : ObservableObject
         if (!IsEnabled)
             return;
 
+        LastLlmCheck = null;
         Status = ComputerStatus.Locked;
         StatusMessage = message;
     }

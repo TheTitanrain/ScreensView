@@ -175,8 +175,17 @@ public class LlamaServerProcessService : ILlamaServerProcessService
     private static string BuildArgs(string modelPath, string projectorPath, int port)
     {
         var threads = Math.Max(1, Environment.ProcessorCount);
-        return $"--model \"{modelPath}\" --mmproj \"{projectorPath}\" " +
-               $"--port {port} --host 127.0.0.1 --threads {threads} --reasoning-budget 0";
+        var profile = LlamaServerLaunchProfile.ForModel(modelPath);
+        var args =
+            $"--model \"{modelPath}\" --mmproj \"{projectorPath}\" " +
+            $"--port {port} --host 127.0.0.1 --threads {threads} " +
+            $"--parallel {profile.ParallelSlots} --ctx-size {profile.ContextSize} " +
+            $"--reasoning-budget {profile.ReasoningBudget}";
+
+        if (profile.ImageMaxTokens is int imageMaxTokens)
+            args += $" --image-max-tokens {imageMaxTokens}";
+
+        return args;
     }
 
     private static int FindFreePort()

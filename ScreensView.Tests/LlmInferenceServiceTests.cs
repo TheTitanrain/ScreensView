@@ -1,4 +1,7 @@
+using System.Net;
+using System.Net.Http;
 using System.Runtime.ExceptionServices;
+using System.Text.Json;
 using ScreensView.Viewer.Models;
 using ScreensView.Viewer.Services;
 
@@ -22,7 +25,69 @@ public class LlmInferenceServiceTests
         Assert.NotNull(runtime.LastImageBytes);
 
         using var image = System.Drawing.Image.FromStream(new MemoryStream(runtime.LastImageBytes!));
-        Assert.True(Math.Max(image.Width, image.Height) <= 1024);
+        Assert.True(Math.Max(image.Width, image.Height) <= 768);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_UsesCompactPrompt()
+    {
+        var runtime = new FakeVisionRuntime("YES Screen looks correct.");
+        var factory = new FakeVisionRuntimeFactory(runtime);
+        using var sut = new LlmInferenceService(new FakeModelDownloadService(), factory);
+
+        await sut.AnalyzeAsync(
+            ComputerViewModelTests.CreateMinimalBitmap(),
+            "Spreadsheet dashboard",
+            CancellationToken.None);
+
+        Assert.Equal(
+            "Answer YES or NO. Does this screenshot match: 'Spreadsheet dashboard'? Then give one short reason.",
+            runtime.LastPrompt);
+    }
+
+    [Fact]
+    public async Task PrepareAsync_ReturnsStableHashForSameImage()
+    {
+        var screenshot = CreateBitmap(width: 2400, height: 1350);
+
+        var first = await InferenceImagePreprocessor.PrepareAsync(screenshot);
+        var second = await InferenceImagePreprocessor.PrepareAsync(screenshot);
+
+        Assert.Equal(first.Hash64, second.Hash64);
+        Assert.Equal(first.Width, second.Width);
+        Assert.Equal(first.Height, second.Height);
+        Assert.True(Math.Max(first.Width, first.Height) <= 768);
+    }
+
+    [Fact]
+    public async Task Runtime_PostsLowVramRequestProfile()
+    {
+        JsonDocument? requestJson = null;
+        var handler = new DelegateHttpMessageHandler(async request =>
+        {
+            var body = await request.Content!.ReadAsStringAsync();
+            requestJson = JsonDocument.Parse(body);
+            return new HttpResponseMessage(HttpStatusCode.OK)
+            {
+                Content = new StringContent("""{"choices":[{"message":{"content":"YES ok."}}]}""")
+            };
+        });
+        using var httpClient = new HttpClient(handler);
+
+        using var runtime = new LlamaServerVisionRuntime(
+            "http://127.0.0.1:12345",
+            new NoopProcessService(),
+            httpClient);
+
+        var response = await runtime.InferAsync(
+            [1, 2, 3],
+            "Prompt text",
+            CancellationToken.None);
+
+        Assert.Equal("YES ok.", response);
+        Assert.NotNull(requestJson);
+        Assert.Equal(64, requestJson!.RootElement.GetProperty("max_tokens").GetInt32());
+        Assert.Equal(0.0, requestJson.RootElement.GetProperty("temperature").GetDouble());
     }
 
     [Fact]
@@ -204,6 +269,22 @@ public class LlmInferenceServiceTests
         }
     }
 
+    private sealed class NoopProcessService : ILlamaServerProcessService
+    {
+        public bool IsRunning => true;
+        public Task<string> StartAsync(string exePath, string modelPath, string projectorPath, CancellationToken ct)
+            => Task.FromResult("http://127.0.0.1");
+        public Task StopAsync() => Task.CompletedTask;
+        public void Dispose() { }
+    }
+
+    private sealed class DelegateHttpMessageHandler(Func<HttpRequestMessage, Task<HttpResponseMessage>> handler)
+        : HttpMessageHandler
+    {
+        protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+            => handler(request);
+    }
+
     private static System.Windows.Media.Imaging.BitmapImage CreateBitmap(int width, int height)
     {
         using var bmp = new System.Drawing.Bitmap(width, height);
@@ -240,4 +321,5 @@ public class LlmInferenceServiceTests
         if (caught != null) ExceptionDispatchInfo.Capture(caught).Throw();
         return result!;
     }
+
 }
