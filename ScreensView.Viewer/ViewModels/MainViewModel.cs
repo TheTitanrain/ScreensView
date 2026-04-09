@@ -184,6 +184,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
         get
         {
             var backend = _selectedBackend;
+            if (!IsBinaryReady(backend))
+                return "Не скачан";
+
             var version = _binaryService.GetInstalledVersion(backend);
             return version is not null ? $"Готово ✓ ({version})" : "Не скачан";
         }

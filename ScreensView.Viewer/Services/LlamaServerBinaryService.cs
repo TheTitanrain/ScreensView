@@ -57,22 +57,23 @@ public class LlamaServerBinaryService : ILlamaServerBinaryService
     public async Task DownloadAsync(string variant, IProgress<double> progress, CancellationToken ct)
     {
         var release = await FetchLatestReleaseAsync(ct).ConfigureAwait(false);
-        var assetName = GetAssetPattern(variant);
-        var asset = release.Assets.FirstOrDefault(a => MatchesPattern(a.Name, assetName))
-            ?? throw new InvalidOperationException(
-                $"Не найден файл '{assetName}' в релизе {release.TagName}. " +
-                "Проверьте наличие новой версии llama.cpp.");
+        var assets = GetRequiredAssets(variant, release);
 
         var dir = VariantDir(variant);
         Directory.CreateDirectory(dir);
 
-        var zipPath = Path.Combine(dir, asset.Name + ".part");
-        await DownloadFileAsync(asset.BrowserDownloadUrl, zipPath, progress, ct).ConfigureAwait(false);
+        for (var index = 0; index < assets.Count; index++)
+        {
+            var asset = assets[index];
+            var zipPath = Path.Combine(dir, asset.Name + ".part");
+            var assetProgress = CreateAssetProgress(progress, index, assets.Count);
+
+            await DownloadFileAsync(asset.BrowserDownloadUrl, zipPath, assetProgress, ct).ConfigureAwait(false);
+            ExtractBinaries(zipPath, dir);
+            File.Delete(zipPath);
+        }
 
         progress.Report(95);
-        ExtractBinaries(zipPath, dir);
-        File.Delete(zipPath);
-
         File.WriteAllText(Path.Combine(dir, "version.txt"), release.TagName);
         progress.Report(100);
     }
@@ -80,8 +81,13 @@ public class LlamaServerBinaryService : ILlamaServerBinaryService
     private bool IsReady(string variant)
     {
         var dir = VariantDir(variant);
-        return File.Exists(Path.Combine(dir, "version.txt"))
-            && File.Exists(Path.Combine(dir, "llama-server.exe"));
+        if (!File.Exists(Path.Combine(dir, "version.txt"))
+            || !File.Exists(Path.Combine(dir, "llama-server.exe")))
+        {
+            return false;
+        }
+
+        return variant != "cuda" || HasCudaRuntimeDlls(dir);
     }
 
     private string VariantDir(string variant) => Path.Combine(_basePath, variant);
@@ -133,17 +139,47 @@ public class LlamaServerBinaryService : ILlamaServerBinaryService
         }
     }
 
-    private static string GetAssetPattern(string variant) => variant switch
+    private static IReadOnlyList<GithubAsset> GetRequiredAssets(string variant, GithubRelease release)
     {
-        "cpu"    => "bin-win-cpu-x64.zip",
-        "vulkan" => "bin-win-vulkan-x64.zip",
-        "cuda"   => "bin-win-cuda-12",
+        var patterns = GetAssetPatterns(variant);
+        var assets = new List<GithubAsset>(patterns.Count);
+
+        foreach (var pattern in patterns)
+        {
+            var asset = release.Assets.FirstOrDefault(a => MatchesPattern(a.Name, pattern))
+                ?? throw new InvalidOperationException(
+                    $"Не найден файл '{pattern}' в релизе {release.TagName}. " +
+                    "Проверьте наличие новой версии llama.cpp.");
+            assets.Add(asset);
+        }
+
+        return assets;
+    }
+
+    private static IReadOnlyList<string> GetAssetPatterns(string variant) => variant switch
+    {
+        "cpu"    => ["bin-win-cpu-x64.zip"],
+        "vulkan" => ["bin-win-vulkan-x64.zip"],
+        "cuda"   => ["bin-win-cuda-12", "cudart-llama-bin-win-cuda-12"],
         _        => throw new ArgumentException($"Unknown variant: {variant}", nameof(variant))
     };
 
     private static bool MatchesPattern(string assetName, string pattern) =>
         assetName.Contains(pattern, StringComparison.OrdinalIgnoreCase)
         && assetName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
+
+    private static IProgress<double> CreateAssetProgress(
+        IProgress<double> overallProgress,
+        int assetIndex,
+        int assetCount)
+    {
+        var segmentStart = assetIndex * 90.0 / assetCount;
+        var segmentSize = 90.0 / assetCount;
+        return new Progress<double>(value => overallProgress.Report(segmentStart + (value * segmentSize / 90.0)));
+    }
+
+    private static bool HasCudaRuntimeDlls(string dir) =>
+        Directory.EnumerateFiles(dir, "cudart64_*.dll", SearchOption.TopDirectoryOnly).Any();
 
     private static string DefaultBasePath() =>
         Path.Combine(
