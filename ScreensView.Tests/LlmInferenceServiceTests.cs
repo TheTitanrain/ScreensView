@@ -105,6 +105,8 @@ public class LlmInferenceServiceTests
     [Fact]
     public void GetUserMessage_ReturnsStageBasedMessage()
     {
+        Assert.Equal("Бэкенд распознавания",
+            LlmLoadFailureDiagnostics.GetUserMessage(LlmRuntimeLoadStage.Backend));
         Assert.Equal("Ошибка загрузки модели",
             LlmLoadFailureDiagnostics.GetUserMessage(LlmRuntimeLoadStage.ModelLoad));
         Assert.Equal("Ошибка загрузки projector",

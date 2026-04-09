@@ -8,11 +8,26 @@ namespace ScreensView.Viewer.Services;
 
 public interface ILlamaServerBinaryService
 {
-    bool IsCpuReady { get; }
-    bool IsGpuReady(string variant);
+    BackendCheckResult CheckInstallation(string variant);
     string GetExePath(string variant); // "cpu" | "vulkan" | "cuda"
-    string? GetInstalledVersion(string variant);
     Task DownloadAsync(string variant, IProgress<double> progress, CancellationToken ct);
+}
+
+public enum BackendInstallState
+{
+    Missing,
+    Incomplete,
+    Ready
+}
+
+public sealed record BackendCheckResult(
+    string Backend,
+    BackendInstallState State,
+    string? InstalledVersion,
+    IReadOnlyList<string> MissingArtifacts,
+    string UserMessage)
+{
+    public bool IsReady => State == BackendInstallState.Ready;
 }
 
 public class LlamaServerBinaryService : ILlamaServerBinaryService
@@ -41,18 +56,45 @@ public class LlamaServerBinaryService : ILlamaServerBinaryService
         Directory.CreateDirectory(basePath);
     }
 
-    public bool IsCpuReady => IsReady("cpu");
+    public BackendCheckResult CheckInstallation(string variant)
+    {
+        var dir = VariantDir(variant);
+        var versionPath = Path.Combine(dir, "version.txt");
+        var installedVersion = HasCompleteFile(versionPath)
+            ? File.ReadAllText(versionPath).Trim()
+            : null;
+        var hasAnyFiles = Directory.Exists(dir) && Directory.EnumerateFileSystemEntries(dir).Any();
 
-    public bool IsGpuReady(string variant) => IsReady(variant);
+        var missingArtifacts = GetRequiredArtifactsForInstallation(variant)
+            .Where(artifact => !artifact.Exists(dir))
+            .Select(artifact => artifact.Name)
+            .ToList();
+
+        if (missingArtifacts.Count == 0)
+        {
+            return new BackendCheckResult(
+                variant,
+                BackendInstallState.Ready,
+                installedVersion,
+                [],
+                string.Empty);
+        }
+
+        var state = hasAnyFiles ? BackendInstallState.Incomplete : BackendInstallState.Missing;
+        var userMessage = state == BackendInstallState.Incomplete
+            ? "Бэкенд для распознавания не скачан полностью. Откройте настройки и нажмите \"Скачать бэкенд\"."
+            : "Бэкенд для распознавания не скачан. Откройте настройки и нажмите \"Скачать бэкенд\".";
+
+        return new BackendCheckResult(
+            variant,
+            state,
+            installedVersion,
+            missingArtifacts,
+            userMessage);
+    }
 
     public string GetExePath(string variant) =>
         Path.Combine(VariantDir(variant), "llama-server.exe");
-
-    public string? GetInstalledVersion(string variant)
-    {
-        var versionFile = Path.Combine(VariantDir(variant), "version.txt");
-        return File.Exists(versionFile) ? File.ReadAllText(versionFile).Trim() : null;
-    }
 
     public async Task DownloadAsync(string variant, IProgress<double> progress, CancellationToken ct)
     {
@@ -76,18 +118,6 @@ public class LlamaServerBinaryService : ILlamaServerBinaryService
         progress.Report(95);
         File.WriteAllText(Path.Combine(dir, "version.txt"), release.TagName);
         progress.Report(100);
-    }
-
-    private bool IsReady(string variant)
-    {
-        var dir = VariantDir(variant);
-        if (!File.Exists(Path.Combine(dir, "version.txt"))
-            || !File.Exists(Path.Combine(dir, "llama-server.exe")))
-        {
-            return false;
-        }
-
-        return variant != "cuda" || HasCudaRuntimeDlls(dir);
     }
 
     private string VariantDir(string variant) => Path.Combine(_basePath, variant);
@@ -181,6 +211,26 @@ public class LlamaServerBinaryService : ILlamaServerBinaryService
     private static bool HasCudaRuntimeDlls(string dir) =>
         Directory.EnumerateFiles(dir, "cudart64_*.dll", SearchOption.TopDirectoryOnly).Any();
 
+    private static bool HasCompleteFile(string path) =>
+        File.Exists(path) && new FileInfo(path).Length > 0;
+
+    private static IReadOnlyList<RequiredArtifact> GetRequiredArtifactsForInstallation(string variant)
+    {
+        var commonArtifacts = new List<RequiredArtifact>
+        {
+            RequiredArtifact.ForFile("version.txt"),
+            RequiredArtifact.ForFile("llama-server.exe"),
+            RequiredArtifact.ForFile("llama.dll"),
+            RequiredArtifact.ForFile("ggml.dll"),
+            RequiredArtifact.ForFile("ggml-base.dll")
+        };
+
+        if (variant == "cuda")
+            commonArtifacts.Add(RequiredArtifact.ForPattern("cudart64_*.dll"));
+
+        return commonArtifacts;
+    }
+
     private static string DefaultBasePath() =>
         Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
@@ -200,4 +250,35 @@ public class LlamaServerBinaryService : ILlamaServerBinaryService
     private sealed record GithubAsset(
         [property: System.Text.Json.Serialization.JsonPropertyName("name")] string Name,
         [property: System.Text.Json.Serialization.JsonPropertyName("browser_download_url")] string BrowserDownloadUrl);
+
+    private sealed class RequiredArtifact
+    {
+        private readonly string _pattern;
+        private readonly bool _isPattern;
+
+        private RequiredArtifact(string name, string pattern, bool isPattern)
+        {
+            Name = name;
+            _pattern = pattern;
+            _isPattern = isPattern;
+        }
+
+        public string Name { get; }
+
+        public bool Exists(string dir)
+        {
+            if (!Directory.Exists(dir))
+                return false;
+
+            if (!_isPattern)
+                return HasCompleteFile(Path.Combine(dir, _pattern));
+
+            return Directory.EnumerateFiles(dir, _pattern, SearchOption.TopDirectoryOnly)
+                .Any(HasCompleteFile);
+        }
+
+        public static RequiredArtifact ForFile(string fileName) => new(fileName, fileName, isPattern: false);
+
+        public static RequiredArtifact ForPattern(string pattern) => new(pattern, pattern, isPattern: true);
+    }
 }

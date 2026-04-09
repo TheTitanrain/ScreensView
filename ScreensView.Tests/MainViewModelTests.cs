@@ -629,6 +629,33 @@ public class MainViewModelTests : IDisposable
     }
 
     [Fact]
+    public void Constructor_WhenBackendIsIncomplete_DoesNotStartService_AndDoesNotShowStartupDialog()
+    {
+        var settings = new FakeViewerSettingsService(false, llmEnabled: true);
+        var download = new FakeModelDownloadService { IsModelReady = true };
+        var llm = new FakeLlmCheckService();
+        var binary = new FakeLlamaServerBinaryService();
+        binary.SetResult("cpu", new BackendCheckResult(
+            "cpu",
+            BackendInstallState.Incomplete,
+            "b1",
+            ["llama-server.exe"],
+            "Бэкенд для распознавания не скачан полностью. Откройте настройки и нажмите \"Скачать бэкенд\"."));
+        string? title = null;
+
+        using var vm = CreateVmWithLlm(
+            settingsService: settings,
+            llmCheckService: llm,
+            downloadService: download,
+            binaryService: binary,
+            reportError: (reportedTitle, _) => title = reportedTitle);
+
+        Assert.Empty(llm.StartCalls);
+        Assert.Null(title);
+        Assert.Equal("Скачан не полностью", vm.BinaryStatusText);
+    }
+
+    [Fact]
     public void Constructor_WhenValidationFails_DoesNotStartLlmCheckService_AndReportsError()
     {
         var settings = new FakeViewerSettingsService(false, llmEnabled: true);
@@ -781,6 +808,38 @@ public class MainViewModelTests : IDisposable
     }
 
     [Fact]
+    public void IsLlmEnabled_WhenBackendIsIncomplete_ShowsBackendDialog_AndDoesNotStartService()
+    {
+        var download = new FakeModelDownloadService { IsModelReady = true };
+        var llm = new FakeLlmCheckService();
+        var binary = new FakeLlamaServerBinaryService();
+        binary.SetResult("cpu", new BackendCheckResult(
+            "cpu",
+            BackendInstallState.Incomplete,
+            "b1",
+            ["llama-server.exe"],
+            "Бэкенд для распознавания не скачан полностью. Откройте настройки и нажмите \"Скачать бэкенд\"."));
+        string? title = null;
+        string? message = null;
+
+        using var vm = CreateVmWithLlm(
+            llmCheckService: llm,
+            downloadService: download,
+            binaryService: binary,
+            reportError: (reportedTitle, reportedMessage) =>
+            {
+                title = reportedTitle;
+                message = reportedMessage;
+            });
+        vm.IsLlmEnabled = true;
+
+        Assert.Empty(llm.StartCalls);
+        Assert.Equal("Бэкенд распознавания", title);
+        Assert.Equal("Бэкенд для распознавания не скачан полностью. Откройте настройки и нажмите \"Скачать бэкенд\".", message);
+        Assert.Equal("Скачан не полностью", vm.BinaryStatusText);
+    }
+
+    [Fact]
     public void IsLlmEnabled_WhenDisabled_StopsService()
     {
         var settings = new FakeViewerSettingsService(false, llmEnabled: true);
@@ -853,6 +912,62 @@ public class MainViewModelTests : IDisposable
         vm.SelectedModel = new ModelDefinition("test", "Test", "test.gguf", "https://example.com/test.gguf", null, null);
 
         Assert.True(llm.StartCalls.Count > baselineStarts);
+    }
+
+    [Fact]
+    public void SelectedBackend_WhenChangedToIncompleteBackend_ShowsBackendDialog_AndDoesNotStartService()
+    {
+        var settings = new FakeViewerSettingsService(false, llmEnabled: true);
+        var download = new FakeModelDownloadService { IsModelReady = true };
+        var llm = new FakeLlmCheckService();
+        var binary = new FakeLlamaServerBinaryService();
+        binary.SetResult("cpu", new BackendCheckResult("cpu", BackendInstallState.Ready, "b1", [], ""));
+        binary.SetResult("cuda", new BackendCheckResult(
+            "cuda",
+            BackendInstallState.Incomplete,
+            "b2",
+            ["llama-server.exe"],
+            "Бэкенд для распознавания не скачан полностью. Откройте настройки и нажмите \"Скачать бэкенд\"."));
+        string? title = null;
+        string? message = null;
+
+        using var vm = CreateVmWithLlm(
+            settingsService: settings,
+            llmCheckService: llm,
+            downloadService: download,
+            binaryService: binary,
+            reportError: (reportedTitle, reportedMessage) =>
+            {
+                title = reportedTitle;
+                message = reportedMessage;
+            });
+
+        var baselineStarts = llm.StartCalls.Count;
+        vm.SelectedBackend = "cuda";
+
+        Assert.Equal(baselineStarts, llm.StartCalls.Count);
+        Assert.Equal("Бэкенд распознавания", title);
+        Assert.Equal("Бэкенд для распознавания не скачан полностью. Откройте настройки и нажмите \"Скачать бэкенд\".", message);
+        Assert.Equal("Скачан не полностью", vm.BinaryStatusText);
+    }
+
+    [Fact]
+    public void BinaryStatusText_WhenBackendStateChanges_UsesFreshBackendCheckResult()
+    {
+        var binary = new FakeLlamaServerBinaryService();
+        binary.SetResult("cpu", new BackendCheckResult("cpu", BackendInstallState.Ready, "b123", [], ""));
+        using var vm = CreateVmWithLlm(binaryService: binary);
+
+        Assert.Equal("Готово ✓ (b123)", vm.BinaryStatusText);
+
+        binary.SetResult("cpu", new BackendCheckResult(
+            "cpu",
+            BackendInstallState.Incomplete,
+            "b123",
+            ["llama-server.exe"],
+            "Бэкенд для распознавания не скачан полностью. Откройте настройки и нажмите \"Скачать бэкенд\"."));
+
+        Assert.Equal("Скачан не полностью", vm.BinaryStatusText);
     }
 
     [Fact]
@@ -1121,10 +1236,18 @@ public class MainViewModelTests : IDisposable
 
     private sealed class FakeLlamaServerBinaryService : ILlamaServerBinaryService
     {
-        public bool IsCpuReady { get; set; } = true;
-        public bool IsGpuReady(string variant) => false;
+        private readonly Dictionary<string, BackendCheckResult> _results = new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["cpu"] = new("cpu", BackendInstallState.Ready, "b9999", [], string.Empty),
+            ["vulkan"] = new("vulkan", BackendInstallState.Missing, null, ["llama-server.exe"], string.Empty),
+            ["cuda"] = new("cuda", BackendInstallState.Missing, null, ["llama-server.exe"], string.Empty)
+        };
+
+        public BackendCheckResult CheckInstallation(string variant) => _results[variant];
+
+        public void SetResult(string variant, BackendCheckResult result) => _results[variant] = result;
+
         public string GetExePath(string variant) => @"C:\fake\llama-server.exe";
-        public string? GetInstalledVersion(string variant) => IsCpuReady ? "b9999" : null;
         public Task DownloadAsync(string variant, IProgress<double> progress, CancellationToken ct)
             => Task.CompletedTask;
     }

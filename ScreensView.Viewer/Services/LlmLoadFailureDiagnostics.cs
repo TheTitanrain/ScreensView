@@ -6,6 +6,7 @@ internal static class LlmLoadFailureDiagnostics
 {
     public static string GetUserMessage(LlmRuntimeLoadStage stage) => stage switch
     {
+        LlmRuntimeLoadStage.Backend       => "Бэкенд распознавания",
         LlmRuntimeLoadStage.ModelLoad     => "Ошибка загрузки модели",
         LlmRuntimeLoadStage.ProjectorLoad => "Ошибка загрузки projector",
         _                                 => "Ошибка инициализации LLM runtime"

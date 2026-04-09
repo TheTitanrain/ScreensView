@@ -2,6 +2,7 @@ namespace ScreensView.Viewer.Models;
 
 public enum LlmRuntimeLoadStage
 {
+    Backend,
     ModelLoad,
     ProjectorLoad,
     RuntimeInit

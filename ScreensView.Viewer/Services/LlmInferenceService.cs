@@ -235,14 +235,13 @@ internal sealed class LlamaServerVisionRuntimeFactory : ILlmVisionRuntimeFactory
         string modelPath, string projectorPath, CancellationToken ct)
     {
         var backend = _getBackend();
-        var isCpu = backend == "cpu";
-        var isReady = isCpu ? _binary.IsCpuReady : _binary.IsGpuReady(backend);
+        var backendCheck = _binary.CheckInstallation(backend);
 
-        if (!isReady)
+        if (!backendCheck.IsReady)
             throw new LlmRuntimeLoadException(
-                LlmRuntimeLoadStage.RuntimeInit,
-                "Скачайте llama-server в настройках (раздел «Бэкенд»).",
-                $"llama-server binary not found for backend '{backend}'.",
+                LlmRuntimeLoadStage.Backend,
+                backendCheck.UserMessage,
+                $"llama-server backend '{backend}' is {backendCheck.State}. Missing artifacts: {string.Join(", ", backendCheck.MissingArtifacts)}",
                 modelPath,
                 projectorPath);
 

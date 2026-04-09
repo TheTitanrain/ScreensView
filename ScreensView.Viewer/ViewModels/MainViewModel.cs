@@ -14,6 +14,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private const int MinRefreshIntervalSeconds = 1;
     private const int MaxRefreshIntervalSeconds = 60;
     private const string ModelLoadErrorStatusText = "Ошибка загрузки модели";
+    private const string BackendErrorTitle = "Бэкенд распознавания";
 
     private IComputerStorageService _storage;
     private readonly IScreenshotPollerService _poller;
@@ -110,7 +111,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         _downloadService.ModelReady += (_, _) => HandleModelReady();
 
-        if (_isLlmEnabled && IsReadyToStart)
+        if (_isLlmEnabled && _downloadService.IsModelReady)
             BeginTryStartLlmService("startup");
     }
 
@@ -170,10 +171,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     }
 
     private bool IsReadyToStart =>
-        _downloadService.IsModelReady && IsBinaryReady(_selectedBackend);
-
-    private bool IsBinaryReady(string backend) =>
-        backend == "cpu" ? _binaryService.IsCpuReady : _binaryService.IsGpuReady(backend);
+        _downloadService.IsModelReady && GetBackendCheck(_selectedBackend).IsReady;
 
     public string ModelStatusText =>
         !string.IsNullOrEmpty(_modelLoadErrorText) ? _modelLoadErrorText :
@@ -183,12 +181,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     {
         get
         {
-            var backend = _selectedBackend;
-            if (!IsBinaryReady(backend))
-                return "Не скачан";
-
-            var version = _binaryService.GetInstalledVersion(backend);
-            return version is not null ? $"Готово ✓ ({version})" : "Не скачан";
+            return FormatBinaryStatusText(GetBackendCheck(_selectedBackend));
         }
     }
 
@@ -204,8 +197,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
             await _binaryService.DownloadAsync(backend, progress, ct);
             BinaryDownloadProgress = -1;
             OnPropertyChanged(nameof(BinaryStatusText));
-            if (_isLlmEnabled && IsReadyToStart)
-                BeginTryStartLlmService("binary downloaded");
+            if (_isLlmEnabled && _downloadService.IsModelReady)
+                BeginTryStartLlmService("binary downloaded", showBackendError: true);
         }
         catch (OperationCanceledException)
         {
@@ -238,7 +231,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             ModelDownloadProgress = -1;
             OnPropertyChanged(nameof(ModelStatusText));
             if (_isLlmEnabled)
-                BeginTryStartLlmService("download complete");
+                BeginTryStartLlmService("download complete", showBackendError: true);
         }
         catch (OperationCanceledException)
         {
@@ -262,8 +255,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _viewerSettings.LlmEnabled = value;
         _viewerSettingsService.Save(_viewerSettings);
 
-        if (value && IsReadyToStart)
-            BeginTryStartLlmService("toggle enabled");
+        if (value)
+            BeginTryStartLlmService("toggle enabled", showBackendError: true);
         else if (!value)
         {
             InvalidateLlmValidation();
@@ -282,8 +275,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _inferenceService.Reset();
         OnPropertyChanged(nameof(BinaryStatusText));
 
-        if (_isLlmEnabled && IsReadyToStart)
-            BeginTryStartLlmService("backend changed");
+        if (_isLlmEnabled && _downloadService.IsModelReady)
+            BeginTryStartLlmService("backend changed", showBackendError: true);
     }
 
     partial void OnSelectedModelChanged(ModelDefinition value)
@@ -300,8 +293,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
         ClearModelLoadError();
         OnPropertyChanged(nameof(ModelStatusText));
 
-        if (_isLlmEnabled && IsReadyToStart)
-            BeginTryStartLlmService("model changed");
+        if (_isLlmEnabled && _downloadService.IsModelReady)
+            BeginTryStartLlmService("model changed", showBackendError: true);
     }
 
     partial void OnIsAutostartEnabledChanged(bool value)
@@ -447,18 +440,27 @@ public partial class MainViewModel : ObservableObject, IDisposable
         ClearModelLoadError();
         OnPropertyChanged(nameof(ModelStatusText));
 
-        if (_isLlmEnabled && IsReadyToStart)
+        if (_isLlmEnabled && _downloadService.IsModelReady)
             BeginTryStartLlmService("model ready");
     }
 
-    private void BeginTryStartLlmService(string reason)
+    private void BeginTryStartLlmService(string reason, bool showBackendError = false)
     {
         _log.LogInfo(
             "MainViewModel.LlmStartAttempt",
             $"Attempting to start LLM service. Reason='{reason}', Enabled={_isLlmEnabled}, FilesReady={_downloadService.IsModelReady}.");
 
-        if (!_isLlmEnabled || !IsReadyToStart)
+        OnPropertyChanged(nameof(BinaryStatusText));
+
+        if (!_isLlmEnabled || !_downloadService.IsModelReady)
             return;
+
+        var backendCheck = GetBackendCheck(_selectedBackend);
+        if (!backendCheck.IsReady)
+        {
+            HandleBackendUnavailable(reason, backendCheck, showDialog: showBackendError);
+            return;
+        }
 
         var version = Interlocked.Increment(ref _llmValidationVersion);
         var validationTask = _inferenceService.ValidateModelAsync(_appCts.Token);
@@ -517,6 +519,16 @@ public partial class MainViewModel : ObservableObject, IDisposable
         }
 
         _llmCheckService.Stop();
+        if (validationError.Stage == LlmRuntimeLoadStage.Backend)
+        {
+            _log.LogError(
+                "MainViewModel.LlmStartRejected",
+                $"LLM backend validation failed during '{reason}'. {validationError.DiagnosticMessage}",
+                validationError);
+            ReportError(BackendErrorTitle, validationError.UserMessage);
+            return;
+        }
+
         SetModelLoadError(ModelLoadErrorStatusText);
         _log.LogError(
             "MainViewModel.LlmStartRejected",
@@ -529,6 +541,29 @@ public partial class MainViewModel : ObservableObject, IDisposable
     {
         Interlocked.Increment(ref _llmValidationVersion);
     }
+
+    private BackendCheckResult GetBackendCheck(string backend) =>
+        _binaryService.CheckInstallation(backend);
+
+    private void HandleBackendUnavailable(string reason, BackendCheckResult backendCheck, bool showDialog)
+    {
+        _llmCheckService.Stop();
+        ClearModelLoadError();
+        _log.LogWarning(
+            "MainViewModel.BackendUnavailable",
+            $"Backend '{backendCheck.Backend}' is {backendCheck.State} during '{reason}'. Missing: {string.Join(", ", backendCheck.MissingArtifacts)}");
+
+        if (showDialog)
+            ReportError(BackendErrorTitle, backendCheck.UserMessage);
+    }
+
+    private static string FormatBinaryStatusText(BackendCheckResult backendCheck) => backendCheck.State switch
+    {
+        BackendInstallState.Missing => "Не скачан",
+        BackendInstallState.Incomplete => "Скачан не полностью",
+        _ when !string.IsNullOrWhiteSpace(backendCheck.InstalledVersion) => $"Готово ✓ ({backendCheck.InstalledVersion})",
+        _ => "Готово ✓"
+    };
 
     private static void RunOnUiThread(Action action)
     {

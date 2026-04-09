@@ -63,6 +63,127 @@ public sealed class LlamaServerBinaryServiceTests : IDisposable
         Assert.Equal("b8710", File.ReadAllText(Path.Combine(_tempDir, "cuda", "version.txt")).Trim());
     }
 
+    [Fact]
+    public void CheckInstallation_WhenVariantDirectoryIsMissing_ReturnsMissing()
+    {
+        var sut = new LlamaServerBinaryService(new FakeReleaseHandler("{}", new Dictionary<string, byte[]>()), _tempDir);
+
+        var result = sut.CheckInstallation("cpu");
+
+        Assert.Equal(BackendInstallState.Missing, result.State);
+        Assert.Equal("cpu", result.Backend);
+        Assert.Contains("Скачать бэкенд", result.UserMessage);
+    }
+
+    [Fact]
+    public void CheckInstallation_WhenOnlyVersionFileExists_ReturnsIncomplete()
+    {
+        WriteVariantFiles("cpu", ("version.txt", "b1"));
+        var sut = new LlamaServerBinaryService(new FakeReleaseHandler("{}", new Dictionary<string, byte[]>()), _tempDir);
+
+        var result = sut.CheckInstallation("cpu");
+
+        Assert.Equal(BackendInstallState.Incomplete, result.State);
+        Assert.Contains("llama-server.exe", result.MissingArtifacts);
+    }
+
+    [Fact]
+    public void CheckInstallation_WhenBaseDllIsMissing_ReturnsIncomplete()
+    {
+        WriteVariantFiles("cpu",
+            ("version.txt", "b1"),
+            ("llama-server.exe", "exe"),
+            ("llama.dll", "dll"),
+            ("ggml.dll", "ggml"));
+        var sut = new LlamaServerBinaryService(new FakeReleaseHandler("{}", new Dictionary<string, byte[]>()), _tempDir);
+
+        var result = sut.CheckInstallation("cpu");
+
+        Assert.Equal(BackendInstallState.Incomplete, result.State);
+        Assert.Contains("ggml-base.dll", result.MissingArtifacts);
+    }
+
+    [Fact]
+    public void CheckInstallation_WhenCudaOnlyHasRuntimeDllsAndVersion_ReturnsIncomplete()
+    {
+        WriteVariantFiles("cuda",
+            ("version.txt", "b1"),
+            ("cudart64_12.dll", "cudart"),
+            ("cublas64_12.dll", "cublas"),
+            ("cublasLt64_12.dll", "cublaslt"));
+        var sut = new LlamaServerBinaryService(new FakeReleaseHandler("{}", new Dictionary<string, byte[]>()), _tempDir);
+
+        var result = sut.CheckInstallation("cuda");
+
+        Assert.Equal(BackendInstallState.Incomplete, result.State);
+        Assert.Contains("llama-server.exe", result.MissingArtifacts);
+    }
+
+    [Fact]
+    public void CheckInstallation_WhenRequiredFileIsZeroBytes_ReturnsIncomplete()
+    {
+        WriteVariantFiles("cpu",
+            ("version.txt", "b1"),
+            ("llama-server.exe", string.Empty),
+            ("llama.dll", "dll"),
+            ("ggml.dll", "ggml"),
+            ("ggml-base.dll", "base"));
+        var sut = new LlamaServerBinaryService(new FakeReleaseHandler("{}", new Dictionary<string, byte[]>()), _tempDir);
+
+        var result = sut.CheckInstallation("cpu");
+
+        Assert.Equal(BackendInstallState.Incomplete, result.State);
+        Assert.Contains("llama-server.exe", result.MissingArtifacts);
+    }
+
+    [Fact]
+    public void CheckInstallation_WhenAllRequiredCpuFilesExist_ReturnsReady()
+    {
+        WriteVariantFiles("cpu",
+            ("version.txt", "b1"),
+            ("llama-server.exe", "exe"),
+            ("llama.dll", "dll"),
+            ("ggml.dll", "ggml"),
+            ("ggml-base.dll", "base"));
+        var sut = new LlamaServerBinaryService(new FakeReleaseHandler("{}", new Dictionary<string, byte[]>()), _tempDir);
+
+        var result = sut.CheckInstallation("cpu");
+
+        Assert.Equal(BackendInstallState.Ready, result.State);
+        Assert.Equal("b1", result.InstalledVersion);
+        Assert.Empty(result.MissingArtifacts);
+    }
+
+    [Fact]
+    public void CheckInstallation_WhenAllRequiredCudaFilesExist_ReturnsReady()
+    {
+        WriteVariantFiles("cuda",
+            ("version.txt", "b2"),
+            ("llama-server.exe", "exe"),
+            ("llama.dll", "dll"),
+            ("ggml.dll", "ggml"),
+            ("ggml-base.dll", "base"),
+            ("cudart64_12.dll", "cudart"));
+        var sut = new LlamaServerBinaryService(new FakeReleaseHandler("{}", new Dictionary<string, byte[]>()), _tempDir);
+
+        var result = sut.CheckInstallation("cuda");
+
+        Assert.Equal(BackendInstallState.Ready, result.State);
+        Assert.Equal("b2", result.InstalledVersion);
+    }
+
+    private void WriteVariantFiles(string variant, params (string FileName, string Contents)[] files)
+    {
+        var variantDir = Path.Combine(_tempDir, variant);
+        Directory.CreateDirectory(variantDir);
+
+        foreach (var (fileName, contents) in files)
+        {
+            var path = Path.Combine(variantDir, fileName);
+            File.WriteAllText(path, contents);
+        }
+    }
+
     private static byte[] CreateZip(params (string FileName, string Contents)[] files)
     {
         using var memory = new MemoryStream();
