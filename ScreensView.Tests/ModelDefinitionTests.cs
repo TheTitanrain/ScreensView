@@ -27,4 +27,20 @@ public class ModelDefinitionTests
             "https://huggingface.co/unsloth/gemma-4-E2B-it-GGUF/resolve/main/mmproj-F16.gguf",
             gemma.ProjectorDownloadUrl);
     }
+
+    [Fact]
+    public void Available_ContainsQwen35_0_8BModel()
+    {
+        var qwen = Assert.Single(ModelDefinition.Available, model => model.Id == "qwen3.5-0.8b-q4");
+
+        Assert.Equal("Qwen3.5-0.8B Q4_K_M (~0.5 + 0.2 GB) [experimental]", qwen.DisplayName);
+        Assert.Equal("Qwen3.5-0.8B-Q4_K_M.gguf", qwen.FileName);
+        Assert.Equal(
+            "https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/resolve/main/Qwen3.5-0.8B-Q4_K_M.gguf",
+            qwen.DownloadUrl);
+        Assert.Equal("mmproj-F16.gguf", qwen.ProjectorFileName);
+        Assert.Equal(
+            "https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/resolve/main/mmproj-F16.gguf",
+            qwen.ProjectorDownloadUrl);
+    }
 }
