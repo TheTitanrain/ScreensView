@@ -102,16 +102,12 @@ public partial class AddEditComputerWindow : Window
         if (_isEditMode)
         {
             Title = "Редактировать компьютер";
-            HeaderTitleText.Text = "Редактировать компьютер";
-            HeaderDescriptionText.Text = "Обновите параметры подключения и описание экрана, не меняя общий сценарий работы списка компьютеров.";
             PrimaryActionButton.Content = "Сохранить";
             GenerateApiKeyButton.IsEnabled = false;
             return;
         }
 
         Title = "Добавить компьютер";
-        HeaderTitleText.Text = "Добавить компьютер";
-        HeaderDescriptionText.Text = "Заполните основные данные нового компьютера. Настройки сохраняются в том же формате, что и раньше.";
         PrimaryActionButton.Content = "Добавить";
         GenerateApiKeyButton.IsEnabled = true;
     }

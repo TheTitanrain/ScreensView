@@ -19,24 +19,6 @@
                       HorizontalScrollBarVisibility="Disabled">
             <StackPanel Margin="18">
                 <Border Padding="16"
-                        Margin="0,0,0,16"
-                        Background="White"
-                        BorderBrush="#FFD8D8DD"
-                        BorderThickness="1"
-                        CornerRadius="12">
-                    <StackPanel>
-                        <TextBlock x:Name="HeaderTitleText"
-                                   FontSize="22"
-                                   FontWeight="SemiBold"
-                                   Foreground="#FF1F2430"/>
-                        <TextBlock x:Name="HeaderDescriptionText"
-                                   Margin="0,8,0,0"
-                                   Foreground="#FF5D6472"
-                                   TextWrapping="Wrap"/>
-                    </StackPanel>
-                </Border>
-
-                <Border Padding="16"
                         Margin="0,0,0,12"
                         Background="White"
                         BorderBrush="#FFD8D8DD"

@@ -57,6 +57,8 @@ public class WindowLayoutTests
 
         Assert.DoesNotContain("Height=\"480\" Width=\"420\"", xaml);
         Assert.Contains("<ScrollViewer", xaml);
+        Assert.DoesNotContain("x:Name=\"HeaderTitleText\"", xaml);
+        Assert.DoesNotContain("x:Name=\"HeaderDescriptionText\"", xaml);
         Assert.Contains("Text=\"Компьютер\"", xaml);
         Assert.Contains("Text=\"Подключение\"", xaml);
         Assert.Contains("Text=\"Описание экрана\"", xaml);
