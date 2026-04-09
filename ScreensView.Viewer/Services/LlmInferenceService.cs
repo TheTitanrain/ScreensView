@@ -3,6 +3,7 @@ using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
+using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using ScreensView.Viewer.Models;
 
@@ -27,6 +28,8 @@ internal interface ILlmVisionRuntimeFactory
 
 public class LlmInferenceService : ILlmInferenceService, IDisposable
 {
+    private const int MaxInferenceImageDimension = 1024;
+
     private readonly IModelDownloadService _download;
     private readonly ILlmVisionRuntimeFactory _runtimeFactory;
     private readonly IViewerLogService _log;
@@ -170,11 +173,27 @@ public class LlmInferenceService : ILlmInferenceService, IDisposable
 
     private static byte[] EncodeJpeg(BitmapSource screenshot)
     {
-        var encoder = new JpegBitmapEncoder();
-        encoder.Frames.Add(BitmapFrame.Create(screenshot));
+        var prepared = DownscaleForInference(screenshot);
+        var encoder = new JpegBitmapEncoder
+        {
+            QualityLevel = 90
+        };
+        encoder.Frames.Add(BitmapFrame.Create(prepared));
         using var ms = new System.IO.MemoryStream();
         encoder.Save(ms);
         return ms.ToArray();
+    }
+
+    private static BitmapSource DownscaleForInference(BitmapSource screenshot)
+    {
+        var longestSide = Math.Max(screenshot.PixelWidth, screenshot.PixelHeight);
+        if (longestSide <= MaxInferenceImageDimension)
+            return screenshot;
+
+        var scale = (double)MaxInferenceImageDimension / longestSide;
+        var resized = new TransformedBitmap(screenshot, new ScaleTransform(scale, scale));
+        resized.Freeze();
+        return resized;
     }
 
     private static string BuildPrompt(string description) =>

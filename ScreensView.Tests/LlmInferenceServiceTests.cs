@@ -1,3 +1,4 @@
+using System.Runtime.ExceptionServices;
 using ScreensView.Viewer.Models;
 using ScreensView.Viewer.Services;
 
@@ -5,6 +6,25 @@ namespace ScreensView.Tests;
 
 public class LlmInferenceServiceTests
 {
+    [Fact]
+    public async Task AnalyzeAsync_DownscalesLargeScreenshotBeforeSendingToRuntime()
+    {
+        var runtime = new FakeVisionRuntime("YES Looks fine.");
+        var factory = new FakeVisionRuntimeFactory(runtime);
+        using var sut = new LlmInferenceService(new FakeModelDownloadService(), factory);
+
+        var result = await sut.AnalyzeAsync(
+            CreateBitmap(width: 2400, height: 1350),
+            "Wallboard dashboard",
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.NotNull(runtime.LastImageBytes);
+
+        using var image = System.Drawing.Image.FromStream(new MemoryStream(runtime.LastImageBytes!));
+        Assert.True(Math.Max(image.Width, image.Height) <= 1024);
+    }
+
     [Fact]
     public async Task AnalyzeAsync_ParsesYesResponse_AndPassesImageToRuntime()
     {
@@ -182,5 +202,42 @@ public class LlmInferenceServiceTests
         public void Dispose()
         {
         }
+    }
+
+    private static System.Windows.Media.Imaging.BitmapImage CreateBitmap(int width, int height)
+    {
+        using var bmp = new System.Drawing.Bitmap(width, height);
+        using var graphics = System.Drawing.Graphics.FromImage(bmp);
+        graphics.Clear(System.Drawing.Color.DarkSlateBlue);
+        using var ms = new MemoryStream();
+        bmp.Save(ms, System.Drawing.Imaging.ImageFormat.Jpeg);
+        ms.Position = 0;
+
+        return RunOnSta(() =>
+        {
+            var img = new System.Windows.Media.Imaging.BitmapImage();
+            img.BeginInit();
+            img.CacheOption = System.Windows.Media.Imaging.BitmapCacheOption.OnLoad;
+            img.StreamSource = new MemoryStream(ms.ToArray());
+            img.EndInit();
+            img.Freeze();
+            return img;
+        });
+    }
+
+    private static T RunOnSta<T>(Func<T> func)
+    {
+        T? result = default;
+        Exception? caught = null;
+        var thread = new Thread(() =>
+        {
+            try { result = func(); }
+            catch (Exception ex) { caught = ex; }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+        if (caught != null) ExceptionDispatchInfo.Capture(caught).Throw();
+        return result!;
     }
 }
