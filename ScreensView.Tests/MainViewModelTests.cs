@@ -579,6 +579,51 @@ public class MainViewModelTests : IDisposable
         Assert.Equal(0, poller.StopCalls);
     }
 
+    [Fact]
+    public void ApplyConnectionsSourceChange_WhenLlmEnabledAndModelReady_RestartsLlmServiceWithNewComputers()
+    {
+        var initialStorage = new FakeComputerStorageService
+        {
+            LoadResult =
+            [
+                new ComputerConfig { Name = "Local", Host = "10.0.0.1", ApiKey = "local-key" }
+            ]
+        };
+        var replacementStorage = new FakeComputerStorageService();
+        var poller = new FakeScreenshotPollerService();
+        var settings = new FakeViewerSettingsService(initialValue: false, llmCheckIntervalMinutes: 17, llmEnabled: true);
+        var llm = new FakeLlmCheckService();
+        var download = new FakeModelDownloadService { IsModelReady = true };
+
+        using var vm = new MainViewModel(
+            initialStorage,
+            poller,
+            settings,
+            new FakeAutostartService(initialValue: false),
+            reportError: null,
+            llmCheckService: llm,
+            downloadService: download,
+            inferenceService: new FakeLlmInferenceService(),
+            binaryService: new FakeLlamaServerBinaryService());
+
+        var baselineStarts = llm.StartCalls.Count;
+        var baselineStops = llm.StopCalls.Count;
+
+        InvokeApplyConnectionsSourceChange(
+            vm,
+            succeeded: true,
+            replacementStorage,
+            [
+                new ComputerConfig { Name = "Shared A", Host = "10.0.0.2", ApiKey = "shared-a" },
+                new ComputerConfig { Name = "Shared B", Host = "10.0.0.3", ApiKey = "shared-b" }
+            ]);
+
+        Assert.True(llm.StopCalls.Count > baselineStops);
+        Assert.True(llm.StartCalls.Count > baselineStarts);
+        Assert.Equal(["Shared A", "Shared B"], llm.StartCalls[^1].Names);
+        Assert.Equal(17, llm.StartCalls[^1].IntervalMinutes);
+    }
+
     private MainViewModel CreateVm(IComputerStorageService storage, IScreenshotPollerService poller)
     {
         return new MainViewModel(

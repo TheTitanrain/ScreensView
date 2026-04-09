@@ -142,19 +142,6 @@
                         </StackPanel>
                     </Button>
 
-                    <Rectangle Style="{StaticResource ToolbarSeparator}"/>
-
-                    <TextBlock Text="Интервал (сек):" VerticalAlignment="Center"
-                               FontSize="12" Foreground="#555555" Margin="4,0"/>
-                    <Slider x:Name="IntervalSlider" Minimum="1" Maximum="60" Width="110"
-                            VerticalAlignment="Center" Value="{Binding RefreshInterval}"
-                            Margin="4,0" TickFrequency="1" IsSnapToTickEnabled="True"/>
-                    <TextBlock Text="{Binding RefreshInterval, StringFormat='{}{0} с'}"
-                               VerticalAlignment="Center" Width="35"
-                               FontSize="13" FontWeight="SemiBold" Foreground="#1A1A1A"/>
-
-                    <Rectangle Style="{StaticResource ToolbarSeparator}"/>
-
                     <ToggleButton Command="{Binding TogglePollingCommand}"
                                   IsChecked="{Binding IsPolling, Mode=OneWay}"
                                   MinWidth="110"
@@ -168,13 +155,6 @@
                             <TextBlock Text=" Обновить сейчас" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
-
-                    <Rectangle Style="{StaticResource ToolbarSeparator}"/>
-
-                    <CheckBox Content="Автозапуск"
-                              IsChecked="{Binding IsAutostartEnabled}"
-                              VerticalAlignment="Center"
-                              Margin="8,0,4,0"/>
 
                     <Rectangle Style="{StaticResource ToolbarSeparator}"/>
 

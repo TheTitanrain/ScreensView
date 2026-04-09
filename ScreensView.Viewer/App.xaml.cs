@@ -21,8 +21,12 @@ public partial class App : Application
             settingsService,
             () => new ComputerStorageService(),
             (filePath, password) => new EncryptedComputerStorageService(filePath, password));
+        var workflow = new ConnectionsSourceWorkflowService(
+            controller,
+            settingsService,
+            new ConnectionsSourceDialogs());
 
-        var startup = ResolveStartupSource(controller, settingsService);
+        var startup = workflow.ResolveStartup();
         if (startup is null)
         {
             Shutdown();
@@ -56,66 +60,9 @@ public partial class App : Application
             },
             log: logService);
 
-        mainWindow = new MainWindow(viewModel, controller, settingsService);
+        mainWindow = new MainWindow(viewModel, workflow);
         MainWindow = mainWindow;
         mainWindow.Show();
-    }
-
-    private ResolveConnectionsSourceResult? ResolveStartupSource(
-        ConnectionsStorageController controller,
-        IViewerSettingsService settingsService)
-    {
-        var startup = controller.ResolveStartup();
-        while (startup.NeedsPassword)
-        {
-            var settings = settingsService.Load();
-            var dialog = new ConnectionsFilePasswordWindow(
-                ConnectionsFilePasswordMode.OpenExisting,
-                settings.ConnectionsFilePath);
-
-            var accepted = dialog.ShowDialog() == true;
-            if (accepted)
-            {
-                var result = controller.OpenExternalFile(settings.ConnectionsFilePath, dialog.Password, dialog.RememberPassword);
-                if (result.Succeeded && result.Storage is not null)
-                {
-                    return new ResolveConnectionsSourceResult(
-                        result.Storage,
-                        result.Computers,
-                        usesExternalFile: true,
-                        needsPassword: false);
-                }
-
-                MessageBox.Show(
-                    "Не удалось открыть внешний файл подключений. Проверьте пароль и повторите попытку.",
-                    "Файл подключений",
-                    MessageBoxButton.OK,
-                    MessageBoxImage.Warning);
-                continue;
-            }
-
-            var switchToLocal = MessageBox.Show(
-                "Внешний файл подключений не открыт. Переключиться на локальный файл подключений?",
-                "Файл подключений",
-                MessageBoxButton.YesNoCancel,
-                MessageBoxImage.Question);
-
-            if (switchToLocal == MessageBoxResult.Yes)
-            {
-                var fallbackSettings = settingsService.Load();
-                fallbackSettings.ConnectionsFilePath = string.Empty;
-                fallbackSettings.ConnectionsFilePasswordEncrypted = string.Empty;
-                settingsService.Save(fallbackSettings);
-                return controller.ResolveStartup();
-            }
-
-            if (switchToLocal == MessageBoxResult.No)
-                continue;
-
-            return null;
-        }
-
-        return startup;
     }
 }
 

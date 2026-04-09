@@ -387,6 +387,11 @@ public partial class MainViewModel : ObservableObject, IDisposable
             return;
 
         var restartPolling = IsPolling;
+        var restartLlm = _isLlmEnabled && IsReadyToStart;
+
+        if (restartLlm)
+            _llmCheckService.Stop();
+
         if (restartPolling)
             _poller.Stop();
 
@@ -397,6 +402,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         if (restartPolling)
             _poller.Start(Computers, RefreshInterval);
+
+        if (restartLlm)
+            BeginTryStartLlmService("connections source changed");
     }
 
     public void Dispose()

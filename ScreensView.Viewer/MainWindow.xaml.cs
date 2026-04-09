@@ -10,8 +10,7 @@ namespace ScreensView.Viewer;
 public partial class MainWindow : Window
 {
     private readonly MainViewModel _vm;
-    private readonly ConnectionsStorageController _controller;
-    private readonly IViewerSettingsService _settingsService;
+    private readonly ConnectionsSourceWorkflowService _workflow;
 
     private const double MinTileWidth = 240.0;
     private const double TileMargin = 12.0;
@@ -20,18 +19,17 @@ public partial class MainWindow : Window
 
     private WrapPanel? _tileWrapPanel;
 
-    internal MainWindow(MainViewModel vm, ConnectionsStorageController controller, IViewerSettingsService settingsService)
+    internal MainWindow(MainViewModel vm, ConnectionsSourceWorkflowService workflow)
     {
         InitializeComponent();
         _vm = vm;
-        _controller = controller;
-        _settingsService = settingsService;
+        _workflow = workflow;
         DataContext = _vm;
     }
 
     private void ManageComputers_Click(object sender, RoutedEventArgs e)
     {
-        var win = new ComputersManagerWindow(_vm, _controller, _settingsService);
+        var win = new ComputersManagerWindow(_vm, _workflow);
         win.Owner = this;
         win.ShowDialog();
     }
@@ -116,7 +114,7 @@ public partial class MainWindow : Window
 
     private void Settings_Click(object sender, RoutedEventArgs e)
     {
-        var win = new Views.SettingsWindow(_vm) { Owner = this };
+        var win = new Views.SettingsWindow(_vm, _workflow) { Owner = this };
         win.ShowDialog();
     }
 

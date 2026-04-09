@@ -9,7 +9,9 @@ public class WindowLayoutTests
 
         Assert.DoesNotContain("MinWidth=\"900\"", xaml);
         Assert.Contains("x:Name=\"ToolbarPanel\"", xaml);
-        Assert.Contains("x:Name=\"ConnectionsPanel\"", xaml);
+        Assert.Contains("x:Name=\"ConnectionsStatusPanel\"", xaml);
+        Assert.DoesNotContain("Click=\"ConnectionsFile_Click\"", xaml);
+        Assert.DoesNotContain("Click=\"UseLocal_Click\"", xaml);
     }
 
     [Fact]
@@ -19,6 +21,8 @@ public class WindowLayoutTests
 
         Assert.Contains("Command=\"{Binding RefreshNowCommand}\"", mainWindowXaml);
         Assert.Contains("Text=\" Обновить сейчас\"", mainWindowXaml);
+        Assert.DoesNotContain("Text=\"Интервал (сек):\"", mainWindowXaml);
+        Assert.DoesNotContain("Content=\"Автозапуск\"", mainWindowXaml);
     }
 
     [Fact]
@@ -30,6 +34,20 @@ public class WindowLayoutTests
         Assert.DoesNotContain("Text=\" Обновить агентов\"", mainWindowXaml);
         Assert.Contains("Click=\"UpdateAllAgents_Click\"", computersManagerXaml);
         Assert.Contains("Text=\" Обновить агентов\"", computersManagerXaml);
+    }
+
+    [Fact]
+    public void SettingsWindow_UsesSingleScrollableResizableLayout_WithGeneralAndStorageSections()
+    {
+        var settingsWindowXaml = File.ReadAllText(GetRepoPath(@"ScreensView.Viewer\Views\SettingsWindow.xaml"));
+
+        Assert.Contains("ResizeMode=\"CanResize\"", settingsWindowXaml);
+        Assert.Contains("<ScrollViewer", settingsWindowXaml);
+        Assert.Contains("Text=\"Общие\"", settingsWindowXaml);
+        Assert.Contains("Text=\"Распознавание экрана\"", settingsWindowXaml);
+        Assert.Contains("Text=\"Хранилище подключений\"", settingsWindowXaml);
+        Assert.Contains("Value=\"{Binding RefreshInterval}\"", settingsWindowXaml);
+        Assert.Contains("IsChecked=\"{Binding IsAutostartEnabled}\"", settingsWindowXaml);
     }
 
     private static string GetRepoPath(string relativePath) =>

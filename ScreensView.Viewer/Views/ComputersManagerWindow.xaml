@@ -106,25 +106,12 @@
             </StackPanel>
         </Border>
 
-        <Border x:Name="ConnectionsPanel" DockPanel.Dock="Top" Margin="4,4,4,0" Padding="8" CornerRadius="6" Background="#F3F5F7" BorderBrush="#D7DCE2" BorderThickness="1">
+        <Border x:Name="ConnectionsStatusPanel" DockPanel.Dock="Top" Margin="4,4,4,0" Padding="8" CornerRadius="6" Background="#F3F5F7" BorderBrush="#D7DCE2" BorderThickness="1">
             <DockPanel>
                 <StackPanel>
                     <TextBlock Text="Источник подключений" FontWeight="SemiBold"/>
                     <TextBlock x:Name="TxtConnectionsSource" Margin="0,4,0,0" TextWrapping="Wrap"/>
-                </StackPanel>
-                <StackPanel DockPanel.Dock="Right" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button x:Name="BtnConnectionsFile" Style="{StaticResource ToolbarButton}" Margin="8,0,4,0" Click="ConnectionsFile_Click">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE8A5;" FontSize="14" VerticalAlignment="Center"/>
-                            <TextBlock Text=" Файл подключений..." VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </Button>
-                    <Button x:Name="BtnUseLocal" Style="{StaticResource ToolbarButton}" Click="UseLocal_Click">
-                        <StackPanel Orientation="Horizontal">
-                            <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE8B7;" FontSize="14" VerticalAlignment="Center"/>
-                            <TextBlock Text=" Использовать локальный файл" VerticalAlignment="Center"/>
-                        </StackPanel>
-                    </Button>
+                    <TextBlock x:Name="TxtConnectionsHint" Margin="0,6,0,0" Foreground="#666666" TextWrapping="Wrap"/>
                 </StackPanel>
             </DockPanel>
         </Border>
