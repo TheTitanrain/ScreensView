@@ -50,6 +50,21 @@ public class WindowLayoutTests
         Assert.Contains("IsChecked=\"{Binding IsAutostartEnabled}\"", settingsWindowXaml);
     }
 
+    [Fact]
+    public void AddEditComputerWindow_UsesSectionedResizableLayout()
+    {
+        var xaml = File.ReadAllText(GetRepoPath(@"ScreensView.Viewer\Views\AddEditComputerWindow.xaml"));
+
+        Assert.DoesNotContain("Height=\"480\" Width=\"420\"", xaml);
+        Assert.Contains("<ScrollViewer", xaml);
+        Assert.Contains("Text=\"Компьютер\"", xaml);
+        Assert.Contains("Text=\"Подключение\"", xaml);
+        Assert.Contains("Text=\"Описание экрана\"", xaml);
+        Assert.Contains("x:Name=\"HostPortRow\"", xaml);
+        Assert.Contains("x:Name=\"PrimaryActionButton\"", xaml);
+        Assert.DoesNotContain("Content=\"OK\"", xaml);
+    }
+
     private static string GetRepoPath(string relativePath) =>
         Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", relativePath));
 }

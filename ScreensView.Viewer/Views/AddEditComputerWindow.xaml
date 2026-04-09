@@ -1,41 +1,172 @@
 <Window x:Class="ScreensView.Viewer.Views.AddEditComputerWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Компьютер" Height="480" Width="420"
-        WindowStartupLocation="CenterOwner" ResizeMode="CanResizeWithGrip">
-    <StackPanel Margin="16">
-        <Label Content="Имя компьютера:"/>
-        <TextBox x:Name="NameBox" Margin="0,0,0,8"/>
+        Title="Компьютер"
+        Width="540"
+        Height="590"
+        MinWidth="520"
+        MinHeight="560"
+        WindowStartupLocation="CenterOwner"
+        ResizeMode="CanResizeWithGrip">
+    <Grid Background="#FFF7F7F9">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
 
-        <Label Content="Хост / IP-адрес:"/>
-        <TextBox x:Name="HostBox" Margin="0,0,0,8"/>
+        <ScrollViewer Grid.Row="0"
+                      VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Margin="18">
+                <Border Padding="16"
+                        Margin="0,0,0,16"
+                        Background="White"
+                        BorderBrush="#FFD8D8DD"
+                        BorderThickness="1"
+                        CornerRadius="12">
+                    <StackPanel>
+                        <TextBlock x:Name="HeaderTitleText"
+                                   FontSize="22"
+                                   FontWeight="SemiBold"
+                                   Foreground="#FF1F2430"/>
+                        <TextBlock x:Name="HeaderDescriptionText"
+                                   Margin="0,8,0,0"
+                                   Foreground="#FF5D6472"
+                                   TextWrapping="Wrap"/>
+                    </StackPanel>
+                </Border>
 
-        <Label Content="Порт:"/>
-        <TextBox x:Name="PortBox" Margin="0,0,0,8" Text="5443"/>
+                <Border Padding="16"
+                        Margin="0,0,0,12"
+                        Background="White"
+                        BorderBrush="#FFD8D8DD"
+                        BorderThickness="1"
+                        CornerRadius="12">
+                    <StackPanel>
+                        <TextBlock Text="Компьютер"
+                                   FontSize="16"
+                                   FontWeight="SemiBold"
+                                   Foreground="#FF1F2430"/>
+                        <TextBlock Margin="0,4,0,12"
+                                   Foreground="#FF5D6472"
+                                   Text="Укажите, как компьютер будет отображаться в списке и нужен ли он в мониторинге."/>
 
-        <Label Content="API-ключ:"/>
-        <Grid Margin="0,0,0,8">
-            <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="*"/>
-                <ColumnDefinition Width="Auto"/>
-            </Grid.ColumnDefinitions>
-            <TextBox x:Name="ApiKeyBox" Grid.Column="0"/>
-            <Button Grid.Column="1" Content="Сгенерировать" Margin="4,0,0,0" Click="Generate_Click"/>
-        </Grid>
+                        <TextBlock Text="Имя компьютера"
+                                   FontWeight="SemiBold"
+                                   Foreground="#FF2B3140"/>
+                        <TextBox x:Name="NameBox"
+                                 Margin="0,6,0,14"
+                                 MinHeight="30"/>
 
-        <CheckBox x:Name="EnabledCheck" Content="Включён" IsChecked="True" Margin="0,0,0,12"/>
+                        <CheckBox x:Name="EnabledCheck"
+                                  Content="Включён"
+                                  IsChecked="True"/>
+                    </StackPanel>
+                </Border>
 
-        <Label Content="Описание экрана (необязательно):"/>
-        <TextBox x:Name="DescriptionBox"
-                 AcceptsReturn="True"
-                 TextWrapping="Wrap"
-                 Height="64"
-                 VerticalScrollBarVisibility="Auto"
-                 Margin="0,0,0,16"/>
+                <Border Padding="16"
+                        Margin="0,0,0,12"
+                        Background="White"
+                        BorderBrush="#FFD8D8DD"
+                        BorderThickness="1"
+                        CornerRadius="12">
+                    <StackPanel>
+                        <TextBlock Text="Подключение"
+                                   FontSize="16"
+                                   FontWeight="SemiBold"
+                                   Foreground="#FF1F2430"/>
+                        <TextBlock Margin="0,4,0,12"
+                                   Foreground="#FF5D6472"
+                                   Text="Основные параметры подключения. Имя и хост остаются главными ориентирами в форме."/>
 
-        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button Content="OK" Width="80" Margin="0,0,8,0" IsDefault="True" Click="Ok_Click"/>
-            <Button Content="Отмена" Width="80" IsCancel="True"/>
-        </StackPanel>
-    </StackPanel>
+                        <Grid x:Name="HostPortRow" Margin="0,0,0,14">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="116"/>
+                            </Grid.ColumnDefinitions>
+
+                            <StackPanel Grid.Column="0" Margin="0,0,12,0">
+                                <TextBlock Text="Хост / IP-адрес"
+                                           FontWeight="SemiBold"
+                                           Foreground="#FF2B3140"/>
+                                <TextBox x:Name="HostBox"
+                                         Margin="0,6,0,0"
+                                         MinHeight="30"/>
+                            </StackPanel>
+
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Text="Порт"
+                                           FontWeight="SemiBold"
+                                           Foreground="#FF2B3140"/>
+                                <TextBox x:Name="PortBox"
+                                         Margin="0,6,0,0"
+                                         MinHeight="30"/>
+                            </StackPanel>
+                        </Grid>
+
+                        <TextBlock Text="API-ключ"
+                                   FontWeight="SemiBold"
+                                   Foreground="#FF2B3140"/>
+                        <Grid Margin="0,6,0,0">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*"/>
+                                <ColumnDefinition Width="Auto"/>
+                            </Grid.ColumnDefinitions>
+
+                            <TextBox x:Name="ApiKeyBox"
+                                     MinHeight="30"
+                                     VerticalContentAlignment="Center"/>
+                            <Button x:Name="GenerateApiKeyButton"
+                                    Grid.Column="1"
+                                    Margin="8,0,0,0"
+                                    Padding="14,6"
+                                    Content="Сгенерировать"
+                                    Click="Generate_Click"/>
+                        </Grid>
+                    </StackPanel>
+                </Border>
+
+                <Border Padding="16"
+                        Background="White"
+                        BorderBrush="#FFD8D8DD"
+                        BorderThickness="1"
+                        CornerRadius="12">
+                    <StackPanel>
+                        <TextBlock Text="Описание экрана"
+                                   FontSize="16"
+                                   FontWeight="SemiBold"
+                                   Foreground="#FF1F2430"/>
+                        <TextBlock Margin="0,4,0,12"
+                                   Foreground="#FF5D6472"
+                                   Text="Необязательно. Добавьте краткое описание, если хотите сравнивать текущее изображение с ожидаемым состоянием экрана."/>
+                        <TextBox x:Name="DescriptionBox"
+                                 MinHeight="120"
+                                 AcceptsReturn="True"
+                                 TextWrapping="Wrap"
+                                 VerticalContentAlignment="Top"
+                                 VerticalScrollBarVisibility="Disabled"/>
+                    </StackPanel>
+                </Border>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Border Grid.Row="1"
+                Padding="18,14"
+                Background="White"
+                BorderBrush="#FFD8D8DD"
+                BorderThickness="0,1,0,0">
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button x:Name="PrimaryActionButton"
+                        Width="110"
+                        Margin="0,0,8,0"
+                        Padding="14,6"
+                        IsDefault="True"
+                        Click="Ok_Click"/>
+                <Button Width="96"
+                        Padding="14,6"
+                        Content="Отмена"
+                        IsCancel="True"/>
+            </StackPanel>
+        </Border>
+    </Grid>
 </Window>
