@@ -153,6 +153,26 @@ public class LlmCheckServiceTests
         Assert.False(vm.IsLlmChecking);
     }
 
+    [Fact]
+    public async Task RunCycle_LogsResultWithDurationAndDetails()
+    {
+        var expected = new LlmCheckResult(true, "Looks good", false, DateTime.Now);
+        var inference = new FakeLlmInferenceService(expected);
+        var log = new FakeViewerLogService();
+        var svc = new LlmCheckService(inference, log);
+        var vm = MakeVm("Excel dashboard");
+        vm.Screenshot = ComputerViewModelTests.CreateMinimalBitmap();
+
+        await svc.RunCycleAsync([vm]);
+
+        var entry = Assert.Single(log.Infos, x => x.EventName == "LlmCheckService.Result");
+        Assert.Contains("PC", entry.Message);
+        Assert.Contains("elapsedMs=", entry.Message);
+        Assert.Contains("outcome=match", entry.Message);
+        Assert.Contains("Excel dashboard", entry.Message);
+        Assert.Contains("Looks good", entry.Message);
+    }
+
     // ---- Stale-result guard: description changed during inference ----
 
     [Fact]
@@ -192,6 +212,25 @@ public class LlmCheckServiceTests
         Assert.True(vm.LastLlmCheck!.IsError);
         Assert.Contains("model error", vm.LastLlmCheck.Explanation);
         Assert.False(vm.IsLlmChecking);
+    }
+
+    [Fact]
+    public async Task RunCycle_WhenInferenceThrows_LogsErrorWithDurationAndDetails()
+    {
+        var inference = new FakeLlmInferenceService(throwException: new InvalidOperationException("model error"));
+        var log = new FakeViewerLogService();
+        var svc = new LlmCheckService(inference, log);
+        var vm = MakeVm("Excel dashboard");
+        vm.Screenshot = ComputerViewModelTests.CreateMinimalBitmap();
+
+        await svc.RunCycleAsync([vm]);
+
+        var entry = Assert.Single(log.Errors, x => x.EventName == "LlmCheckService.ResultError");
+        Assert.Contains("PC", entry.Message);
+        Assert.Contains("elapsedMs=", entry.Message);
+        Assert.Contains("Excel dashboard", entry.Message);
+        Assert.NotNull(entry.Exception);
+        Assert.Contains("model error", entry.Exception!.Message);
     }
 
     // ---- IsLlmChecking always reset even on exception ----
@@ -251,5 +290,21 @@ public class LlmCheckServiceTests
 
         public int ResetCalls { get; private set; }
         public void Reset() => ResetCalls++;
+    }
+
+    private sealed class FakeViewerLogService : IViewerLogService
+    {
+        public List<(string EventName, string Message)> Infos { get; } = [];
+        public List<(string EventName, string Message)> Warnings { get; } = [];
+        public List<(string EventName, string Message, Exception? Exception)> Errors { get; } = [];
+
+        public void LogInfo(string eventName, string message)
+            => Infos.Add((eventName, message));
+
+        public void LogWarning(string eventName, string message)
+            => Warnings.Add((eventName, message));
+
+        public void LogError(string eventName, string message, Exception? exception = null)
+            => Errors.Add((eventName, message, exception));
     }
 }

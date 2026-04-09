@@ -1,3 +1,4 @@
+using System.Diagnostics;
 using ScreensView.Viewer.Models;
 using ScreensView.Viewer.ViewModels;
 
@@ -111,16 +112,29 @@ public class LlmCheckService : ILlmCheckService
 
             using var timeoutCts = new CancellationTokenSource(TimeSpan.FromSeconds(300));
             using var linked = CancellationTokenSource.CreateLinkedTokenSource(ct, timeoutCts.Token);
+            var stopwatch = Stopwatch.StartNew();
 
             try
             {
                 var result = await _inference.AnalyzeAsync(screenshotCopy, descriptionAtStart, linked.Token);
+                stopwatch.Stop();
+                var isDescriptionUnchanged = false;
 
                 SetOnDispatcher(() =>
                 {
                     if (vm.Description == descriptionAtStart)
+                    {
+                        isDescriptionUnchanged = true;
                         vm.LastLlmCheck = result;
+                    }
                 });
+
+                var outcome = result.IsError
+                    ? "error"
+                    : result.IsMatch ? "match" : "mismatch";
+                _log.LogInfo(
+                    "LlmCheckService.Result",
+                    $"Computer='{vm.Name}', elapsedMs={stopwatch.ElapsedMilliseconds}, outcome={outcome}, stored={isDescriptionUnchanged}, description='{descriptionAtStart}', explanation='{result.Explanation}'.");
 
                 if (result.IsError)
                 {
@@ -131,12 +145,16 @@ public class LlmCheckService : ILlmCheckService
             }
             catch (Exception ex)
             {
+                stopwatch.Stop();
                 SetOnDispatcher(() =>
                 {
                     if (vm.Description == descriptionAtStart)
                         vm.LastLlmCheck = new LlmCheckResult(false, ex.Message, IsError: true, DateTime.Now);
                 });
-                _log.LogError("LlmCheckService.ResultError", $"Stored error result for '{vm.Name}'.", ex);
+                _log.LogError(
+                    "LlmCheckService.ResultError",
+                    $"AnalyzeAsync failed for '{vm.Name}'. elapsedMs={stopwatch.ElapsedMilliseconds}, description='{descriptionAtStart}'.",
+                    ex);
             }
             finally
             {
