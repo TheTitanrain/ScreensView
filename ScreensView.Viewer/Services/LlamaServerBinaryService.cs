@@ -171,14 +171,14 @@ public class LlamaServerBinaryService : ILlamaServerBinaryService
 
     private static IReadOnlyList<GithubAsset> GetRequiredAssets(string variant, GithubRelease release)
     {
-        var patterns = GetAssetPatterns(variant);
-        var assets = new List<GithubAsset>(patterns.Count);
+        var requirements = GetAssetRequirements(variant);
+        var assets = new List<GithubAsset>(requirements.Count);
 
-        foreach (var pattern in patterns)
+        foreach (var requirement in requirements)
         {
-            var asset = release.Assets.FirstOrDefault(a => MatchesPattern(a.Name, pattern))
+            var asset = release.Assets.FirstOrDefault(requirement.Matches)
                 ?? throw new InvalidOperationException(
-                    $"Не найден файл '{pattern}' в релизе {release.TagName}. " +
+                    $"Не найден файл '{requirement.DisplayName}' в релизе {release.TagName}. " +
                     "Проверьте наличие новой версии llama.cpp.");
             assets.Add(asset);
         }
@@ -186,17 +186,31 @@ public class LlamaServerBinaryService : ILlamaServerBinaryService
         return assets;
     }
 
-    private static IReadOnlyList<string> GetAssetPatterns(string variant) => variant switch
+    private static IReadOnlyList<AssetRequirement> GetAssetRequirements(string variant) => variant switch
     {
-        "cpu"    => ["bin-win-cpu-x64.zip"],
-        "vulkan" => ["bin-win-vulkan-x64.zip"],
-        "cuda"   => ["bin-win-cuda-12", "cudart-llama-bin-win-cuda-12"],
+        "cpu" =>
+        [
+            AssetRequirement.ForZipName("bin-win-cpu-x64.zip")
+        ],
+        "vulkan" =>
+        [
+            AssetRequirement.ForZipName("bin-win-vulkan-x64.zip")
+        ],
+        "cuda" =>
+        [
+            AssetRequirement.ForPredicate(
+                "llama-*-bin-win-cuda-12*.zip",
+                name => name.StartsWith("llama-", StringComparison.OrdinalIgnoreCase)
+                    && name.Contains("bin-win-cuda-12", StringComparison.OrdinalIgnoreCase)
+                    && name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase)),
+            AssetRequirement.ForPredicate(
+                "cudart-llama-bin-win-cuda-12*.zip",
+                name => name.StartsWith("cudart-llama-", StringComparison.OrdinalIgnoreCase)
+                    && name.Contains("bin-win-cuda-12", StringComparison.OrdinalIgnoreCase)
+                    && name.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+        ],
         _        => throw new ArgumentException($"Unknown variant: {variant}", nameof(variant))
     };
-
-    private static bool MatchesPattern(string assetName, string pattern) =>
-        assetName.Contains(pattern, StringComparison.OrdinalIgnoreCase)
-        && assetName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase);
 
     private static IProgress<double> CreateAssetProgress(
         IProgress<double> overallProgress,
@@ -280,5 +294,26 @@ public class LlamaServerBinaryService : ILlamaServerBinaryService
         public static RequiredArtifact ForFile(string fileName) => new(fileName, fileName, isPattern: false);
 
         public static RequiredArtifact ForPattern(string pattern) => new(pattern, pattern, isPattern: true);
+    }
+
+    private sealed class AssetRequirement
+    {
+        private readonly Func<string, bool> _matcher;
+
+        private AssetRequirement(string displayName, Func<string, bool> matcher)
+        {
+            DisplayName = displayName;
+            _matcher = matcher;
+        }
+
+        public string DisplayName { get; }
+
+        public bool Matches(GithubAsset asset) => _matcher(asset.Name);
+
+        public static AssetRequirement ForZipName(string exactName) =>
+            new(exactName, name => string.Equals(name, exactName, StringComparison.OrdinalIgnoreCase));
+
+        public static AssetRequirement ForPredicate(string displayName, Func<string, bool> matcher) =>
+            new(displayName, matcher);
     }
 }

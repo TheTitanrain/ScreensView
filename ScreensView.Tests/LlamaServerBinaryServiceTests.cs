@@ -64,6 +64,49 @@ public sealed class LlamaServerBinaryServiceTests : IDisposable
     }
 
     [Fact]
+    public async Task DownloadAsync_ForCuda_WhenRuntimeAssetIsListedFirst_DownloadsBothDistinctArchives()
+    {
+        var releaseJson = """
+            {
+              "tag_name": "b8713",
+              "assets": [
+                {
+                  "name": "cudart-llama-bin-win-cuda-12.4-x64.zip",
+                  "browser_download_url": "https://example.test/cudart-first.zip"
+                },
+                {
+                  "name": "llama-b8713-bin-win-cuda-12.4-x64.zip",
+                  "browser_download_url": "https://example.test/llama-second.zip"
+                }
+              ]
+            }
+            """;
+
+        var handler = new FakeReleaseHandler(
+            releaseJson,
+            new Dictionary<string, byte[]>
+            {
+                ["https://example.test/cudart-first.zip"] = CreateZip(
+                    ("cudart64_12.dll", "cudart"),
+                    ("cublas64_12.dll", "cublas")),
+                ["https://example.test/llama-second.zip"] = CreateZip(
+                    ("llama-server.exe", "exe"),
+                    ("llama.dll", "llama"),
+                    ("ggml.dll", "ggml"),
+                    ("ggml-base.dll", "base"))
+            });
+        var sut = new LlamaServerBinaryService(handler, _tempDir);
+
+        await sut.DownloadAsync("cuda", new Progress<double>(), CancellationToken.None);
+
+        Assert.Equal(1, handler.RequestedUrls.Count(url => url == "https://example.test/cudart-first.zip"));
+        Assert.Equal(1, handler.RequestedUrls.Count(url => url == "https://example.test/llama-second.zip"));
+        Assert.True(File.Exists(Path.Combine(_tempDir, "cuda", "llama-server.exe")));
+        Assert.True(File.Exists(Path.Combine(_tempDir, "cuda", "cudart64_12.dll")));
+        Assert.Equal("b8713", File.ReadAllText(Path.Combine(_tempDir, "cuda", "version.txt")).Trim());
+    }
+
+    [Fact]
     public void CheckInstallation_WhenVariantDirectoryIsMissing_ReturnsMissing()
     {
         var sut = new LlamaServerBinaryService(new FakeReleaseHandler("{}", new Dictionary<string, byte[]>()), _tempDir);
