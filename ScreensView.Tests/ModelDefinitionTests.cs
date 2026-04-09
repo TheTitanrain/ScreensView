@@ -38,9 +38,20 @@ public class ModelDefinitionTests
         Assert.Equal(
             "https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/resolve/main/Qwen3.5-0.8B-Q4_K_M.gguf",
             qwen.DownloadUrl);
-        Assert.Equal("mmproj-F16.gguf", qwen.ProjectorFileName);
+        Assert.Equal("Qwen3.5-0.8B-mmproj-F16.gguf", qwen.ProjectorFileName);
         Assert.Equal(
             "https://huggingface.co/unsloth/Qwen3.5-0.8B-GGUF/resolve/main/mmproj-F16.gguf",
             qwen.ProjectorDownloadUrl);
+    }
+
+    [Fact]
+    public void Available_Qwen35Models_UseDistinctLocalProjectorFileNames()
+    {
+        var qwen2b = Assert.Single(ModelDefinition.Available, model => model.Id == "qwen3.5-2b-q4");
+        var qwen08b = Assert.Single(ModelDefinition.Available, model => model.Id == "qwen3.5-0.8b-q4");
+
+        Assert.Equal("Qwen3.5-2B-mmproj-F16.gguf", qwen2b.ProjectorFileName);
+        Assert.Equal("Qwen3.5-0.8B-mmproj-F16.gguf", qwen08b.ProjectorFileName);
+        Assert.NotEqual(qwen2b.ProjectorFileName, qwen08b.ProjectorFileName);
     }
 }
