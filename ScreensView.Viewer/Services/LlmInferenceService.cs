@@ -1,5 +1,6 @@
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Text.RegularExpressions;
 using System.Windows.Media.Imaging;
@@ -129,9 +130,36 @@ public class LlmInferenceService : ILlmInferenceService, IDisposable
             var prepared = await InferenceImagePreprocessor.PrepareAsync(screenshot).ConfigureAwait(false);
             var prompt = BuildPrompt(description);
             var rawResponse = await _runtime!.InferAsync(prepared.JpegBytes, prompt, ct).ConfigureAwait(false);
-            var (isMatch, explanation) = ParseModelResponse(rawResponse);
+            var normalizedResponse = NormalizeModelResponse(rawResponse);
 
-            return new LlmCheckResult(isMatch, explanation, IsError: false, DateTime.Now);
+            ParsedModelResponse parsed;
+            try
+            {
+                parsed = ParseModelResponse(normalizedResponse);
+            }
+            catch (FormatException ex)
+            {
+                _log.LogWarning(
+                    "LlmInferenceService.RawResponseParseError",
+                    $"description='{description}', outcome=parse_error, rawResponse={FormatResponseForLog(rawResponse)}, normalizedResponse={FormatResponseForLog(normalizedResponse)}, error='{ex.Message}'.");
+                return new LlmCheckResult(false, ex.Message, IsError: true, DateTime.Now);
+            }
+
+            if (parsed.UsedFallbackExplanation)
+            {
+                _log.LogWarning(
+                    "LlmInferenceService.RawResponseEmptyExplanation",
+                    $"description='{description}', outcome={(parsed.IsMatch ? "match" : "mismatch")}, rawResponse={FormatResponseForLog(rawResponse)}, normalizedResponse={FormatResponseForLog(normalizedResponse)}.");
+            }
+
+            if (!parsed.IsMatch)
+            {
+                _log.LogInfo(
+                    "LlmInferenceService.RawResponseMismatch",
+                    $"description='{description}', outcome=mismatch, rawResponse={FormatResponseForLog(rawResponse)}, normalizedResponse={FormatResponseForLog(normalizedResponse)}.");
+            }
+
+            return new LlmCheckResult(parsed.IsMatch, parsed.Explanation, IsError: false, DateTime.Now);
         }
         catch (OperationCanceledException)
         {
@@ -162,7 +190,7 @@ public class LlmInferenceService : ILlmInferenceService, IDisposable
     private static string BuildPrompt(string description) =>
         $"Answer YES or NO. Does this screenshot match: '{description}'? Then give one short reason.";
 
-    private static (bool IsMatch, string Explanation) ParseModelResponse(string rawResponse)
+    private static string NormalizeModelResponse(string rawResponse)
     {
         var normalized = rawResponse.Trim();
 
@@ -179,6 +207,12 @@ public class LlmInferenceService : ILlmInferenceService, IDisposable
             string.Empty,
             RegexOptions.IgnoreCase | RegexOptions.CultureInvariant).Trim();
 
+        return normalized;
+    }
+
+    private static ParsedModelResponse ParseModelResponse(string normalized)
+    {
+
         var match = Regex.Match(
             normalized,
             @"^(YES|NO)\b[\s:,-]*(.*)$",
@@ -189,12 +223,21 @@ public class LlmInferenceService : ILlmInferenceService, IDisposable
 
         var isMatch = string.Equals(match.Groups[1].Value, "YES", StringComparison.OrdinalIgnoreCase);
         var explanation = match.Groups[2].Value.Trim();
+        var usedFallbackExplanation = false;
         if (string.IsNullOrWhiteSpace(explanation))
+        {
             explanation = "No explanation provided.";
+            usedFallbackExplanation = true;
+        }
 
-        return (isMatch, explanation);
+        return new ParsedModelResponse(isMatch, explanation, usedFallbackExplanation);
     }
+
+    private static string FormatResponseForLog(string response)
+        => JsonSerializer.Serialize(response);
 }
+
+internal sealed record ParsedModelResponse(bool IsMatch, string Explanation, bool UsedFallbackExplanation);
 
 internal sealed class LlamaServerVisionRuntimeFactory : ILlmVisionRuntimeFactory
 {

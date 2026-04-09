@@ -188,6 +188,84 @@ public class LlmInferenceServiceTests
     }
 
     [Fact]
+    public async Task AnalyzeAsync_WhenMismatch_LogsRawResponse()
+    {
+        var runtime = new FakeVisionRuntime("NO The screen shows a browser instead of 1C.");
+        var factory = new FakeVisionRuntimeFactory(runtime);
+        var log = new FakeViewerLogService();
+        using var sut = new LlmInferenceService(new FakeModelDownloadService(), factory, log);
+
+        var result = await sut.AnalyzeAsync(
+            ComputerViewModelTests.CreateMinimalBitmap(),
+            "Экран программы 1с с графиком работ",
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.False(result.IsMatch);
+        var entry = Assert.Single(log.Infos, x => x.EventName == "LlmInferenceService.RawResponseMismatch");
+        Assert.Contains("outcome=mismatch", entry.Message);
+        Assert.Contains("Экран программы 1с с графиком работ", entry.Message);
+        Assert.Contains("NO The screen shows a browser instead of 1C.", entry.Message);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_WhenExplanationIsEmpty_LogsRawResponse()
+    {
+        var runtime = new FakeVisionRuntime("NO");
+        var factory = new FakeVisionRuntimeFactory(runtime);
+        var log = new FakeViewerLogService();
+        using var sut = new LlmInferenceService(new FakeModelDownloadService(), factory, log);
+
+        var result = await sut.AnalyzeAsync(
+            ComputerViewModelTests.CreateMinimalBitmap(),
+            "Экран программы 1с с графиком работ",
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.Equal("No explanation provided.", result.Explanation);
+        var entry = Assert.Single(log.Warnings, x => x.EventName == "LlmInferenceService.RawResponseEmptyExplanation");
+        Assert.Contains("outcome=mismatch", entry.Message);
+        Assert.Contains("\"NO\"", entry.Message);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_WhenParseFails_LogsRawResponse()
+    {
+        var runtime = new FakeVisionRuntime("Maybe this matches.");
+        var factory = new FakeVisionRuntimeFactory(runtime);
+        var log = new FakeViewerLogService();
+        using var sut = new LlmInferenceService(new FakeModelDownloadService(), factory, log);
+
+        _ = await sut.AnalyzeAsync(
+            ComputerViewModelTests.CreateMinimalBitmap(),
+            "Browser with CRM",
+            CancellationToken.None);
+
+        var entry = Assert.Single(log.Warnings, x => x.EventName == "LlmInferenceService.RawResponseParseError");
+        Assert.Contains("outcome=parse_error", entry.Message);
+        Assert.Contains("\"Maybe this matches.\"", entry.Message);
+    }
+
+    [Fact]
+    public async Task AnalyzeAsync_WhenMatchHasExplanation_DoesNotLogRawResponse()
+    {
+        var runtime = new FakeVisionRuntime("YES The screen matches the description.");
+        var factory = new FakeVisionRuntimeFactory(runtime);
+        var log = new FakeViewerLogService();
+        using var sut = new LlmInferenceService(new FakeModelDownloadService(), factory, log);
+
+        var result = await sut.AnalyzeAsync(
+            ComputerViewModelTests.CreateMinimalBitmap(),
+            "Spreadsheet dashboard",
+            CancellationToken.None);
+
+        Assert.False(result.IsError);
+        Assert.True(result.IsMatch);
+        Assert.DoesNotContain(log.Infos, x => x.EventName.StartsWith("LlmInferenceService.RawResponse", StringComparison.Ordinal));
+        Assert.DoesNotContain(log.Warnings, x => x.EventName.StartsWith("LlmInferenceService.RawResponse", StringComparison.Ordinal));
+    }
+
+    [Fact]
     public void GetUserMessage_ReturnsStageBasedMessage()
     {
         Assert.Equal("Бэкенд распознавания",
@@ -276,6 +354,22 @@ public class LlmInferenceServiceTests
             => Task.FromResult("http://127.0.0.1");
         public Task StopAsync() => Task.CompletedTask;
         public void Dispose() { }
+    }
+
+    private sealed class FakeViewerLogService : IViewerLogService
+    {
+        public List<(string EventName, string Message)> Infos { get; } = [];
+        public List<(string EventName, string Message)> Warnings { get; } = [];
+        public List<(string EventName, string Message, Exception? Exception)> Errors { get; } = [];
+
+        public void LogInfo(string eventName, string message)
+            => Infos.Add((eventName, message));
+
+        public void LogWarning(string eventName, string message)
+            => Warnings.Add((eventName, message));
+
+        public void LogError(string eventName, string message, Exception? exception = null)
+            => Errors.Add((eventName, message, exception));
     }
 
     private sealed class DelegateHttpMessageHandler(Func<HttpRequestMessage, Task<HttpResponseMessage>> handler)
