@@ -78,6 +78,16 @@ public class WindowLayoutTests
         Assert.DoesNotContain("Content=\"OK\"", xaml);
     }
 
+    [Fact]
+    public void AddEditComputerWindow_ExplainsHowToWriteScreenDescription()
+    {
+        var xaml = File.ReadAllText(GetRepoPath(@"ScreensView.Viewer\Views\AddEditComputerWindow.xaml"));
+
+        Assert.Contains("Поле необязательное и нужно для сравнения текущего скриншота с ожидаемым типом экрана.", xaml);
+        Assert.Contains("Опишите общий layout: крупные блоки, колонки, цветовые зоны.", xaml);
+        Assert.Contains("Не указывайте точные времена, номера и фамилии.", xaml);
+    }
+
     private static string GetRepoPath(string relativePath) =>
         Path.GetFullPath(Path.Combine(AppContext.BaseDirectory, "..", "..", "..", "..", relativePath));
 }
