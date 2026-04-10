@@ -188,7 +188,7 @@ public class LlmInferenceService : ILlmInferenceService, IDisposable
     }
 
     private static string BuildPrompt(string description) =>
-        $"Answer YES or NO. Does this screenshot match: '{description}'? Then give one short reason.";
+        $"Answer YES or NO. Match by overall screen type and stable visual layout. Ignore small text and dynamic details such as exact times, numbers, names, plates, and whether rows are empty or filled. Does this screenshot match: '{description}'? Then give one short reason.";
 
     private static string NormalizeModelResponse(string rawResponse)
     {

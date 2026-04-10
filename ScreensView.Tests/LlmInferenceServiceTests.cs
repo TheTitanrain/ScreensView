@@ -29,7 +29,7 @@ public class LlmInferenceServiceTests
     }
 
     [Fact]
-    public async Task AnalyzeAsync_UsesCompactPrompt()
+    public async Task AnalyzeAsync_UsesLayoutFocusedPrompt()
     {
         var runtime = new FakeVisionRuntime("YES Screen looks correct.");
         var factory = new FakeVisionRuntimeFactory(runtime);
@@ -41,7 +41,7 @@ public class LlmInferenceServiceTests
             CancellationToken.None);
 
         Assert.Equal(
-            "Answer YES or NO. Does this screenshot match: 'Spreadsheet dashboard'? Then give one short reason.",
+            "Answer YES or NO. Match by overall screen type and stable visual layout. Ignore small text and dynamic details such as exact times, numbers, names, plates, and whether rows are empty or filled. Does this screenshot match: 'Spreadsheet dashboard'? Then give one short reason.",
             runtime.LastPrompt);
     }
 
