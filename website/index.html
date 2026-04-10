@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="ru"
+      data-release-fallback="https://github.com/titanrain/ScreensView/releases"
+      data-download-primary-label="Скачать Viewer"
+      data-download-fallback-label="Открыть последний релиз"
+      data-download-direct-status="Прямой исполняемый файл найден в текущем release ScreensView."
+      data-download-fallback-status="Если единственный Viewer .exe не определён, кнопка откроет страницу последних релизов.">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>ScreensView - мониторинг экранов Windows-компьютеров в локальной сети</title>
+  <meta name="description" content="ScreensView показывает рабочие экраны Windows-компьютеров в одной сетке, помогает разворачивать агентов удалённо и проверять ожидаемое состояние экрана.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=Space+Grotesk:wght@500;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="assets/site.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="topbar-inner">
+      <a class="brand" href="#top" aria-label="ScreensView">
+        <span class="brand-mark">SV</span>
+        <span class="brand-copy">
+          <strong>ScreensView</strong>
+          <span>Windows screen wall for local networks</span>
+        </span>
+      </a>
+      <button class="nav-toggle" type="button" data-menu-toggle aria-expanded="false" aria-controls="site-nav">
+        <span class="sr-only">Открыть меню</span>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round">
+          <path d="M4 7h16"></path><path d="M4 12h16"></path><path d="M4 17h16"></path>
+        </svg>
+      </button>
+      <nav class="site-nav" id="site-nav" data-site-nav data-open="false" aria-label="Основная навигация">
+        <a href="#capabilities">Возможности</a>
+        <a href="#operations">Развёртывание</a>
+        <a href="#download">Скачать</a>
+        <a href="#faq">FAQ</a>
+        <a href="en/" lang="en" hreflang="en">EN</a>
+        <a class="nav-cta" href="https://github.com/titanrain/ScreensView">GitHub</a>
+      </nav>
+    </div>
+  </header>
+
+  <main id="top">
+    <section class="hero">
+      <div>
+        <span class="eyebrow">Локальный мониторинг экранов без облака и VPN-панели</span>
+        <h1>Смотрите все рабочие места на одном экране.</h1>
+        <p class="hero-lede">
+          ScreensView собирает скриншоты Windows-компьютеров по HTTPS, показывает их в общей стене мониторинга
+          и оставляет оператора в одном окне: добавление машин, удалённая установка агентов, обновления и проверка
+          ожидаемого состояния экрана доступны прямо из Viewer.
+        </p>
+        <div class="hero-actions">
+          <a class="button button-primary" data-download-link data-dynamic-label="true" href="https://github.com/titanrain/ScreensView/releases">Скачать Viewer</a>
+          <a class="button button-secondary" href="https://github.com/titanrain/ScreensView/blob/master/README.md">Подробная установка и настройка</a>
+        </div>
+        <div class="status-line">
+          <span data-download-status>Если прямой asset не определён, кнопка откроет страницу последних релизов.</span>
+          <strong data-download-version hidden></strong>
+        </div>
+      </div>
+      <article class="hero-card" aria-label="Превью стены мониторинга">
+        <div class="hero-card-top">
+          <div class="dots" aria-hidden="true"><span></span><span></span><span></span></div>
+          <span class="mock-meta">Viewer / Active wall</span>
+        </div>
+        <div class="wall-grid">
+          <article class="screen-card">
+            <header><div class="screen-title"><strong>Dispatch A</strong><span>10.14.0.21</span></div><span class="screen-badge ok">OK</span></header>
+            <footer><strong>Online</strong><span>12s ago</span></footer>
+          </article>
+          <article class="screen-card">
+            <header><div class="screen-title"><strong>Operator B</strong><span>10.14.0.34</span></div><span class="screen-badge warn">LLM</span></header>
+            <footer><strong>Mismatch</strong><span>Live check</span></footer>
+          </article>
+          <article class="screen-card">
+            <header><div class="screen-title"><strong>Gate C</strong><span>10.14.0.48</span></div><span class="screen-badge ok">CPU</span></header>
+            <footer><strong>Viewer zoom</strong><span>Double click</span></footer>
+          </article>
+          <article class="screen-card">
+            <header><div class="screen-title"><strong>Hall D</strong><span>10.14.0.55</span></div><span class="screen-badge locked">Locked</span></header>
+            <footer><strong>Secure desktop</strong><span>HTTP 503</span></footer>
+          </article>
+        </div>
+      </article>
+    </section>
+
+    <section class="section">
+      <div class="trust-strip">
+        <article class="trust-item"><strong>Локальная сеть</strong><p>Скриншоты и управление остаются внутри вашей инфраструктуры.</p></article>
+        <article class="trust-item"><strong>HTTPS + API-ключ</strong><p>Агент отдаёт данные по TLS и принимает только авторизованные запросы.</p></article>
+        <article class="trust-item"><strong>Windows first</strong><p>Viewer на .NET 8, modern agent и legacy path для Windows 7 SP1.</p></article>
+        <article class="trust-item"><strong>Self-hosted</strong><p>Никакой внешней панели и никаких обязательных облачных зависимостей.</p></article>
+      </div>
+    </section>
+
+    <section class="section" id="capabilities">
+      <div class="section-intro">
+        <div><span class="eyebrow">Core capability</span><h2>Стена живого мониторинга, а не просто набор отдельных подключений.</h2></div>
+        <p>Viewer опрашивает все включённые машины и показывает скриншоты в адаптивной сетке. Карточки сразу отображают состояние: обычный экран, блокировка, LLM-статус, ошибки загрузки или отсутствие активной пользовательской сессии.</p>
+      </div>
+      <div class="feature-grid">
+        <article class="feature-card">
+          <h3>Один обзорный экран</h3>
+          <p>Держите десятки рабочих станций в одной панели и открывайте любой экран в zoom-окне по двойному клику.</p>
+          <ul>
+            <li>Адаптивная сетка для больших и средних стен мониторинга</li>
+            <li>Контекстные действия прямо с карточки компьютера</li>
+            <li>Состояние locked/disabled видно без отдельной диагностики</li>
+          </ul>
+        </article>
+        <article class="feature-card">
+          <h3>Управление без переключения между утилитами</h3>
+          <p>Список компьютеров, обновление, запуск внеочередных проверок и изменение настроек живут внутри одного Viewer.</p>
+          <ul>
+            <li>Массовые операции по multi-select или по всему активному набору</li>
+            <li>Обновить сейчас и LLM сейчас без изменения фоновых интервалов</li>
+            <li>Переключение источника подключений и защищённый внешний файл</li>
+          </ul>
+        </article>
+      </div>
+    </section>
+
+    <section class="section" id="operations">
+      <div class="section-intro">
+        <div><span class="eyebrow">Operations</span><h2>Развёртывание и обслуживание агентов встроены в рабочий процесс оператора.</h2></div>
+        <p>ScreensView не ограничивается просмотром. Viewer помогает добавить компьютеры пачкой, выбрать payload по версии Windows и обслуживать агентские службы без ручной сборки на каждой машине.</p>
+      </div>
+      <div class="ops-grid">
+        <article class="ops-card"><span class="ops-step">1</span><h3>Добавьте новые машины</h3><p>Одиночный диалог, список хостов или диапазон IP. API-ключи генерируются автоматически.</p><ul><li>Режимы «По хостам» и «По диапазону IP»</li><li>Описание экрана можно задать сразу в карточке компьютера</li></ul></article>
+        <article class="ops-card"><span class="ops-step">2</span><h3>Установите агент удалённо</h3><p>Viewer копирует payload, создаёт службу и подбирает modern или legacy агент под целевую ОС.</p><ul><li>Поддержка Windows 10/11 и compatibility path для Windows 7 SP1</li><li>Пошаговый лог установки, удаления и обновления</li></ul></article>
+        <article class="ops-card"><span class="ops-step">3</span><h3>Держите парк актуальным</h3><p>Обновляйте агентские службы массово и быстро проверяйте, что экраны соответствуют ожиданиям.</p><ul><li>Обновить агентов для всех включённых компьютеров</li><li>Viewer сам проверяет новые релизы приложения</li></ul></article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-intro">
+        <div><span class="eyebrow">Optional intelligence</span><h2>LLM-проверка - дополнительный слой контроля, а не обязательный режим.</h2></div>
+        <p>Если нужно сверять не просто наличие картинки, а ожидаемую визуальную структуру экрана, Viewer может локально запускать multimodal-проверку и маркировать карточки как совпадающие или подозрительные.</p>
+      </div>
+      <div class="feature-grid">
+        <article class="feature-card"><h3>Проверка ожидаемого состояния</h3><p>Описываете стабильную структуру экрана, а Viewer запускает локальную проверку по таймеру или вручную.</p><ul><li>Статусы `?`, `LLM`, `...`, `✓`, `✗`, `!` видны прямо на карточке</li><li>Кэш повторяющихся кадров снижает лишние вызовы модели</li><li>Ручной запуск доступен для всей стены или для одной машины</li></ul></article>
+        <article class="feature-card"><h3>Локальные модели и диагностируемый пайплайн</h3><p>Модель и backend живут рядом с Viewer, а все ошибки и сырые ответы остаются в локальном логе.</p><ul><li>Скачивание совместимой GGUF-модели из настроек</li><li>Отдельная диагностика для `llama.cpp`, projector и unsupported architecture</li><li>Fast-profile для скриншотов и ограничение image token budget</li></ul></article>
+      </div>
+    </section>
+
+    <section class="section">
+      <div class="section-intro">
+        <div><span class="eyebrow">Reliability and security</span><h2>Сайт демонстрирует возможности, но продукт проектировался под эксплуатацию.</h2></div>
+        <p>ScreensView учитывает реальное поведение Windows Service, secure desktop и особенности удалённого администрирования, а не только «идеальный» сценарий живого скриншота.</p>
+      </div>
+      <div class="reliability-grid">
+        <article class="reliability-card"><h3>Понятные штатные состояния</h3><ul><li>Заблокированная рабочая станция возвращает HTTP 503 и отображается как `Locked`, а не как сломанная машина</li><li>Выключенные компьютеры исключаются из опроса и массовых операций</li><li>Viewer пишет причину проверки, пропуска и ошибок в `viewer.log`</li></ul></article>
+        <article class="reliability-card"><h3>Минимально необходимый perimeter</h3><ul><li>TLS 1.2+, self-signed сертификат и pinning thumbprint в Viewer</li><li>Авторизация по `X-Api-Key`</li><li>Удалённая установка требует явных прав локального администратора и доступа к `Admin$` / WMI</li></ul></article>
+      </div>
+    </section>
+
+    <section class="section" id="download">
+      <div class="cta-panel">
+        <div>
+          <span class="eyebrow">Primary CTA</span>
+          <h2>Скачайте Viewer и начните с одной обзорной стены.</h2>
+          <p>Лендинг показывает, что умеет ScreensView. Подробная установка и все эксплуатационные шаги остаются в репозитории, где README выступает каноническим руководством.</p>
+          <div class="hero-actions">
+            <a class="button button-primary" data-download-link data-dynamic-label="true" href="https://github.com/titanrain/ScreensView/releases">Скачать Viewer</a>
+            <a class="button button-secondary" href="https://github.com/titanrain/ScreensView/releases">Открыть GitHub Releases</a>
+          </div>
+          <div class="status-line"><span data-download-status>Если единственный Viewer .exe не определён, кнопка откроет страницу последних релизов.</span><strong data-download-version hidden></strong></div>
+        </div>
+        <aside class="feature-card">
+          <h3>Что дальше</h3>
+          <p>Если хотите сразу перейти к практической настройке, используйте репозиторий как детальное руководство.</p>
+          <ul>
+            <li><a class="link-button button-secondary" href="https://github.com/titanrain/ScreensView/blob/master/README.md">README: подробная установка и настройка</a></li>
+            <li><a class="link-button button-secondary" href="https://github.com/titanrain/ScreensView">GitHub repository</a></li>
+            <li><a class="link-button button-secondary" href="https://donatr.ee/titanrain">Поддержать автора</a></li>
+          </ul>
+        </aside>
+      </div>
+    </section>
+
+    <section class="section" id="faq">
+      <div class="section-intro">
+        <div><span class="eyebrow">FAQ</span><h2>Коротко о главном перед запуском.</h2></div>
+        <p>Это не полная документация, а обзор типовых вопросов перед первым запуском.</p>
+      </div>
+      <div class="faq-grid">
+        <article class="faq-item"><h3>Нужно ли отдельное облако или брокер?</h3><p>Нет. Viewer и агент общаются напрямую по HTTPS внутри вашей сети.</p></article>
+        <article class="faq-item"><h3>Поддерживается ли Windows 7?</h3><p>Есть legacy path для Windows 7 SP1 с `.NET Framework 4.8`, но это compatibility-сценарий, а не современная поддерживаемая платформа.</p></article>
+        <article class="faq-item"><h3>Что происходит при блокировке рабочей станции?</h3><p>Агент возвращает HTTP 503, а Viewer показывает машину как `Locked`, потому что secure desktop нельзя захватить из службы иначе.</p></article>
+        <article class="faq-item"><h3>Обязателен ли LLM-модуль?</h3><p>Нет. Viewer работает как мониторинг-стена и без распознавания экрана; LLM — дополнительная локальная возможность.</p></article>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="footer-panel">
+      <div class="footer-inner">
+        <div>
+          <div class="brand"><span class="brand-mark">SV</span><span class="brand-copy"><strong>ScreensView</strong><span>Local-first monitoring for Windows workstations</span></span></div>
+          <p class="footnote" style="margin-top: 12px;">Showcase-сайт демонстрирует возможности. Полная установка, настройка и эксплуатационные детали описаны в README репозитория.</p>
+        </div>
+        <nav class="footer-links" aria-label="Ссылки в подвале">
+          <a href="https://github.com/titanrain/ScreensView">GitHub</a>
+          <a href="https://github.com/titanrain/ScreensView/releases">Releases</a>
+          <a href="https://github.com/titanrain/ScreensView/blob/master/README.md">README</a>
+          <a href="en/" lang="en" hreflang="en">English</a>
+        </nav>
+      </div>
+    </div>
+  </footer>
+
+  <script src="assets/site.js"></script>
+</body>
+</html>
