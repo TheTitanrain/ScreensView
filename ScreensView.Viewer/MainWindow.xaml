@@ -156,6 +156,13 @@
                         </StackPanel>
                     </Button>
 
+                    <Button Style="{StaticResource ToolbarButton}" Command="{Binding RunLlmNowCommand}">
+                        <StackPanel Orientation="Horizontal">
+                            <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE8A1;" FontSize="14" VerticalAlignment="Center"/>
+                            <TextBlock Text=" LLM сейчас" VerticalAlignment="Center"/>
+                        </StackPanel>
+                    </Button>
+
                     <Rectangle Style="{StaticResource ToolbarSeparator}"/>
 
                     <Button Style="{StaticResource ToolbarButton}" Click="Settings_Click">
@@ -231,6 +238,7 @@
                                     <MenuItem Header="Открыть" Click="TileMenu_Open"/>
                                     <MenuItem Header="Редактировать" Click="TileMenu_Edit"/>
                                     <Separator/>
+                                    <MenuItem Header="Запустить LLM сейчас" Click="TileMenu_RunLlmNow"/>
                                     <MenuItem Header="Пинг" Click="TileMenu_Ping"/>
                                     <Separator/>
                                     <MenuItem Header="Удалить" Click="TileMenu_Delete"/>

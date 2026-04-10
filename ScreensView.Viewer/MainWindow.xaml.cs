@@ -74,6 +74,24 @@ public partial class MainWindow : Window
             _vm.UpdateComputer(vm, win.Result);
     }
 
+    private async void TileMenu_RunLlmNow(object sender, RoutedEventArgs e)
+    {
+        var vm = GetMenuVm(sender);
+        if (vm == null) return;
+
+        try
+        {
+            await _vm.RunLlmNowForComputerAsync(vm);
+        }
+        catch (OperationCanceledException)
+        {
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show(this, $"Ошибка: {ex.Message}", "LLM", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
     private async void TileMenu_Ping(object sender, RoutedEventArgs e)
     {
         var vm = GetMenuVm(sender);

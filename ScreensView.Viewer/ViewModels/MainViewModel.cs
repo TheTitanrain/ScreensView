@@ -14,6 +14,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private const int MinRefreshIntervalSeconds = 1;
     private const int MaxRefreshIntervalSeconds = 60;
     private const string ModelLoadErrorStatusText = "Ошибка загрузки модели";
+    private const string ModelMissingMessage = "Модель для распознавания не скачана. Откройте настройки и нажмите \"Скачать\".";
+    private const string LlmDisabledMessage = "Распознавание экрана выключено. Включите его в настройках.";
     private const string BackendErrorTitle = "Бэкенд распознавания";
 
     private IComputerStorageService _storage;
@@ -136,6 +138,16 @@ public partial class MainViewModel : ObservableObject, IDisposable
         return _poller.RefreshNowAsync(Computers);
     }
 
+    [RelayCommand(CanExecute = nameof(CanRunLlmNow), AllowConcurrentExecutions = false)]
+    private async Task RunLlmNowAsync(CancellationToken ct)
+    {
+        var runToken = GetRunToken(ct);
+        if (!await EnsureManualLlmRunReadyAsync("manual run all", runToken))
+            return;
+
+        await _llmCheckService.RunNowAsync(Computers, runToken);
+    }
+
     partial void OnRefreshIntervalChanged(int value)
     {
         var normalizedValue = NormalizeRefreshInterval(value);
@@ -185,6 +197,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
         }
     }
 
+    public bool CanRunLlmNow => _isLlmEnabled && IsReadyToStart;
+
     [RelayCommand(IncludeCancelCommand = true, AllowConcurrentExecutions = false)]
     private async Task DownloadBinaryAsync(CancellationToken ct)
     {
@@ -197,6 +211,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             await _binaryService.DownloadAsync(backend, progress, ct);
             BinaryDownloadProgress = -1;
             OnPropertyChanged(nameof(BinaryStatusText));
+            NotifyLlmManualRunAvailabilityChanged();
             if (_isLlmEnabled && _downloadService.IsModelReady)
                 BeginTryStartLlmService("binary downloaded", showBackendError: true);
         }
@@ -223,6 +238,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _log.LogInfo("MainViewModel.DownloadModel.Start", $"Starting model download for '{model.Id}'.");
         ClearModelLoadError();
         _downloadService.SelectModel(model);
+        NotifyLlmManualRunAvailabilityChanged();
 
         var progress = new Progress<double>(p => ModelDownloadProgress = p);
         try
@@ -254,6 +270,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _log.LogInfo("MainViewModel.LlmEnabledChanged", $"LlmEnabled={value}.");
         _viewerSettings.LlmEnabled = value;
         _viewerSettingsService.Save(_viewerSettings);
+        NotifyLlmManualRunAvailabilityChanged();
 
         if (value)
             BeginTryStartLlmService("toggle enabled", showBackendError: true);
@@ -274,6 +291,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _llmCheckService.Stop();
         _inferenceService.Reset();
         OnPropertyChanged(nameof(BinaryStatusText));
+        NotifyLlmManualRunAvailabilityChanged();
 
         if (_isLlmEnabled && _downloadService.IsModelReady)
             BeginTryStartLlmService("backend changed", showBackendError: true);
@@ -292,6 +310,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _downloadService.SelectModel(value);
         ClearModelLoadError();
         OnPropertyChanged(nameof(ModelStatusText));
+        NotifyLlmManualRunAvailabilityChanged();
 
         if (_isLlmEnabled && _downloadService.IsModelReady)
             BeginTryStartLlmService("model changed", showBackendError: true);
@@ -417,6 +436,18 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _appCts.Dispose();
     }
 
+    internal async Task RunLlmNowForComputerAsync(ComputerViewModel? computer, CancellationToken ct = default)
+    {
+        if (computer is null)
+            return;
+
+        var runToken = GetRunToken(ct);
+        if (!await EnsureManualLlmRunReadyAsync($"manual run '{computer.Name}'", runToken))
+            return;
+
+        await _llmCheckService.RunNowAsync(computer, runToken);
+    }
+
     private void InitializeAutostartState()
     {
         try
@@ -447,6 +478,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _log.LogInfo("MainViewModel.ModelReady", $"ModelReady received. LlmEnabled={_isLlmEnabled}.");
         ClearModelLoadError();
         OnPropertyChanged(nameof(ModelStatusText));
+        NotifyLlmManualRunAvailabilityChanged();
 
         if (_isLlmEnabled && _downloadService.IsModelReady)
             BeginTryStartLlmService("model ready");
@@ -557,6 +589,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     {
         _llmCheckService.Stop();
         ClearModelLoadError();
+        NotifyLlmManualRunAvailabilityChanged();
         _log.LogWarning(
             "MainViewModel.BackendUnavailable",
             $"Backend '{backendCheck.Backend}' is {backendCheck.State} during '{reason}'. Missing: {string.Join(", ", backendCheck.MissingArtifacts)}");
@@ -602,6 +635,67 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         _modelLoadErrorText = null;
         OnPropertyChanged(nameof(ModelStatusText));
+    }
+
+    private void NotifyLlmManualRunAvailabilityChanged()
+    {
+        OnPropertyChanged(nameof(CanRunLlmNow));
+        RunLlmNowCommand.NotifyCanExecuteChanged();
+    }
+
+    private CancellationToken GetRunToken(CancellationToken ct) =>
+        ct == default ? _appCts.Token : ct;
+
+    private async Task<bool> EnsureManualLlmRunReadyAsync(string reason, CancellationToken ct)
+    {
+        if (!_isLlmEnabled)
+        {
+            ReportError("LLM", LlmDisabledMessage);
+            return false;
+        }
+
+        if (!_downloadService.IsModelReady)
+        {
+            SetModelLoadError(ModelLoadErrorStatusText);
+            ReportError("Model load", ModelMissingMessage);
+            NotifyLlmManualRunAvailabilityChanged();
+            return false;
+        }
+
+        var backendCheck = GetBackendCheck(_selectedBackend);
+        if (!backendCheck.IsReady)
+        {
+            HandleBackendUnavailable(reason, backendCheck, showDialog: true);
+            return false;
+        }
+
+        var validationError = await _inferenceService.ValidateModelAsync(ct).ConfigureAwait(false);
+        if (validationError is null)
+        {
+            ClearModelLoadError();
+            NotifyLlmManualRunAvailabilityChanged();
+            return true;
+        }
+
+        _llmCheckService.Stop();
+        if (validationError.Stage == LlmRuntimeLoadStage.Backend)
+        {
+            _log.LogError(
+                "MainViewModel.LlmRunNowRejected",
+                $"LLM backend validation failed during '{reason}'. {validationError.DiagnosticMessage}",
+                validationError);
+            ReportError(BackendErrorTitle, validationError.UserMessage);
+            return false;
+        }
+
+        SetModelLoadError(ModelLoadErrorStatusText);
+        _log.LogError(
+            "MainViewModel.LlmRunNowRejected",
+            $"LLM validation failed during '{reason}'. {validationError.DiagnosticMessage}",
+            validationError);
+        ReportError("Model load", $"{validationError.UserMessage}\n\n{validationError.DiagnosticMessage}");
+        NotifyLlmManualRunAvailabilityChanged();
+        return false;
     }
 
     private void SetAutostartState(bool value)

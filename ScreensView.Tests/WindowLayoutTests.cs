@@ -26,6 +26,17 @@ public class WindowLayoutTests
     }
 
     [Fact]
+    public void LlmNowActions_AreHostedInToolbarAndTileContextMenu()
+    {
+        var mainWindowXaml = File.ReadAllText(GetRepoPath(@"ScreensView.Viewer\MainWindow.xaml"));
+
+        Assert.Contains("Command=\"{Binding RunLlmNowCommand}\"", mainWindowXaml);
+        Assert.Contains("Text=\" LLM сейчас\"", mainWindowXaml);
+        Assert.Contains("Header=\"Запустить LLM сейчас\"", mainWindowXaml);
+        Assert.Contains("Click=\"TileMenu_RunLlmNow\"", mainWindowXaml);
+    }
+
+    [Fact]
     public void UpdateAllAgentsButton_IsHostedInComputersManagerWindowToolbar()
     {
         var mainWindowXaml = File.ReadAllText(GetRepoPath(@"ScreensView.Viewer\MainWindow.xaml"));

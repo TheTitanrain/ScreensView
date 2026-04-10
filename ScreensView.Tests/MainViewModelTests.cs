@@ -165,6 +165,67 @@ public class MainViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task RunLlmNowCommand_WhenLlmReady_RunsOneShotCheckForAllComputers()
+    {
+        var storage = new FakeComputerStorageService
+        {
+            LoadResult =
+            [
+                new ComputerConfig { Name = "PC-1", Host = "10.0.0.1", ApiKey = "key-1", IsEnabled = true },
+                new ComputerConfig { Name = "PC-2", Host = "10.0.0.2", ApiKey = "key-2", IsEnabled = false }
+            ]
+        };
+        var llm = new FakeLlmCheckService();
+        var download = new FakeModelDownloadService { IsModelReady = true };
+
+        using var vm = new MainViewModel(
+            storage,
+            new FakeScreenshotPollerService(),
+            new FakeViewerSettingsService(initialValue: false),
+            new FakeAutostartService(initialValue: false),
+            llmCheckService: llm,
+            downloadService: download,
+            inferenceService: new FakeLlmInferenceService());
+        vm.IsLlmEnabled = true;
+        var command = GetRunLlmNowCommand(vm);
+
+        await command.ExecuteAsync(null);
+
+        Assert.Single(llm.RunNowAllCalls);
+        Assert.Equal(["PC-1", "PC-2"], llm.RunNowAllCalls[0]);
+    }
+
+    [Fact]
+    public async Task RunLlmNowForComputerAsync_WhenLlmReady_RunsOneShotCheckForSingleComputer()
+    {
+        var storage = new FakeComputerStorageService
+        {
+            LoadResult =
+            [
+                new ComputerConfig { Name = "PC-1", Host = "10.0.0.1", ApiKey = "key-1", IsEnabled = true },
+                new ComputerConfig { Name = "PC-2", Host = "10.0.0.2", ApiKey = "key-2", IsEnabled = true }
+            ]
+        };
+        var llm = new FakeLlmCheckService();
+        var download = new FakeModelDownloadService { IsModelReady = true };
+
+        using var vm = new MainViewModel(
+            storage,
+            new FakeScreenshotPollerService(),
+            new FakeViewerSettingsService(initialValue: false),
+            new FakeAutostartService(initialValue: false),
+            llmCheckService: llm,
+            downloadService: download,
+            inferenceService: new FakeLlmInferenceService());
+        vm.IsLlmEnabled = true;
+
+        await vm.RunLlmNowForComputerAsync(vm.Computers[1]);
+
+        Assert.Single(llm.RunNowSingleCalls);
+        Assert.Equal("PC-2", llm.RunNowSingleCalls[0]);
+    }
+
+    [Fact]
     public void SetComputerEnabled_WhenDisabling_UpdatesViewModelAndPersists()
     {
         var storage = new FakeComputerStorageService
@@ -1107,6 +1168,14 @@ public class MainViewModelTests : IDisposable
         return Assert.IsAssignableFrom<IAsyncRelayCommand>(command);
     }
 
+    private static IAsyncRelayCommand GetRunLlmNowCommand(MainViewModel vm)
+    {
+        var property = typeof(MainViewModel).GetProperty("RunLlmNowCommand");
+        Assert.NotNull(property);
+        var command = property!.GetValue(vm);
+        return Assert.IsAssignableFrom<IAsyncRelayCommand>(command);
+    }
+
     private class FakeViewerSettingsService(bool initialValue, int refreshIntervalSeconds = 5,
         int llmCheckIntervalMinutes = 5, bool llmEnabled = false) : IViewerSettingsService
     {
@@ -1147,6 +1216,8 @@ public class MainViewModelTests : IDisposable
         public List<(IReadOnlyList<string> Names, int IntervalMinutes)> StartCalls { get; } = [];
         public List<int> UpdateIntervalCalls { get; } = [];
         public List<object> StopCalls { get; } = [];
+        public List<IReadOnlyList<string>> RunNowAllCalls { get; } = [];
+        public List<string> RunNowSingleCalls { get; } = [];
 
         public void Start(IReadOnlyList<ComputerViewModel> computers, int intervalMinutes)
             => StartCalls.Add((computers.Select(vm => vm.Name).ToList(), intervalMinutes));
@@ -1155,6 +1226,18 @@ public class MainViewModelTests : IDisposable
             => UpdateIntervalCalls.Add(intervalMinutes);
 
         public void Stop() => StopCalls.Add(new object());
+
+        public Task RunNowAsync(IReadOnlyList<ComputerViewModel> computers, CancellationToken ct = default)
+        {
+            RunNowAllCalls.Add(computers.Select(vm => vm.Name).ToList());
+            return Task.CompletedTask;
+        }
+
+        public Task RunNowAsync(ComputerViewModel computer, CancellationToken ct = default)
+        {
+            RunNowSingleCalls.Add(computer.Name);
+            return Task.CompletedTask;
+        }
     }
 
     private sealed class FakeModelDownloadService : IModelDownloadService

@@ -9,6 +9,8 @@ public interface ILlmCheckService
     void Start(IReadOnlyList<ComputerViewModel> computers, int intervalMinutes);
     void UpdateInterval(int intervalMinutes);
     void Stop();
+    Task RunNowAsync(IReadOnlyList<ComputerViewModel> computers, CancellationToken ct = default);
+    Task RunNowAsync(ComputerViewModel computer, CancellationToken ct = default);
 }
 
 public class LlmCheckService : ILlmCheckService
@@ -18,6 +20,7 @@ public class LlmCheckService : ILlmCheckService
     private readonly ILlmInferenceService _inference;
     private readonly IViewerLogService _log;
     private readonly TimeSpan _perComputerTimeout;
+    private readonly SemaphoreSlim _cycleGate = new(1, 1);
     private readonly Dictionary<Guid, List<CachedLlmCheckEntry>> _recentChecks = [];
     private volatile int _intervalMinutes = 5;
     private CancellationTokenSource? _cts;
@@ -71,12 +74,24 @@ public class LlmCheckService : ILlmCheckService
         _loopTask = null;
     }
 
+    public Task RunNowAsync(IReadOnlyList<ComputerViewModel> computers, CancellationToken ct = default)
+    {
+        _log.LogInfo("LlmCheckService.RunNowAll", $"Starting one-shot LLM check for {computers.Count} computers.");
+        return RunCycleExclusiveAsync(computers, ct);
+    }
+
+    public Task RunNowAsync(ComputerViewModel computer, CancellationToken ct = default)
+    {
+        _log.LogInfo("LlmCheckService.RunNowSingle", $"Starting one-shot LLM check for '{computer.Name}'.");
+        return RunCycleExclusiveAsync([computer], ct);
+    }
+
     private async Task RunLoopAsync(CancellationToken ct)
     {
         while (!ct.IsCancellationRequested)
         {
             _log.LogInfo("LlmCheckService.RunCycle", "Starting LLM check cycle.");
-            await RunCycleAsync(_computers ?? [], ct);
+            await RunCycleExclusiveAsync(_computers ?? [], ct);
 
             try
             {
@@ -86,6 +101,19 @@ public class LlmCheckService : ILlmCheckService
             {
                 break;
             }
+        }
+    }
+
+    private async Task RunCycleExclusiveAsync(IReadOnlyList<ComputerViewModel> computers, CancellationToken ct)
+    {
+        await _cycleGate.WaitAsync(ct);
+        try
+        {
+            await RunCycleAsync(computers, ct);
+        }
+        finally
+        {
+            _cycleGate.Release();
         }
     }
 
