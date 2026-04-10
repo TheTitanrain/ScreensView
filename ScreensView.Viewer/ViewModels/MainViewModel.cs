@@ -24,6 +24,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private readonly IAutostartService _autostartService;
     private readonly Action<string, string>? _reportError;
     private readonly IViewerLogService _log;
+    private readonly System.Windows.Threading.Dispatcher _uiDispatcher;
 
     private ViewerSettings _viewerSettings = new();
     private bool _isSynchronizingAutostart;
@@ -66,6 +67,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         ILlamaServerBinaryService? binaryService = null,
         IViewerLogService? log = null)
     {
+        _uiDispatcher = System.Windows.Threading.Dispatcher.CurrentDispatcher;
         _storage = storage;
         _poller = poller;
         _viewerSettingsService = viewerSettingsService;
@@ -606,17 +608,12 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _ => "Готово ✓"
     };
 
-    private static void RunOnUiThread(Action action)
+    private void RunOnUiThread(Action action)
     {
-        var app = System.Windows.Application.Current;
-        if (app is not null)
-        {
-            app.Dispatcher.Invoke(action);
-        }
-        else
-        {
+        if (_uiDispatcher.CheckAccess())
             action();
-        }
+        else
+            _uiDispatcher.Invoke(action);
     }
 
     private void SetModelLoadError(string value)
@@ -639,8 +636,11 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     private void NotifyLlmManualRunAvailabilityChanged()
     {
-        OnPropertyChanged(nameof(CanRunLlmNow));
-        RunLlmNowCommand.NotifyCanExecuteChanged();
+        RunOnUiThread(() =>
+        {
+            OnPropertyChanged(nameof(CanRunLlmNow));
+            RunLlmNowCommand.NotifyCanExecuteChanged();
+        });
     }
 
     private CancellationToken GetRunToken(CancellationToken ct) =>

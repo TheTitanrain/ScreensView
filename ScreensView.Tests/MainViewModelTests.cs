@@ -3,6 +3,8 @@ using ScreensView.Shared.Models;
 using ScreensView.Viewer.Models;
 using ScreensView.Viewer.Services;
 using ScreensView.Viewer.ViewModels;
+using System.Runtime.ExceptionServices;
+using System.Windows.Controls;
 
 namespace ScreensView.Tests;
 
@@ -223,6 +225,40 @@ public class MainViewModelTests : IDisposable
 
         Assert.Single(llm.RunNowSingleCalls);
         Assert.Equal("PC-2", llm.RunNowSingleCalls[0]);
+    }
+
+    [Fact]
+    public void EnsureManualLlmRunReadyAsync_WhenValidationCompletesOffUiThread_DoesNotThrow()
+    {
+        RunOnSta(async () =>
+        {
+            var llm = new FakeLlmCheckService();
+            var download = new FakeModelDownloadService { IsModelReady = true };
+            var validation = new TaskCompletionSource<LlmRuntimeLoadException?>(
+                TaskCreationOptions.RunContinuationsAsynchronously);
+            var inference = new FakeLlmInferenceService
+            {
+                ValidateModelTask = validation
+            };
+
+            using var vm = new MainViewModel(
+                new FakeComputerStorageService(),
+                new FakeScreenshotPollerService(),
+                new FakeViewerSettingsService(initialValue: false),
+                new FakeAutostartService(initialValue: false),
+                llmCheckService: llm,
+                downloadService: download,
+                inferenceService: inference);
+            vm.IsLlmEnabled = true;
+
+            var command = GetRunLlmNowCommand(vm);
+            _ = new Button { Command = command };
+
+            var readyTask = InvokeEnsureManualLlmRunReadyAsync(vm, "test manual run");
+            await Task.Run(() => validation.SetResult(null));
+
+            Assert.True(await readyTask);
+        });
     }
 
     [Fact]
@@ -1174,6 +1210,70 @@ public class MainViewModelTests : IDisposable
         Assert.NotNull(property);
         var command = property!.GetValue(vm);
         return Assert.IsAssignableFrom<IAsyncRelayCommand>(command);
+    }
+
+    private static Task<bool> InvokeEnsureManualLlmRunReadyAsync(MainViewModel vm, string reason)
+    {
+        var method = typeof(MainViewModel).GetMethod(
+            "EnsureManualLlmRunReadyAsync",
+            System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+        Assert.NotNull(method);
+        var task = method!.Invoke(vm, [reason, CancellationToken.None]);
+        return Assert.IsAssignableFrom<Task<bool>>(task);
+    }
+
+    private static void RunOnSta(Action action)
+    {
+        Exception? caught = null;
+        var thread = new Thread(() =>
+        {
+            try
+            {
+                action();
+            }
+            catch (Exception ex)
+            {
+                caught = ex;
+            }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+        if (caught is not null)
+            ExceptionDispatchInfo.Capture(caught).Throw();
+    }
+
+    private static void RunOnSta(Func<Task> action)
+    {
+        Exception? caught = null;
+        var thread = new Thread(() =>
+        {
+            var dispatcher = System.Windows.Threading.Dispatcher.CurrentDispatcher;
+            SynchronizationContext.SetSynchronizationContext(
+                new System.Windows.Threading.DispatcherSynchronizationContext(dispatcher));
+
+            try
+            {
+                var task = action();
+                task.ContinueWith(
+                    _ => dispatcher.BeginInvokeShutdown(System.Windows.Threading.DispatcherPriority.Background),
+                    CancellationToken.None,
+                    TaskContinuationOptions.None,
+                    TaskScheduler.Default);
+
+                System.Windows.Threading.Dispatcher.Run();
+                task.GetAwaiter().GetResult();
+            }
+            catch (Exception ex)
+            {
+                caught = ex;
+            }
+        });
+        thread.SetApartmentState(ApartmentState.STA);
+        thread.Start();
+        thread.Join();
+        if (caught is not null)
+            ExceptionDispatchInfo.Capture(caught).Throw();
     }
 
     private class FakeViewerSettingsService(bool initialValue, int refreshIntervalSeconds = 5,
