@@ -178,6 +178,52 @@ public class ConnectionsStorageControllerTests
     }
 
     [Fact]
+    public void OpenExternalFileTemporarily_WhenPasswordIsCorrect_UsesRuntimeExternalWithoutSavingSettings()
+    {
+        const string savedPath = @"C:\Shared\saved-connections.svc";
+        const string temporaryPath = @"C:\Shared\temporary-connections.svc";
+        const string password = "temporary-password";
+
+        var settings = new FakeViewerSettingsService(new ViewerSettings
+        {
+            ConnectionsFilePath = savedPath,
+            ConnectionsFilePasswordEncrypted = DpapiHelper.Encrypt("saved-password")
+        });
+        var externalStorage = new FakeComputerStorageService
+        {
+            LoadResult = CreateComputers("Temporary workstation")
+        };
+        var controller = CreateController(
+            settings,
+            () => new FakeComputerStorageService(),
+            (path, suppliedPassword) =>
+            {
+                return path switch
+                {
+                    savedPath => new FakeComputerStorageService { LoadResult = CreateComputers("Saved workstation") },
+                    temporaryPath when suppliedPassword == password => externalStorage,
+                    _ => throw new Xunit.Sdk.XunitException($"Unexpected storage request: {path}")
+                };
+            });
+        InvokeResolveStartup(controller);
+
+        var result = InvokeOpenExternalFileTemporarily(controller, temporaryPath, password);
+
+        Assert.True(GetBoolean(result, "Succeeded"));
+        Assert.True(GetBoolean(result, "UsesExternalFile"));
+        Assert.Same(externalStorage, GetStorage(result));
+        Assert.Equal(savedPath, settings.Current.ConnectionsFilePath);
+        Assert.Equal("saved-password", DpapiHelper.Decrypt(settings.Current.ConnectionsFilePasswordEncrypted));
+        Assert.Equal(0, settings.SaveCalls);
+        Assert.Same(externalStorage, GetActiveStorage(controller));
+
+        var activeSourceState = GetActiveSourceState(controller);
+        Assert.True(GetBoolean(activeSourceState, "UsesExternalFile"));
+        Assert.True(GetBoolean(activeSourceState, "IsTemporaryOverride"));
+        Assert.Equal(temporaryPath, GetString(activeSourceState, "FilePath"));
+    }
+
+    [Fact]
     public void SwitchToLocalStorage_ClearsExternalPathAndRememberedPassword()
     {
         const string externalPath = @"C:\Shared\connections.svc";
@@ -310,6 +356,12 @@ public class ConnectionsStorageControllerTests
         return Invoke(controller, method, [currentConnections]);
     }
 
+    private static object InvokeOpenExternalFileTemporarily(object controller, string filePath, string password)
+    {
+        var method = GetRequiredMethod(controller.GetType(), "OpenExternalFileTemporarily", parameterCount: 2);
+        return Invoke(controller, method, [filePath, password]);
+    }
+
     private static object Invoke(object target, MethodInfo method, object?[] arguments)
     {
         try
@@ -341,6 +393,14 @@ public class ConnectionsStorageControllerTests
         return (IComputerStorageService?)property!.GetValue(controller);
     }
 
+    private static object GetActiveSourceState(object controller)
+    {
+        var property = controller.GetType().GetProperty("ActiveSourceState", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        Assert.NotNull(property);
+        return property!.GetValue(controller)
+               ?? throw new InvalidOperationException("ActiveSourceState returned null.");
+    }
+
     private static IComputerStorageService? GetStorage(object result)
     {
         var property = result.GetType().GetProperty("Storage", BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
@@ -365,6 +425,13 @@ public class ConnectionsStorageControllerTests
         var value = property!.GetValue(result);
         Assert.IsType<bool>(value);
         return (bool)value!;
+    }
+
+    private static string? GetString(object result, string propertyName)
+    {
+        var property = result.GetType().GetProperty(propertyName, BindingFlags.Instance | BindingFlags.Public | BindingFlags.NonPublic);
+        Assert.NotNull(property);
+        return (string?)property!.GetValue(result);
     }
 
     private static List<ComputerConfig> CreateComputers(params string[] names)

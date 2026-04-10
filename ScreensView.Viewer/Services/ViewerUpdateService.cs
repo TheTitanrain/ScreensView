@@ -3,6 +3,7 @@ using System.IO;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Reflection;
+using System.Text;
 using System.Windows;
 
 namespace ScreensView.Viewer.Services;
@@ -43,7 +44,8 @@ public class ViewerUpdateService
                 }
             }
 
-            Process.Start(new ProcessStartInfo(installPath) { UseShellExecute = true });
+            var relaunchArgs = BuildArgumentString(GetPostUpdateRelaunchArguments(args));
+            Process.Start(new ProcessStartInfo(installPath, relaunchArgs) { UseShellExecute = true });
 
             try
             {
@@ -193,9 +195,92 @@ public class ViewerUpdateService
         var bytes = await http.GetByteArrayAsync(downloadUrl);
         await File.WriteAllBytesAsync(tempPath, bytes);
 
-        var launchArgs = $"--update-from \"{tempPath}\" --install-to \"{originalPath}\"";
+        var launchArgs = BuildUpdaterLaunchArguments(tempPath, originalPath, Environment.GetCommandLineArgs().Skip(1));
         Process.Start(new ProcessStartInfo(tempPath, launchArgs) { UseShellExecute = true });
         Application.Current.Shutdown();
+    }
+
+    internal static IReadOnlyList<string> GetPostUpdateRelaunchArguments(IReadOnlyList<string> args)
+    {
+        var forwarded = new List<string>();
+
+        for (var index = 1; index < args.Count; index++)
+        {
+            if (string.Equals(args[index], "--update-from", StringComparison.Ordinal) ||
+                string.Equals(args[index], "--install-to", StringComparison.Ordinal))
+            {
+                if (index + 1 < args.Count)
+                    index++;
+
+                continue;
+            }
+
+            forwarded.Add(args[index]);
+        }
+
+        return forwarded;
+    }
+
+    internal static string BuildUpdaterLaunchArguments(
+        string updateFromPath,
+        string installToPath,
+        IEnumerable<string> forwardedArgs)
+    {
+        return BuildArgumentString([
+            "--update-from",
+            updateFromPath,
+            "--install-to",
+            installToPath,
+            .. forwardedArgs
+        ]);
+    }
+
+    internal static string BuildArgumentString(IEnumerable<string> args) =>
+        string.Join(" ", args.Select(QuoteArgument));
+
+    private static string QuoteArgument(string argument)
+    {
+        if (argument.Length == 0)
+            return "\"\"";
+
+        var requiresQuotes = argument.Any(ch => char.IsWhiteSpace(ch) || ch == '"');
+        if (!requiresQuotes)
+            return argument;
+
+        var builder = new StringBuilder(argument.Length + 2);
+        builder.Append('"');
+        var backslashCount = 0;
+
+        foreach (var ch in argument)
+        {
+            if (ch == '\\')
+            {
+                backslashCount++;
+                continue;
+            }
+
+            if (ch == '"')
+            {
+                builder.Append('\\', backslashCount * 2 + 1);
+                builder.Append('"');
+                backslashCount = 0;
+                continue;
+            }
+
+            if (backslashCount > 0)
+            {
+                builder.Append('\\', backslashCount);
+                backslashCount = 0;
+            }
+
+            builder.Append(ch);
+        }
+
+        if (backslashCount > 0)
+            builder.Append('\\', backslashCount * 2);
+
+        builder.Append('"');
+        return builder.ToString();
     }
 
     internal static Version ParseVersion(string tag)

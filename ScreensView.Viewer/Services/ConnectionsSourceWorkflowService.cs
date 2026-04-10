@@ -1,4 +1,5 @@
 using System.IO;
+using System.Security.Cryptography;
 using System.Windows;
 using Microsoft.Win32;
 using ScreensView.Shared.Models;
@@ -10,17 +11,26 @@ internal interface IConnectionsSourceDialogs
 {
     bool ConfirmExternalFileWarning();
     string? PickConnectionsFile(string fileName, string? initialDirectory);
-    ConnectionsFilePasswordDialogResult? RequestPassword(ConnectionsFilePasswordMode mode, string filePath);
+    ConnectionsFilePasswordDialogResult? RequestPassword(ConnectionsFilePasswordMode mode, string filePath, bool allowRememberPassword);
     void ShowOpenExternalFileFailed(bool needsPassword);
     void ShowCreateExternalFileFailed();
     void ShowSwitchToLocalFailed();
     StartupExternalFileAction AskStartupExternalFileFallback();
+    StartupConnectionsFileOverrideChoice AskStartupConnectionsFileOverrideChoice(string overridePath, string? savedPath);
+    void ShowStartupOverrideError(string message);
 }
 
 internal enum StartupExternalFileAction
 {
     Retry,
     SwitchToLocal,
+    Cancel
+}
+
+internal enum StartupConnectionsFileOverrideChoice
+{
+    MakePersistent,
+    UseTemporarily,
     Cancel
 }
 
@@ -44,9 +54,25 @@ internal sealed class ConnectionsSourceWorkflowService(
     ConnectionsStorageController controller,
     IViewerSettingsService settingsService,
     IConnectionsSourceDialogs dialogs,
-    Func<string, bool>? fileExists = null)
+    Func<string, bool>? fileExists = null,
+    Func<string, bool>? directoryExists = null)
 {
     private readonly Func<string, bool> _fileExists = fileExists ?? File.Exists;
+    private readonly Func<string, bool> _directoryExists = directoryExists ?? Directory.Exists;
+
+    public ResolveConnectionsSourceResult? ResolveStartup(ViewerStartupOptions startupOptions)
+    {
+        if (!startupOptions.IsValid)
+        {
+            dialogs.ShowStartupOverrideError(startupOptions.ErrorMessage ?? "Некорректные параметры запуска.");
+            return null;
+        }
+
+        if (!startupOptions.HasConnectionsFileOverride)
+            return ResolveStartup();
+
+        return ResolveStartupOverride(startupOptions.ConnectionsFilePath!);
+    }
 
     public ResolveConnectionsSourceResult? ResolveStartup()
     {
@@ -56,7 +82,8 @@ internal sealed class ConnectionsSourceWorkflowService(
             var settings = settingsService.Load();
             var passwordResult = dialogs.RequestPassword(
                 ConnectionsFilePasswordMode.OpenExisting,
-                settings.ConnectionsFilePath);
+                settings.ConnectionsFilePath,
+                allowRememberPassword: true);
 
             if (passwordResult is not null)
             {
@@ -106,11 +133,13 @@ internal sealed class ConnectionsSourceWorkflowService(
         if (!dialogs.ConfirmExternalFileWarning())
             return ConnectionsSourceChangeResult.NoChange;
 
-        var settings = settingsService.Load();
-        var fileName = string.IsNullOrWhiteSpace(settings.ConnectionsFilePath)
+        var preferredPath = controller.ActiveSourceState.UsesExternalFile && !string.IsNullOrWhiteSpace(controller.ActiveSourceState.FilePath)
+            ? controller.ActiveSourceState.FilePath
+            : settingsService.Load().ConnectionsFilePath;
+        var fileName = string.IsNullOrWhiteSpace(preferredPath)
             ? "connections.svc"
-            : Path.GetFileName(settings.ConnectionsFilePath);
-        var initialDirectory = GetInitialDirectory(settings.ConnectionsFilePath);
+            : Path.GetFileName(preferredPath);
+        var initialDirectory = GetInitialDirectory(preferredPath);
         var selectedFile = dialogs.PickConnectionsFile(fileName, initialDirectory);
 
         if (string.IsNullOrWhiteSpace(selectedFile))
@@ -135,8 +164,8 @@ internal sealed class ConnectionsSourceWorkflowService(
 
     public ConnectionsSourceUiState GetCurrentUiState()
     {
-        var settings = settingsService.Load();
-        if (string.IsNullOrWhiteSpace(settings.ConnectionsFilePath))
+        var sourceState = controller.ActiveSourceState;
+        if (!sourceState.UsesExternalFile || string.IsNullOrWhiteSpace(sourceState.FilePath))
         {
             return new ConnectionsSourceUiState(
                 @"Локальный файл: %AppData%\ScreensView\computers.json",
@@ -146,17 +175,101 @@ internal sealed class ConnectionsSourceWorkflowService(
         }
 
         return new ConnectionsSourceUiState(
-            settings.ConnectionsFilePath,
-            "Источник меняется в окне «Настройки».",
+            sourceState.FilePath,
+            sourceState.IsTemporaryOverride
+                ? "Источник используется только на этот запуск. После перезапуска Viewer вернётся к сохранённому источнику."
+                : "Источник меняется в окне «Настройки».",
             UsesExternalFile: true,
             CanSwitchToLocal: true);
+    }
+
+    private ResolveConnectionsSourceResult? ResolveStartupOverride(string overridePath)
+    {
+        if (!_fileExists(overridePath) || _directoryExists(overridePath))
+        {
+            dialogs.ShowStartupOverrideError($"Файл подключений '{overridePath}' не найден.");
+            return null;
+        }
+
+        var settings = settingsService.Load();
+        var savedPath = string.IsNullOrWhiteSpace(settings.ConnectionsFilePath)
+            ? null
+            : settings.ConnectionsFilePath;
+        if (string.Equals(savedPath, overridePath, StringComparison.OrdinalIgnoreCase))
+            return ResolveOverrideForSavedPath(settings, overridePath);
+
+        var choice = dialogs.AskStartupConnectionsFileOverrideChoice(overridePath, savedPath);
+        return choice switch
+        {
+            StartupConnectionsFileOverrideChoice.MakePersistent => ResolveOverrideWithPasswordPrompt(overridePath, persistSelection: true),
+            StartupConnectionsFileOverrideChoice.UseTemporarily => ResolveOverrideWithPasswordPrompt(overridePath, persistSelection: false),
+            _ => null
+        };
+    }
+
+    private ResolveConnectionsSourceResult? ResolveOverrideForSavedPath(ViewerSettings settings, string overridePath)
+    {
+        if (!string.IsNullOrWhiteSpace(settings.ConnectionsFilePasswordEncrypted))
+        {
+            try
+            {
+                var password = Helpers.DpapiHelper.Decrypt(settings.ConnectionsFilePasswordEncrypted);
+                var openResult = controller.OpenExternalFile(overridePath, password, rememberPassword: true);
+                if (openResult.Succeeded && openResult.Storage is not null)
+                    return ToResolveResult(openResult);
+
+                if (openResult.NeedsPassword)
+                {
+                    settings.ConnectionsFilePasswordEncrypted = string.Empty;
+                    settingsService.Save(settings);
+                }
+                else
+                {
+                    dialogs.ShowOpenExternalFileFailed(needsPassword: false);
+                    return null;
+                }
+            }
+            catch (Exception ex) when (ex is CryptographicException or FormatException)
+            {
+                settings.ConnectionsFilePasswordEncrypted = string.Empty;
+                settingsService.Save(settings);
+            }
+        }
+
+        return ResolveOverrideWithPasswordPrompt(overridePath, persistSelection: true);
+    }
+
+    private ResolveConnectionsSourceResult? ResolveOverrideWithPasswordPrompt(string filePath, bool persistSelection)
+    {
+        while (true)
+        {
+            var passwordResult = dialogs.RequestPassword(
+                ConnectionsFilePasswordMode.OpenExisting,
+                filePath,
+                allowRememberPassword: persistSelection);
+            if (passwordResult is null)
+                return null;
+
+            var openResult = persistSelection
+                ? controller.OpenExternalFile(filePath, passwordResult.Password, passwordResult.RememberPassword)
+                : controller.OpenExternalFileTemporarily(filePath, passwordResult.Password);
+            if (openResult.Succeeded && openResult.Storage is not null)
+                return ToResolveResult(openResult);
+
+            dialogs.ShowOpenExternalFileFailed(openResult.NeedsPassword);
+            if (!openResult.NeedsPassword)
+                return null;
+        }
     }
 
     private ConnectionsSourceChangeResult OpenExistingExternalFile(string filePath)
     {
         while (true)
         {
-            var passwordResult = dialogs.RequestPassword(ConnectionsFilePasswordMode.OpenExisting, filePath);
+            var passwordResult = dialogs.RequestPassword(
+                ConnectionsFilePasswordMode.OpenExisting,
+                filePath,
+                allowRememberPassword: true);
             if (passwordResult is null)
                 return ConnectionsSourceChangeResult.NoChange;
 
@@ -174,7 +287,10 @@ internal sealed class ConnectionsSourceWorkflowService(
         string filePath,
         IReadOnlyList<ComputerConfig> currentConnections)
     {
-        var passwordResult = dialogs.RequestPassword(ConnectionsFilePasswordMode.CreateNew, filePath);
+        var passwordResult = dialogs.RequestPassword(
+            ConnectionsFilePasswordMode.CreateNew,
+            filePath,
+            allowRememberPassword: true);
         if (passwordResult is null)
             return ConnectionsSourceChangeResult.NoChange;
 
@@ -191,6 +307,15 @@ internal sealed class ConnectionsSourceWorkflowService(
         }
 
         return new ConnectionsSourceChangeResult(true, createResult.Storage, createResult.Computers);
+    }
+
+    private static ResolveConnectionsSourceResult ToResolveResult(SwitchConnectionsSourceResult openResult)
+    {
+        return new ResolveConnectionsSourceResult(
+            openResult.Storage!,
+            openResult.Computers,
+            usesExternalFile: openResult.UsesExternalFile,
+            needsPassword: false);
     }
 
     private static string? GetInitialDirectory(string savedPath)
@@ -235,9 +360,9 @@ internal sealed class ConnectionsSourceDialogs(Func<Window?>? ownerProvider = nu
         return dialog.ShowDialog(GetOwner()) == true ? dialog.FileName : null;
     }
 
-    public ConnectionsFilePasswordDialogResult? RequestPassword(ConnectionsFilePasswordMode mode, string filePath)
+    public ConnectionsFilePasswordDialogResult? RequestPassword(ConnectionsFilePasswordMode mode, string filePath, bool allowRememberPassword)
     {
-        var dialog = new ConnectionsFilePasswordWindow(mode, filePath);
+        var dialog = new ConnectionsFilePasswordWindow(mode, filePath, allowRememberPassword);
         var owner = GetOwner();
         if (owner is not null && !ReferenceEquals(owner, dialog))
             dialog.Owner = owner;
@@ -294,6 +419,37 @@ internal sealed class ConnectionsSourceDialogs(Func<Window?>? ownerProvider = nu
             MessageBoxResult.No => StartupExternalFileAction.Retry,
             _ => StartupExternalFileAction.Cancel
         };
+    }
+
+    public StartupConnectionsFileOverrideChoice AskStartupConnectionsFileOverrideChoice(string overridePath, string? savedPath)
+    {
+        var prompt = string.IsNullOrWhiteSpace(savedPath)
+            ? $"Открыт Viewer с файлом подключений:\n{overridePath}\n\nСделать этот файл основным источником подключений?"
+            : $"В настройках уже сохранён другой файл подключений:\n{savedPath}\n\nИспользовать вместо него файл:\n{overridePath}\n\nСделать новый файл основным источником подключений?";
+
+        var result = MessageBox.Show(
+            GetOwner(),
+            $"{prompt}\n\nДа — сделать основным.\nНет — использовать только на этот запуск.\nОтмена — закрыть Viewer.",
+            "Файл подключений",
+            MessageBoxButton.YesNoCancel,
+            MessageBoxImage.Question);
+
+        return result switch
+        {
+            MessageBoxResult.Yes => StartupConnectionsFileOverrideChoice.MakePersistent,
+            MessageBoxResult.No => StartupConnectionsFileOverrideChoice.UseTemporarily,
+            _ => StartupConnectionsFileOverrideChoice.Cancel
+        };
+    }
+
+    public void ShowStartupOverrideError(string message)
+    {
+        MessageBox.Show(
+            GetOwner(),
+            message,
+            "Файл подключений",
+            MessageBoxButton.OK,
+            MessageBoxImage.Error);
     }
 
     private Window? GetOwner()

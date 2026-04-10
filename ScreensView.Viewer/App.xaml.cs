@@ -26,7 +26,8 @@ public partial class App : Application
             settingsService,
             new ConnectionsSourceDialogs());
 
-        var startup = workflow.ResolveStartup();
+        var startupOptions = ViewerStartupOptionsParser.Parse(Environment.GetCommandLineArgs());
+        var startup = workflow.ResolveStartup(startupOptions);
         if (startup is null)
         {
             Shutdown();

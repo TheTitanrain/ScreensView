@@ -12,7 +12,7 @@ public partial class ConnectionsFilePasswordWindow : Window
 {
     private readonly ConnectionsFilePasswordMode _mode;
 
-    public ConnectionsFilePasswordWindow(ConnectionsFilePasswordMode mode, string filePath)
+    public ConnectionsFilePasswordWindow(ConnectionsFilePasswordMode mode, string filePath, bool allowRememberPassword = true)
     {
         InitializeComponent();
         _mode = mode;
@@ -24,6 +24,13 @@ public partial class ConnectionsFilePasswordWindow : Window
         ConfirmPanel.Visibility = mode == ConnectionsFilePasswordMode.CreateNew
             ? Visibility.Visible
             : Visibility.Collapsed;
+
+        if (!allowRememberPassword)
+        {
+            RememberPasswordCheckBox.IsChecked = false;
+            RememberPasswordCheckBox.Visibility = Visibility.Collapsed;
+            RememberPasswordHint.Visibility = Visibility.Collapsed;
+        }
     }
 
     public string Password { get; private set; } = string.Empty;
