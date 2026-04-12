@@ -77,6 +77,17 @@ public class WebsiteShowcaseTests
         Assert.DoesNotContain("reliability-grid", html, StringComparison.OrdinalIgnoreCase);
     }
 
+    [Theory]
+    [InlineData("website/index.html")]
+    [InlineData("website/en/index.html")]
+    public void ShowcasePages_ReserveScreenshotSlotInHero(string relativePath)
+    {
+        var html = File.ReadAllText(GetRepoPath(relativePath));
+
+        Assert.Contains("data-hero", html);
+        Assert.Contains("data-screenshot-slot", html);
+    }
+
     [Fact]
     public void WebsiteRoot_ContainsNoJekyllMarker()
     {
