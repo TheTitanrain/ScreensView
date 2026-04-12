@@ -19,11 +19,9 @@
     }
 
     return release.assets.filter(function (asset) {
-      return (
-        asset &&
+      return asset &&
         VIEWER_ASSET_PATTERN.test(toText(asset.name)) &&
-        toText(asset.browser_download_url).length > 0
-      );
+        toText(asset.browser_download_url).length > 0;
     });
   }
 
@@ -87,38 +85,6 @@
     });
   }
 
-  function applyMenuState(doc, expanded) {
-    var toggle = doc.querySelector("[data-menu-toggle]");
-    var nav = doc.querySelector("[data-site-nav]");
-
-    if (!toggle || !nav) {
-      return;
-    }
-
-    toggle.setAttribute("aria-expanded", expanded ? "true" : "false");
-    nav.dataset.open = expanded ? "true" : "false";
-  }
-
-  function setupMenu(doc) {
-    var toggle = doc.querySelector("[data-menu-toggle]");
-    if (!toggle) {
-      return;
-    }
-
-    applyMenuState(doc, false);
-
-    toggle.addEventListener("click", function () {
-      var next = toggle.getAttribute("aria-expanded") !== "true";
-      applyMenuState(doc, next);
-    });
-
-    doc.querySelectorAll("[data-site-nav] a").forEach(function (anchor) {
-      anchor.addEventListener("click", function () {
-        applyMenuState(doc, false);
-      });
-    });
-  }
-
   async function hydrateDownloadLinks(options) {
     var settings = options || {};
     var doc = settings.document || (typeof document !== "undefined" ? document : null);
@@ -167,7 +133,6 @@
 
   if (typeof document !== "undefined") {
     document.addEventListener("DOMContentLoaded", function () {
-      setupMenu(document);
       hydrateDownloadLinks().catch(function () {
         return undefined;
       });

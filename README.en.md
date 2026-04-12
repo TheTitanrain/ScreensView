@@ -2,6 +2,7 @@
 
 Screen monitoring system for computers inside a local network. An agent on each machine exposes a screenshot over HTTPS, and the Viewer displays all screens in a single wall.
 
+- Public showcase: <https://titanrain.github.io/ScreensView/>
 - Russian guide: [README.md](README.md)
 
 ## Solution Structure

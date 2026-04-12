@@ -58,6 +58,25 @@ public class WebsiteShowcaseTests
         Assert.Empty(rootRelativeHrefOrSrc);
     }
 
+    [Theory]
+    [InlineData("website/index.html")]
+    [InlineData("website/en/index.html")]
+    public void ShowcasePages_UseMinimalLandingStructure(string relativePath)
+    {
+        var html = File.ReadAllText(GetRepoPath(relativePath));
+
+        Assert.Contains("data-hero", html);
+        Assert.Contains("data-capabilities", html);
+        Assert.Contains("data-cta-row", html);
+        Assert.Equal(3, Regex.Matches(html, "data-capability-card").Count);
+
+        Assert.DoesNotContain("id=\"operations\"", html, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("id=\"faq\"", html, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("hero-card", html, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("ops-grid", html, StringComparison.OrdinalIgnoreCase);
+        Assert.DoesNotContain("reliability-grid", html, StringComparison.OrdinalIgnoreCase);
+    }
+
     [Fact]
     public void WebsiteRoot_ContainsNoJekyllMarker()
     {
