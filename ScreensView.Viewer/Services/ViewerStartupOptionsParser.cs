@@ -13,6 +13,7 @@ internal sealed class ViewerStartupOptions
 internal static class ViewerStartupOptionsParser
 {
     private const string ConnectionsFileArgument = "--connections-file";
+    private const string ConnectionsFileArgumentWithEqualsPrefix = "--connections-file=";
 
     public static ViewerStartupOptions Parse(IReadOnlyList<string> args)
     {
@@ -20,7 +21,13 @@ internal static class ViewerStartupOptionsParser
 
         for (var index = 1; index < args.Count; index++)
         {
-            if (!string.Equals(args[index], ConnectionsFileArgument, StringComparison.Ordinal))
+            var argument = args[index];
+            if (argument.StartsWith(ConnectionsFileArgumentWithEqualsPrefix, StringComparison.Ordinal))
+            {
+                return Invalid("Use --connections-file <path>; the --connections-file=<path> form is not supported.");
+            }
+
+            if (!string.Equals(argument, ConnectionsFileArgument, StringComparison.Ordinal))
                 continue;
 
             if (connectionsFilePath is not null)

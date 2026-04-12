@@ -224,6 +224,44 @@ public class ConnectionsStorageControllerTests
     }
 
     [Fact]
+    public void OpenExternalFileWithoutPersistingSettings_WhenPasswordIsCorrect_UsesPersistentRuntimeExternalWithoutSavingSettings()
+    {
+        const string savedPath = @"C:\Shared\saved-connections.svc";
+        const string password = "remembered-password";
+
+        var settings = new FakeViewerSettingsService(new ViewerSettings
+        {
+            ConnectionsFilePath = savedPath,
+            ConnectionsFilePasswordEncrypted = DpapiHelper.Encrypt(password)
+        });
+        var externalStorage = new FakeComputerStorageService
+        {
+            LoadResult = CreateComputers("Saved workstation")
+        };
+        var controller = CreateController(
+            settings,
+            () => new FakeComputerStorageService(),
+            (path, suppliedPassword) =>
+            {
+                Assert.Equal(savedPath, path);
+                Assert.Equal(password, suppliedPassword);
+                return externalStorage;
+            });
+
+        var result = InvokeOpenExternalFileWithoutPersistingSettings(controller, savedPath, password);
+
+        Assert.True(GetBoolean(result, "Succeeded"));
+        Assert.True(GetBoolean(result, "UsesExternalFile"));
+        Assert.Same(externalStorage, GetStorage(result));
+        Assert.Equal(0, settings.SaveCalls);
+
+        var activeSourceState = GetActiveSourceState(controller);
+        Assert.True(GetBoolean(activeSourceState, "UsesExternalFile"));
+        Assert.False(GetBoolean(activeSourceState, "IsTemporaryOverride"));
+        Assert.Equal(savedPath, GetString(activeSourceState, "FilePath"));
+    }
+
+    [Fact]
     public void SwitchToLocalStorage_ClearsExternalPathAndRememberedPassword()
     {
         const string externalPath = @"C:\Shared\connections.svc";
@@ -359,6 +397,12 @@ public class ConnectionsStorageControllerTests
     private static object InvokeOpenExternalFileTemporarily(object controller, string filePath, string password)
     {
         var method = GetRequiredMethod(controller.GetType(), "OpenExternalFileTemporarily", parameterCount: 2);
+        return Invoke(controller, method, [filePath, password]);
+    }
+
+    private static object InvokeOpenExternalFileWithoutPersistingSettings(object controller, string filePath, string password)
+    {
+        var method = GetRequiredMethod(controller.GetType(), "OpenExternalFileWithoutPersistingSettings", parameterCount: 2);
         return Invoke(controller, method, [filePath, password]);
     }
 

@@ -241,7 +241,10 @@ public sealed class ConnectionsSourceWorkflowServiceTests : IDisposable
         {
             ConnectionsFilePath = externalPath,
             ConnectionsFilePasswordEncrypted = DpapiHelper.Encrypt("remembered")
-        });
+        })
+        {
+            SaveException = new InvalidOperationException("settings are read-only")
+        };
         var controller = CreateController(
             settings,
             () => new FakeComputerStorageService(),
@@ -261,6 +264,42 @@ public sealed class ConnectionsSourceWorkflowServiceTests : IDisposable
         Assert.Equal(expected.Select(c => c.Name), result.Computers.Select(c => c.Name));
         Assert.Empty(dialogs.OverridePrompts);
         Assert.Equal(0, dialogs.StartupFallbackPrompts);
+    }
+
+    [Fact]
+    public void ResolveStartup_WithOverrideAndSameSavedPath_WhenRememberPasswordSaveFails_StillStarts()
+    {
+        var externalPath = Path.Combine(_tempDirectory, "connections.svc");
+        var expected = CreateComputers("Shared");
+        var settings = new FakeViewerSettingsService(new ViewerSettings
+        {
+            ConnectionsFilePath = externalPath,
+            ConnectionsFilePasswordEncrypted = string.Empty
+        })
+        {
+            SaveException = new InvalidOperationException("settings are read-only")
+        };
+        var controller = CreateController(
+            settings,
+            () => new FakeComputerStorageService(),
+            (_, suppliedPassword) =>
+            {
+                Assert.Equal("manual-pass", suppliedPassword);
+                return new FakeComputerStorageService { LoadResult = Clone(expected) };
+            });
+        var dialogs = new FakeConnectionsSourceDialogs();
+        dialogs.PasswordResults.Enqueue(new ConnectionsFilePasswordDialogResult("manual-pass", RememberPassword: true));
+        var workflow = new ConnectionsSourceWorkflowService(controller, settings, dialogs, _ => true);
+
+        var options = ViewerStartupOptionsParser.Parse(["ScreensView.Viewer.exe", "--connections-file", externalPath]);
+        var result = workflow.ResolveStartup(options);
+
+        Assert.NotNull(result);
+        Assert.True(result!.UsesExternalFile);
+        Assert.Equal(expected.Select(c => c.Name), result.Computers.Select(c => c.Name));
+        Assert.Empty(dialogs.OverridePrompts);
+        Assert.Single(dialogs.PasswordRequests);
+        Assert.Equal(string.Empty, settings.Current.ConnectionsFilePasswordEncrypted);
     }
 
     [Fact]
@@ -409,11 +448,15 @@ public sealed class ConnectionsSourceWorkflowServiceTests : IDisposable
     private sealed class FakeViewerSettingsService(ViewerSettings initialSettings) : IViewerSettingsService
     {
         public ViewerSettings Current { get; set; } = CloneSettings(initialSettings);
+        public Exception? SaveException { get; set; }
 
         public ViewerSettings Load() => CloneSettings(Current);
 
         public void Save(ViewerSettings settings)
         {
+            if (SaveException is not null)
+                throw SaveException;
+
             Current = CloneSettings(settings);
         }
 

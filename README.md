@@ -196,7 +196,8 @@ private const string GitHubReleasesUrl =
     "https://api.github.com/repos/titanrain/ScreensView/releases/latest";
 ```
 
-Если Viewer был запущен с `--connections-file`, этот аргумент сохраняется через auto-update restart: после установки новой версии приложение снова откроется с тем же override-файлом.
+Если Viewer был запущен с `--connections-file`, этот CLI-аргумент пробрасывается через auto-update restart: после установки новой версии приложение снова откроется с тем же override-файлом.
+Временный startup-выбор и пароль не переносятся между процессами, поэтому после обновления Viewer может повторно показать startup prompt или запросить пароль.
 
 ### Настройки Viewer
 

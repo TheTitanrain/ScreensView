@@ -214,14 +214,13 @@ internal sealed class ConnectionsSourceWorkflowService(
             try
             {
                 var password = Helpers.DpapiHelper.Decrypt(settings.ConnectionsFilePasswordEncrypted);
-                var openResult = controller.OpenExternalFile(overridePath, password, rememberPassword: true);
+                var openResult = controller.OpenExternalFileWithoutPersistingSettings(overridePath, password);
                 if (openResult.Succeeded && openResult.Storage is not null)
                     return ToResolveResult(openResult);
 
                 if (openResult.NeedsPassword)
                 {
-                    settings.ConnectionsFilePasswordEncrypted = string.Empty;
-                    settingsService.Save(settings);
+                    TryPersistSavedPassword(filePath: overridePath, password: null, rememberPassword: false);
                 }
                 else
                 {
@@ -231,12 +230,35 @@ internal sealed class ConnectionsSourceWorkflowService(
             }
             catch (Exception ex) when (ex is CryptographicException or FormatException)
             {
-                settings.ConnectionsFilePasswordEncrypted = string.Empty;
-                settingsService.Save(settings);
+                TryPersistSavedPassword(filePath: overridePath, password: null, rememberPassword: false);
             }
         }
 
-        return ResolveOverrideWithPasswordPrompt(overridePath, persistSelection: true);
+        return ResolveOverrideForSavedPathWithPasswordPrompt(overridePath);
+    }
+
+    private ResolveConnectionsSourceResult? ResolveOverrideForSavedPathWithPasswordPrompt(string filePath)
+    {
+        while (true)
+        {
+            var passwordResult = dialogs.RequestPassword(
+                ConnectionsFilePasswordMode.OpenExisting,
+                filePath,
+                allowRememberPassword: true);
+            if (passwordResult is null)
+                return null;
+
+            var openResult = controller.OpenExternalFileWithoutPersistingSettings(filePath, passwordResult.Password);
+            if (openResult.Succeeded && openResult.Storage is not null)
+            {
+                TryPersistSavedPassword(filePath, passwordResult.Password, passwordResult.RememberPassword);
+                return ToResolveResult(openResult);
+            }
+
+            dialogs.ShowOpenExternalFileFailed(openResult.NeedsPassword);
+            if (!openResult.NeedsPassword)
+                return null;
+        }
     }
 
     private ResolveConnectionsSourceResult? ResolveOverrideWithPasswordPrompt(string filePath, bool persistSelection)
@@ -259,6 +281,23 @@ internal sealed class ConnectionsSourceWorkflowService(
             dialogs.ShowOpenExternalFileFailed(openResult.NeedsPassword);
             if (!openResult.NeedsPassword)
                 return null;
+        }
+    }
+
+    private void TryPersistSavedPassword(string filePath, string? password, bool rememberPassword)
+    {
+        try
+        {
+            var settings = settingsService.Load();
+            settings.ConnectionsFilePath = filePath;
+            settings.ConnectionsFilePasswordEncrypted =
+                rememberPassword && !string.IsNullOrEmpty(password)
+                    ? Helpers.DpapiHelper.Encrypt(password)
+                    : string.Empty;
+            settingsService.Save(settings);
+        }
+        catch
+        {
         }
     }
 

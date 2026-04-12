@@ -69,6 +69,16 @@ internal sealed class ConnectionsStorageController(
             ConnectionsSourceState.TemporaryExternal(filePath));
     }
 
+    public SwitchConnectionsSourceResult OpenExternalFileWithoutPersistingSettings(string filePath, string password)
+    {
+        return OpenExternalFileCore(
+            filePath,
+            password,
+            persistSettings: false,
+            rememberPassword: false,
+            ConnectionsSourceState.PersistentExternal(filePath));
+    }
+
     public SwitchConnectionsSourceResult SwitchToExternalFile(
         string filePath,
         string password,

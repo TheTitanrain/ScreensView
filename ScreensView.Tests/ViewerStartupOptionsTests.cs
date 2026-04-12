@@ -44,6 +44,15 @@ public class ViewerStartupOptionsTests
     }
 
     [Fact]
+    public void Parse_WhenConnectionsFileUsesEqualsSyntax_ReturnsError()
+    {
+        var result = ParseOptions(["ScreensView.Viewer.exe", "--connections-file=C:\\Shared\\connections.svc"]);
+
+        Assert.False(GetRequiredBoolean(result, "IsValid"));
+        Assert.Contains("not supported", GetNullableString(result, "ErrorMessage"), StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void Parse_WhenConnectionsFileIsRepeated_ReturnsError()
     {
         var result = ParseOptions([
