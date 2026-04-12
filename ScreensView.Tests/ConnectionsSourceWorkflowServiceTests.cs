@@ -170,29 +170,181 @@ public sealed class ConnectionsSourceWorkflowServiceTests : IDisposable
     }
 
     [Fact]
-    public void GetCurrentUiState_ReflectsCurrentSourceAndActionAvailability()
+    public void ResolveStartup_WithOverrideAndNoSavedPath_WhenTemporarySelected_UsesRuntimeExternalWithoutPersistingSettings()
+    {
+        var externalPath = Path.Combine(_tempDirectory, "override-connections.svc");
+        var expected = CreateComputers("Temporary");
+        var settings = new FakeViewerSettingsService(new ViewerSettings());
+        var controller = CreateController(
+            settings,
+            () => new FakeComputerStorageService(),
+            (_, suppliedPassword) =>
+            {
+                Assert.Equal("temporary-pass", suppliedPassword);
+                return new FakeComputerStorageService { LoadResult = Clone(expected) };
+            });
+        controller.ResolveStartup();
+
+        var dialogs = new FakeConnectionsSourceDialogs();
+        dialogs.OverrideChoices.Enqueue(StartupConnectionsFileOverrideChoice.UseTemporarily);
+        dialogs.PasswordResults.Enqueue(new ConnectionsFilePasswordDialogResult("temporary-pass", RememberPassword: true));
+        var workflow = new ConnectionsSourceWorkflowService(controller, settings, dialogs, _ => true);
+
+        var options = ViewerStartupOptionsParser.Parse(["ScreensView.Viewer.exe", "--connections-file", externalPath]);
+        var result = workflow.ResolveStartup(options);
+
+        Assert.NotNull(result);
+        Assert.True(result!.UsesExternalFile);
+        Assert.Equal(expected.Select(c => c.Name), result.Computers.Select(c => c.Name));
+        Assert.Equal(string.Empty, settings.Current.ConnectionsFilePath);
+        Assert.Equal(string.Empty, settings.Current.ConnectionsFilePasswordEncrypted);
+        Assert.Single(dialogs.OverridePrompts);
+        Assert.Single(dialogs.PasswordRequests);
+        Assert.False(dialogs.PasswordRequests[0].AllowRememberPassword);
+    }
+
+    [Fact]
+    public void ResolveStartup_WithOverrideAndSavedPath_WhenPersistChoiceCancelled_LeavesSavedSettingsUnchanged()
+    {
+        var savedPath = Path.Combine(_tempDirectory, "saved-connections.svc");
+        var settings = new FakeViewerSettingsService(new ViewerSettings
+        {
+            ConnectionsFilePath = savedPath,
+            ConnectionsFilePasswordEncrypted = DpapiHelper.Encrypt("remembered")
+        });
+        var controller = CreateController(
+            settings,
+            () => new FakeComputerStorageService(),
+            (_, _) => new FakeComputerStorageService());
+        controller.ResolveStartup();
+
+        var dialogs = new FakeConnectionsSourceDialogs();
+        dialogs.OverrideChoices.Enqueue(StartupConnectionsFileOverrideChoice.MakePersistent);
+        dialogs.PasswordResults.Enqueue(null);
+        var workflow = new ConnectionsSourceWorkflowService(controller, settings, dialogs, _ => true);
+
+        var overridePath = Path.Combine(_tempDirectory, "override-connections.svc");
+        var options = ViewerStartupOptionsParser.Parse(["ScreensView.Viewer.exe", "--connections-file", overridePath]);
+        var result = workflow.ResolveStartup(options);
+
+        Assert.Null(result);
+        Assert.Equal(savedPath, settings.Current.ConnectionsFilePath);
+        Assert.Equal("remembered", DpapiHelper.Decrypt(settings.Current.ConnectionsFilePasswordEncrypted));
+    }
+
+    [Fact]
+    public void ResolveStartup_WithOverrideAndSameSavedPath_SkipsOverridePromptAndLocalFallback()
+    {
+        var externalPath = Path.Combine(_tempDirectory, "connections.svc");
+        var expected = CreateComputers("Shared");
+        var settings = new FakeViewerSettingsService(new ViewerSettings
+        {
+            ConnectionsFilePath = externalPath,
+            ConnectionsFilePasswordEncrypted = DpapiHelper.Encrypt("remembered")
+        })
+        {
+            SaveException = new InvalidOperationException("settings are read-only")
+        };
+        var controller = CreateController(
+            settings,
+            () => new FakeComputerStorageService(),
+            (_, suppliedPassword) =>
+            {
+                Assert.Equal("remembered", suppliedPassword);
+                return new FakeComputerStorageService { LoadResult = Clone(expected) };
+            });
+        var dialogs = new FakeConnectionsSourceDialogs();
+        var workflow = new ConnectionsSourceWorkflowService(controller, settings, dialogs, _ => true);
+
+        var options = ViewerStartupOptionsParser.Parse(["ScreensView.Viewer.exe", "--connections-file", externalPath]);
+        var result = workflow.ResolveStartup(options);
+
+        Assert.NotNull(result);
+        Assert.True(result!.UsesExternalFile);
+        Assert.Equal(expected.Select(c => c.Name), result.Computers.Select(c => c.Name));
+        Assert.Empty(dialogs.OverridePrompts);
+        Assert.Equal(0, dialogs.StartupFallbackPrompts);
+    }
+
+    [Fact]
+    public void ResolveStartup_WithOverrideAndSameSavedPath_WhenRememberPasswordSaveFails_StillStarts()
+    {
+        var externalPath = Path.Combine(_tempDirectory, "connections.svc");
+        var expected = CreateComputers("Shared");
+        var settings = new FakeViewerSettingsService(new ViewerSettings
+        {
+            ConnectionsFilePath = externalPath,
+            ConnectionsFilePasswordEncrypted = string.Empty
+        })
+        {
+            SaveException = new InvalidOperationException("settings are read-only")
+        };
+        var controller = CreateController(
+            settings,
+            () => new FakeComputerStorageService(),
+            (_, suppliedPassword) =>
+            {
+                Assert.Equal("manual-pass", suppliedPassword);
+                return new FakeComputerStorageService { LoadResult = Clone(expected) };
+            });
+        var dialogs = new FakeConnectionsSourceDialogs();
+        dialogs.PasswordResults.Enqueue(new ConnectionsFilePasswordDialogResult("manual-pass", RememberPassword: true));
+        var workflow = new ConnectionsSourceWorkflowService(controller, settings, dialogs, _ => true);
+
+        var options = ViewerStartupOptionsParser.Parse(["ScreensView.Viewer.exe", "--connections-file", externalPath]);
+        var result = workflow.ResolveStartup(options);
+
+        Assert.NotNull(result);
+        Assert.True(result!.UsesExternalFile);
+        Assert.Equal(expected.Select(c => c.Name), result.Computers.Select(c => c.Name));
+        Assert.Empty(dialogs.OverridePrompts);
+        Assert.Single(dialogs.PasswordRequests);
+        Assert.Equal(string.Empty, settings.Current.ConnectionsFilePasswordEncrypted);
+    }
+
+    [Fact]
+    public void ResolveStartup_WithOverrideWhenFileDoesNotExist_ShowsStartupErrorAndReturnsNull()
+    {
+        var settings = new FakeViewerSettingsService(new ViewerSettings());
+        var controller = CreateController(
+            settings,
+            () => new FakeComputerStorageService(),
+            (_, _) => new FakeComputerStorageService());
+        controller.ResolveStartup();
+
+        var dialogs = new FakeConnectionsSourceDialogs();
+        var workflow = new ConnectionsSourceWorkflowService(controller, settings, dialogs, _ => false);
+
+        var options = ViewerStartupOptionsParser.Parse(["ScreensView.Viewer.exe", "--connections-file", Path.Combine(_tempDirectory, "missing.svc")]);
+        var result = workflow.ResolveStartup(options);
+
+        Assert.Null(result);
+        Assert.Single(dialogs.StartupErrors);
+    }
+
+    [Fact]
+    public void GetCurrentUiState_UsesRuntimeSourceAndMarksTemporaryOverride()
     {
         var settings = new FakeViewerSettingsService(new ViewerSettings
         {
             ConnectionsFilePath = Path.Combine(_tempDirectory, "connections.svc")
         });
+        var controller = CreateController(settings, () => new FakeComputerStorageService(), (_, _) => new FakeComputerStorageService());
+        controller.ResolveStartup();
         var workflow = new ConnectionsSourceWorkflowService(
-            CreateController(settings, () => new FakeComputerStorageService(), (_, _) => new FakeComputerStorageService()),
+            controller,
             settings,
             new FakeConnectionsSourceDialogs(),
             _ => true);
+
+        controller.OpenExternalFileTemporarily(Path.Combine(_tempDirectory, "temporary-connections.svc"), "temporary-pass");
 
         var externalState = workflow.GetCurrentUiState();
 
         Assert.True(externalState.UsesExternalFile);
         Assert.True(externalState.CanSwitchToLocal);
-        Assert.Contains("connections.svc", externalState.DisplayText);
-
-        settings.Current.ConnectionsFilePath = string.Empty;
-        var localState = workflow.GetCurrentUiState();
-        Assert.False(localState.UsesExternalFile);
-        Assert.False(localState.CanSwitchToLocal);
-        Assert.Contains(@"%AppData%\ScreensView\computers.json", localState.DisplayText);
+        Assert.Contains("temporary-connections.svc", externalState.DisplayText);
+        Assert.Contains("только на этот запуск", externalState.HintText);
     }
 
     private static ConnectionsStorageController CreateController(
@@ -233,7 +385,10 @@ public sealed class ConnectionsSourceWorkflowServiceTests : IDisposable
     {
         public Queue<ConnectionsFilePasswordDialogResult?> PasswordResults { get; } = new();
         public Queue<StartupExternalFileAction> StartupChoices { get; } = new();
-        public List<(ConnectionsFilePasswordMode Mode, string FilePath)> PasswordRequests { get; } = [];
+        public Queue<StartupConnectionsFileOverrideChoice> OverrideChoices { get; } = new();
+        public List<(ConnectionsFilePasswordMode Mode, string FilePath, bool AllowRememberPassword)> PasswordRequests { get; } = [];
+        public List<(string OverridePath, string? SavedPath)> OverridePrompts { get; } = [];
+        public List<string> StartupErrors { get; } = [];
         public int StartupFallbackPrompts { get; private set; }
         public int ExternalWarningPrompts { get; private set; }
         public bool ConfirmExternalFileWarningResult { get; set; } = true;
@@ -251,9 +406,9 @@ public sealed class ConnectionsSourceWorkflowServiceTests : IDisposable
         public string? PickConnectionsFile(string fileName, string? initialDirectory)
             => PickConnectionsFileResult;
 
-        public ConnectionsFilePasswordDialogResult? RequestPassword(ConnectionsFilePasswordMode mode, string filePath)
+        public ConnectionsFilePasswordDialogResult? RequestPassword(ConnectionsFilePasswordMode mode, string filePath, bool allowRememberPassword)
         {
-            PasswordRequests.Add((mode, filePath));
+            PasswordRequests.Add((mode, filePath, allowRememberPassword));
             return PasswordResults.Count > 0 ? PasswordResults.Dequeue() : null;
         }
 
@@ -277,16 +432,31 @@ public sealed class ConnectionsSourceWorkflowServiceTests : IDisposable
             StartupFallbackPrompts++;
             return StartupChoices.Count > 0 ? StartupChoices.Dequeue() : StartupExternalFileAction.Cancel;
         }
+
+        public StartupConnectionsFileOverrideChoice AskStartupConnectionsFileOverrideChoice(string overridePath, string? savedPath)
+        {
+            OverridePrompts.Add((overridePath, savedPath));
+            return OverrideChoices.Count > 0 ? OverrideChoices.Dequeue() : StartupConnectionsFileOverrideChoice.Cancel;
+        }
+
+        public void ShowStartupOverrideError(string message)
+        {
+            StartupErrors.Add(message);
+        }
     }
 
     private sealed class FakeViewerSettingsService(ViewerSettings initialSettings) : IViewerSettingsService
     {
         public ViewerSettings Current { get; set; } = CloneSettings(initialSettings);
+        public Exception? SaveException { get; set; }
 
         public ViewerSettings Load() => CloneSettings(Current);
 
         public void Save(ViewerSettings settings)
         {
+            if (SaveException is not null)
+                throw SaveException;
+
             Current = CloneSettings(settings);
         }
 

@@ -10,6 +10,7 @@ internal sealed class ConnectionsStorageController(
     Func<string, string, IComputerStorageService> createEncryptedStorage)
 {
     public IComputerStorageService? ActiveStorage { get; private set; }
+    public ConnectionsSourceState ActiveSourceState { get; private set; } = ConnectionsSourceState.Local;
 
     public ResolveConnectionsSourceResult ResolveStartup()
     {
@@ -19,9 +20,11 @@ internal sealed class ConnectionsStorageController(
             var localStorage = createLocalStorage();
             var computers = localStorage.Load();
             ActiveStorage = localStorage;
+            ActiveSourceState = ConnectionsSourceState.Local;
             return new ResolveConnectionsSourceResult(localStorage, computers, usesExternalFile: false, needsPassword: false);
         }
 
+        ActiveSourceState = ConnectionsSourceState.PersistentExternal(settings.ConnectionsFilePath);
         if (string.IsNullOrWhiteSpace(settings.ConnectionsFilePasswordEncrypted))
         {
             ActiveStorage = null;
@@ -34,6 +37,7 @@ internal sealed class ConnectionsStorageController(
             var externalStorage = createEncryptedStorage(settings.ConnectionsFilePath, password);
             var computers = externalStorage.Load();
             ActiveStorage = externalStorage;
+            ActiveSourceState = ConnectionsSourceState.PersistentExternal(settings.ConnectionsFilePath);
             return new ResolveConnectionsSourceResult(externalStorage, computers, usesExternalFile: true, needsPassword: false);
         }
         catch (Exception ex) when (ex is EncryptedComputerStoragePasswordException or CryptographicException or FormatException)
@@ -47,46 +51,32 @@ internal sealed class ConnectionsStorageController(
 
     public SwitchConnectionsSourceResult OpenExternalFile(string filePath, string password, bool rememberPassword)
     {
-        var previousStorage = ActiveStorage;
+        return OpenExternalFileCore(
+            filePath,
+            password,
+            persistSettings: true,
+            rememberPassword,
+            ConnectionsSourceState.PersistentExternal(filePath));
+    }
 
-        try
-        {
-            var externalStorage = createEncryptedStorage(filePath, password);
-            var computers = externalStorage.Load();
+    public SwitchConnectionsSourceResult OpenExternalFileTemporarily(string filePath, string password)
+    {
+        return OpenExternalFileCore(
+            filePath,
+            password,
+            persistSettings: false,
+            rememberPassword: false,
+            ConnectionsSourceState.TemporaryExternal(filePath));
+    }
 
-            var settings = settingsService.Load();
-            settings.ConnectionsFilePath = filePath;
-            settings.ConnectionsFilePasswordEncrypted = rememberPassword ? DpapiHelper.Encrypt(password) : string.Empty;
-            settingsService.Save(settings);
-
-            ActiveStorage = externalStorage;
-            return new SwitchConnectionsSourceResult(
-                succeeded: true,
-                storage: externalStorage,
-                computers: computers,
-                usesExternalFile: true,
-                needsPassword: false);
-        }
-        catch (EncryptedComputerStoragePasswordException)
-        {
-            ActiveStorage = previousStorage;
-            return new SwitchConnectionsSourceResult(
-                succeeded: false,
-                storage: previousStorage,
-                computers: [],
-                usesExternalFile: true,
-                needsPassword: true);
-        }
-        catch
-        {
-            ActiveStorage = previousStorage;
-            return new SwitchConnectionsSourceResult(
-                succeeded: false,
-                storage: previousStorage,
-                computers: [],
-                usesExternalFile: previousStorage is EncryptedComputerStorageService,
-                needsPassword: false);
-        }
+    public SwitchConnectionsSourceResult OpenExternalFileWithoutPersistingSettings(string filePath, string password)
+    {
+        return OpenExternalFileCore(
+            filePath,
+            password,
+            persistSettings: false,
+            rememberPassword: false,
+            ConnectionsSourceState.PersistentExternal(filePath));
     }
 
     public SwitchConnectionsSourceResult SwitchToExternalFile(
@@ -96,6 +86,7 @@ internal sealed class ConnectionsStorageController(
         IReadOnlyList<ComputerConfig> currentConnections)
     {
         var previousStorage = ActiveStorage;
+        var previousSourceState = ActiveSourceState;
         var externalStorage = createEncryptedStorage(filePath, password);
 
         try
@@ -108,6 +99,7 @@ internal sealed class ConnectionsStorageController(
             settingsService.Save(settings);
 
             ActiveStorage = externalStorage;
+            ActiveSourceState = ConnectionsSourceState.PersistentExternal(filePath);
             return new SwitchConnectionsSourceResult(
                 succeeded: true,
                 storage: externalStorage,
@@ -118,11 +110,12 @@ internal sealed class ConnectionsStorageController(
         catch
         {
             ActiveStorage = previousStorage;
+            ActiveSourceState = previousSourceState;
             return new SwitchConnectionsSourceResult(
                 succeeded: false,
                 storage: previousStorage,
                 computers: [],
-                usesExternalFile: previousStorage is EncryptedComputerStorageService,
+                usesExternalFile: previousSourceState.UsesExternalFile,
                 needsPassword: false);
         }
     }
@@ -130,6 +123,7 @@ internal sealed class ConnectionsStorageController(
     public SwitchConnectionsSourceResult SwitchToLocalStorage(IReadOnlyList<ComputerConfig> currentConnections)
     {
         var previousStorage = ActiveStorage;
+        var previousSourceState = ActiveSourceState;
         var localStorage = createLocalStorage();
 
         try
@@ -142,6 +136,7 @@ internal sealed class ConnectionsStorageController(
             settingsService.Save(settings);
 
             ActiveStorage = localStorage;
+            ActiveSourceState = ConnectionsSourceState.Local;
             return new SwitchConnectionsSourceResult(
                 succeeded: true,
                 storage: localStorage,
@@ -152,11 +147,68 @@ internal sealed class ConnectionsStorageController(
         catch
         {
             ActiveStorage = previousStorage;
+            ActiveSourceState = previousSourceState;
             return new SwitchConnectionsSourceResult(
                 succeeded: false,
                 storage: previousStorage,
                 computers: [],
-                usesExternalFile: previousStorage is EncryptedComputerStorageService,
+                usesExternalFile: previousSourceState.UsesExternalFile,
+                needsPassword: false);
+        }
+    }
+
+    private SwitchConnectionsSourceResult OpenExternalFileCore(
+        string filePath,
+        string password,
+        bool persistSettings,
+        bool rememberPassword,
+        ConnectionsSourceState targetSourceState)
+    {
+        var previousStorage = ActiveStorage;
+        var previousSourceState = ActiveSourceState;
+
+        try
+        {
+            var externalStorage = createEncryptedStorage(filePath, password);
+            var computers = externalStorage.Load();
+
+            if (persistSettings)
+            {
+                var settings = settingsService.Load();
+                settings.ConnectionsFilePath = filePath;
+                settings.ConnectionsFilePasswordEncrypted = rememberPassword ? DpapiHelper.Encrypt(password) : string.Empty;
+                settingsService.Save(settings);
+            }
+
+            ActiveStorage = externalStorage;
+            ActiveSourceState = targetSourceState;
+            return new SwitchConnectionsSourceResult(
+                succeeded: true,
+                storage: externalStorage,
+                computers: computers,
+                usesExternalFile: true,
+                needsPassword: false);
+        }
+        catch (EncryptedComputerStoragePasswordException)
+        {
+            ActiveStorage = previousStorage;
+            ActiveSourceState = previousSourceState;
+            return new SwitchConnectionsSourceResult(
+                succeeded: false,
+                storage: previousStorage,
+                computers: [],
+                usesExternalFile: true,
+                needsPassword: true);
+        }
+        catch
+        {
+            ActiveStorage = previousStorage;
+            ActiveSourceState = previousSourceState;
+            return new SwitchConnectionsSourceResult(
+                succeeded: false,
+                storage: previousStorage,
+                computers: [],
+                usesExternalFile: previousSourceState.UsesExternalFile,
                 needsPassword: false);
         }
     }
@@ -174,6 +226,20 @@ internal sealed class ConnectionsStorageController(
             CertThumbprint = computer.CertThumbprint
         }).ToList();
     }
+}
+
+internal sealed record ConnectionsSourceState(
+    bool UsesExternalFile,
+    string? FilePath,
+    bool IsTemporaryOverride)
+{
+    public static ConnectionsSourceState Local { get; } = new(false, null, false);
+
+    public static ConnectionsSourceState PersistentExternal(string filePath) =>
+        new(true, filePath, false);
+
+    public static ConnectionsSourceState TemporaryExternal(string filePath) =>
+        new(true, filePath, true);
 }
 
 internal sealed class ResolveConnectionsSourceResult(

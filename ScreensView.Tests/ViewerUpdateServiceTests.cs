@@ -156,6 +156,36 @@ public class ViewerUpdateServiceTests
         Assert.Equal(new[] { "https://example.invalid/ScreensView.exe" }, launchedUrls);
     }
 
+    [Fact]
+    public void GetPostUpdateRelaunchArguments_StripsInternalUpdateArgumentsAndPreservesConnectionsFile()
+    {
+        var args = new[]
+        {
+            @"C:\Temp\ScreensView.download.exe",
+            "--update-from", @"C:\Temp\ScreensView.download.exe",
+            "--install-to", @"C:\Program Files\ScreensView\ScreensView.Viewer.exe",
+            "--connections-file", @"C:\Shared\connections.svc"
+        };
+
+        var relaunched = ViewerUpdateService.GetPostUpdateRelaunchArguments(args);
+
+        Assert.Equal(["--connections-file", @"C:\Shared\connections.svc"], relaunched);
+    }
+
+    [Fact]
+    public void BuildUpdaterLaunchArguments_ForwardsConnectionsFileArgument()
+    {
+        var result = ViewerUpdateService.BuildUpdaterLaunchArguments(
+            @"C:\Temp\ScreensView.download.exe",
+            @"C:\Program Files\ScreensView\ScreensView.Viewer.exe",
+            ["--connections-file", @"C:\Shared Folder\connections.svc"]);
+
+        Assert.Contains("--update-from", result, StringComparison.Ordinal);
+        Assert.Contains("--install-to", result, StringComparison.Ordinal);
+        Assert.Contains("--connections-file", result, StringComparison.Ordinal);
+        Assert.Contains(@"""C:\Shared Folder\connections.svc""", result, StringComparison.Ordinal);
+    }
+
     private static ViewerUpdateService.ManualCheckHooks CreateHooks(
         Func<Task<ViewerUpdateService.ReleaseMetadata?>> fetchReleaseAsync,
         Func<Version>? currentVersion = null,
