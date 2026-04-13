@@ -252,6 +252,7 @@ If the list is still empty, you can create the external file first and populate 
 - **Remember password on this computer** stores the password only for the current Windows user on that computer and only in encrypted form.
 - The remembered password is encrypted with DPAPI and stored in `%AppData%\ScreensView\viewer-settings.json`.
 - If the remembered password stops working, Viewer clears it and prompts for manual entry again.
+- If a wrong password is entered during startup before the main window exists, Viewer shows the warning and does not crash because of a missing owner window.
 - The password window grows vertically with the file path and text size so the **Cancel** and **OK** buttons remain visible.
 - On startup, Viewer does not silently fall back to the local file: the user must enter the password, explicitly switch back to local storage, or cancel startup.
 

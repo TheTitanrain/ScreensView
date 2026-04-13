@@ -373,7 +373,7 @@ internal sealed class ConnectionsSourceDialogs(Func<Window?>? ownerProvider = nu
 {
     public bool ConfirmExternalFileWarning()
     {
-        return MessageBox.Show(
+        return ShowMessage(
                    GetOwner(),
                    "Файл подключений будет доступен всем, у кого есть сам файл и пароль к нему. Храните его только в папке с ограниченным доступом.",
                    "Внешний файл подключений",
@@ -413,7 +413,7 @@ internal sealed class ConnectionsSourceDialogs(Func<Window?>? ownerProvider = nu
 
     public void ShowOpenExternalFileFailed(bool needsPassword)
     {
-        MessageBox.Show(
+        ShowMessage(
             GetOwner(),
             needsPassword
                 ? "Не удалось открыть файл подключений. Проверьте пароль и попробуйте снова."
@@ -425,7 +425,7 @@ internal sealed class ConnectionsSourceDialogs(Func<Window?>? ownerProvider = nu
 
     public void ShowCreateExternalFileFailed()
     {
-        MessageBox.Show(
+        ShowMessage(
             GetOwner(),
             "Не удалось создать внешний файл подключений.",
             "Файл подключений",
@@ -435,7 +435,7 @@ internal sealed class ConnectionsSourceDialogs(Func<Window?>? ownerProvider = nu
 
     public void ShowSwitchToLocalFailed()
     {
-        MessageBox.Show(
+        ShowMessage(
             GetOwner(),
             "Не удалось переключиться на локальный файл подключений.",
             "Файл подключений",
@@ -445,7 +445,7 @@ internal sealed class ConnectionsSourceDialogs(Func<Window?>? ownerProvider = nu
 
     public StartupExternalFileAction AskStartupExternalFileFallback()
     {
-        var result = MessageBox.Show(
+        var result = ShowMessage(
             GetOwner(),
             "Внешний файл подключений не открыт. Переключиться на локальный файл подключений?",
             "Файл подключений",
@@ -466,7 +466,7 @@ internal sealed class ConnectionsSourceDialogs(Func<Window?>? ownerProvider = nu
             ? $"Открыт Viewer с файлом подключений:\n{overridePath}\n\nСделать этот файл основным источником подключений?"
             : $"В настройках уже сохранён другой файл подключений:\n{savedPath}\n\nИспользовать вместо него файл:\n{overridePath}\n\nСделать новый файл основным источником подключений?";
 
-        var result = MessageBox.Show(
+        var result = ShowMessage(
             GetOwner(),
             $"{prompt}\n\nДа — сделать основным.\nНет — использовать только на этот запуск.\nОтмена — закрыть Viewer.",
             "Файл подключений",
@@ -483,7 +483,7 @@ internal sealed class ConnectionsSourceDialogs(Func<Window?>? ownerProvider = nu
 
     public void ShowStartupOverrideError(string message)
     {
-        MessageBox.Show(
+        ShowMessage(
             GetOwner(),
             message,
             "Файл подключений",
@@ -500,5 +500,17 @@ internal sealed class ConnectionsSourceDialogs(Func<Window?>? ownerProvider = nu
         var app = Application.Current;
         return app?.Windows.OfType<Window>().FirstOrDefault(window => window.IsActive)
                ?? app?.MainWindow;
+    }
+
+    private static MessageBoxResult ShowMessage(
+        Window? owner,
+        string messageBoxText,
+        string caption,
+        MessageBoxButton button,
+        MessageBoxImage icon)
+    {
+        return owner is null
+            ? MessageBox.Show(messageBoxText, caption, button, icon)
+            : MessageBox.Show(owner, messageBoxText, caption, button, icon);
     }
 }
