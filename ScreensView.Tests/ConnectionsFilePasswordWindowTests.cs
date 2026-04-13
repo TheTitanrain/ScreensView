@@ -51,6 +51,22 @@ public sealed class ConnectionsFilePasswordWindowTests
     }
 
     [Fact]
+    public void CreateMode_ShowsEncryptedRememberPasswordHint()
+    {
+        var hintText = RunOnSta(() =>
+        {
+            var window = new ConnectionsFilePasswordWindow(
+                ConnectionsFilePasswordMode.CreateNew,
+                @"C:\Shared\connections.svc",
+                allowRememberPassword: true);
+
+            return GetElement<TextBlock>(window, "RememberPasswordHint").Text;
+        });
+
+        Assert.Contains("зашифрован", hintText, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void CreateMode_WithLongPath_KeepsActionButtonsInsideVisibleArea()
     {
         var snapshot = RunOnSta(() =>

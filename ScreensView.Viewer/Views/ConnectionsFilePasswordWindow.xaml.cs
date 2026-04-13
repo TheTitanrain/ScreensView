@@ -21,6 +21,9 @@ public partial class ConnectionsFilePasswordWindow : Window
             ? "Создание зашифрованного файла подключений"
             : "Открытие зашифрованного файла подключений";
         TxtPath.Text = filePath;
+        RememberPasswordHint.Text = mode == ConnectionsFilePasswordMode.CreateNew
+            ? "Пароль сохраняется только локально для текущего пользователя Windows и только в зашифрованном виде."
+            : "Пароль сохраняется только локально для текущего пользователя Windows.";
         ConfirmPanel.Visibility = mode == ConnectionsFilePasswordMode.CreateNew
             ? Visibility.Visible
             : Visibility.Collapsed;
