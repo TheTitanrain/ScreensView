@@ -45,10 +45,11 @@ public partial class ComputersManagerWindow : Window
     private void ComputersList_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         var count = ComputersList.SelectedItems.Count;
-        BtnEdit.IsEnabled      = count == 1;
-        BtnDelete.IsEnabled    = count >= 1;
-        BtnInstall.IsEnabled   = count >= 1;
-        BtnUninstall.IsEnabled = count >= 1;
+        BtnEdit.IsEnabled               = count == 1;
+        BtnDelete.IsEnabled             = count >= 1;
+        BtnInstall.IsEnabled            = count >= 1;
+        BtnUninstall.IsEnabled          = count >= 1;
+        BtnInstallDotNetRuntime.IsEnabled = count >= 1;
     }
 
     private void EnabledCheckBox_Click(object sender, RoutedEventArgs e)
@@ -125,6 +126,13 @@ public partial class ComputersManagerWindow : Window
                 MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
 
         LaunchOperation(InstallProgressWindow.Mode.Uninstall, configs);
+    }
+
+    private void InstallDotNetRuntime_Click(object sender, RoutedEventArgs e)
+    {
+        var configs = SelectedConfigs;
+        if (configs.Count == 0) return;
+        LaunchOperation(InstallProgressWindow.Mode.InstallDotNetRuntime, configs);
     }
 
     private void LaunchInstall(List<Shared.Models.ComputerConfig> configs) =>

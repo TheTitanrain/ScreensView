@@ -41,7 +41,7 @@ public class LlmInferenceServiceTests
             CancellationToken.None);
 
         Assert.Equal(
-            "Answer YES or NO. Match by overall screen type and stable visual layout. Ignore small text and dynamic details such as exact times, numbers, names, plates, and whether rows are empty or filled. Does this screenshot match: 'Spreadsheet dashboard'? Then give one short reason.",
+            "Answer YES or NO. Match by the general type of screen and its structural layout. Ignore colors, exact text, times, numbers, names, plates, and whether rows are filled or empty. Does this screenshot match the description? 'Spreadsheet dashboard' Give one short reason.",
             runtime.LastPrompt);
     }
 

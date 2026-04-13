@@ -48,6 +48,17 @@ public class WindowLayoutTests
     }
 
     [Fact]
+    public void InstallDotNetRuntimeButton_IsHostedInComputersManagerWindowToolbar()
+    {
+        var mainWindowXaml = File.ReadAllText(GetRepoPath(@"ScreensView.Viewer\MainWindow.xaml"));
+        var computersManagerXaml = File.ReadAllText(GetRepoPath(@"ScreensView.Viewer\Views\ComputersManagerWindow.xaml"));
+
+        Assert.DoesNotContain("Text=\" Установить .NET 8 Runtime\"", mainWindowXaml);
+        Assert.Contains("Click=\"InstallDotNetRuntime_Click\"", computersManagerXaml);
+        Assert.Contains("Text=\" Установить .NET 8 Runtime\"", computersManagerXaml);
+    }
+
+    [Fact]
     public void SettingsWindow_UsesSingleScrollableResizableLayout_WithGeneralAndStorageSections()
     {
         var settingsWindowXaml = File.ReadAllText(GetRepoPath(@"ScreensView.Viewer\Views\SettingsWindow.xaml"));

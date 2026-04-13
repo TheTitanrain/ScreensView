@@ -32,14 +32,14 @@ Five projects in one solution:
 - **ScreensView.Shared** (`netstandard2.0`) — shared models (`ComputerConfig`, `ScreenshotResponse`), `Constants`, and `AgentJsonSerializer`. Referenced by modern agent, legacy agent, and Viewer.
 - **ScreensView.Agent** (`net8.0-windows`, SDK: `Microsoft.NET.Sdk.Web`) — ASP.NET Core minimal API running as a Windows Service via `UseWindowsService()`. Kestrel listens on HTTPS using a self-signed cert stored in `LocalMachine\My`.
 - **ScreensView.Agent.Legacy** (`net48`) — Windows Service for Windows 7 SP1. Hosts HTTPS via `HttpListener`, manages self-signed cert + `netsh http` binding, and preserves the same `/health` + `/screenshot` contract and `X-Api-Key` auth.
-- **ScreensView.Viewer** (`net8.0-windows`, WPF) — polls agents via `ScreenshotPollerService`, stores computer list encrypted in `%AppData%\ScreensView\computers.json`, and performs remote install/update through `RemoteAgentInstaller`.
+- **ScreensView.Viewer** (`net8.0-windows`, WPF) — polls agents via `ScreenshotPollerService`, stores computer list encrypted in `%AppData%\ScreensView\computers.json`, and performs remote install/update plus manual `.NET 8 Runtime` installation through `RemoteAgentInstaller`.
 - **ScreensView.Tests** (`net8.0-windows`, xUnit) — tests for `ScreenshotHelper` pipe protocol and `NoActiveSessionException`.
 
 ### Key data flow
 
 1. User adds a computer in `AddEditComputerWindow` → saved to `ComputerStorageService` → shown in `MainWindow` grid as `ComputerViewModel`
 2. `ScreenshotPollerService.Start()` polls all enabled computers on a configurable interval → updates `ComputerViewModel.Screenshot` on UI thread via Dispatcher
-3. Remote install: `RemoteAgentInstaller` connects via WNet (SMB to `Admin$`), queries remote OS via WMI, selects either modern or legacy payload, copies files + writes `appsettings.json`, then creates/starts the Windows Service via `Win32_Service`
+3. Remote install: `RemoteAgentInstaller` connects via WNet (SMB to `Admin$`), queries remote OS via WMI, selects either modern or legacy payload, copies files + writes `appsettings.json`, then creates/starts the Windows Service via `Win32_Service`. If a machine needs `.NET 8 ASP.NET Core Runtime`, install it separately from the toolbar action `Установить .NET 8 Runtime`.
 4. Tile right-click context menu in `MainWindow` resolves the target `ComputerViewModel` via `GetMenuVm()` (`MenuItem.Parent` → `ContextMenu.PlacementTarget` → `DataContext` cast) and then delegates to `OpenZoomWindow`, `_vm.UpdateComputer`, `_vm.RemoveComputer`, or `AgentHttpClient.CheckHealthAsync`
 
 ### Screenshot capture — Session 0 isolation
@@ -78,9 +78,15 @@ Both payloads are copied to `C:\Windows\ScreensViewAgent\`; service name remains
 
 `RemoteAgentInstaller` stops the existing service before copying files (`InstallAsync`, `UpdateAsync`, `UninstallAsync`). `StopService` failures are non-fatal — logged as warnings and the operation continues.
 
+Modern agent prerequisites:
+
+- The Viewer packages an offline `ASP.NET Core Runtime 8` installer from `ScreensView.Viewer/Prerequisites/`.
+- Runtime installation is a separate per-selection action in `ComputersManagerWindow`.
+- `InstallAsync` and `UpdateAsync` do not install `.NET` automatically.
+
 ### InstallProgressWindow
 
-`InstallProgressWindow` shows one row per computer. Each step from `RemoteAgentInstaller` updates the row in real time via `INotifyPropertyChanged`. Rows are color-coded by `AgentLogLevel`: green = success, red = error, yellow = warning (transient, e.g. stop-service failure).
+`InstallProgressWindow` shows one row per computer. Each step from `RemoteAgentInstaller` updates the row in real time via `INotifyPropertyChanged`. Rows are color-coded by `AgentLogLevel`: green = success, red = error, yellow = warning (transient, e.g. stop-service failure or runtime install requiring reboot).
 
 ## Auto-update
 

@@ -62,5 +62,23 @@
            Condition="'@(_LegacyExe)' == ''" />
   </Target>
 
+  <Target Name="CopyPrerequisites" AfterTargets="Build">
+    <ItemGroup>
+      <PrerequisiteFiles Include="$(MSBuildThisFileDirectory)Prerequisites\*.*" />
+    </ItemGroup>
+    <Copy SourceFiles="@(PrerequisiteFiles)"
+          DestinationFolder="$(OutputPath)Prerequisites"
+          SkipUnchangedFiles="true"
+          Condition="'@(PrerequisiteFiles)' != ''" />
+  </Target>
+
+  <Target Name="WarnIfPrerequisitesMissing" AfterTargets="CopyPrerequisites">
+    <ItemGroup>
+      <_AspNetCoreInstaller Include="$(OutputPath)Prerequisites\aspnetcore-runtime-8.*-win-x64.exe" />
+    </ItemGroup>
+    <Warning Text="No aspnetcore-runtime-8.*-win-x64.exe found in Prerequisites\. Download from https://dotnet.microsoft.com/download/dotnet/8.0 (ASP.NET Core Runtime 8 → Windows → Installer x64) and place in ScreensView.Viewer\Prerequisites\."
+             Condition="'@(_AspNetCoreInstaller)' == ''" />
+  </Target>
+
 </Project>
 

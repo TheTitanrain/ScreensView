@@ -8,11 +8,38 @@ using ScreensView.Shared.Models;
 
 namespace ScreensView.Viewer.Services;
 
+public enum RuntimeInstallTarget
+{
+    ModernSupported,
+    LegacySupported,
+    Unsupported
+}
+
+public enum RuntimeInstallStatus
+{
+    Installed,
+    InstalledRebootRequired,
+    SkippedNotRequired,
+    SkippedUnsupported
+}
+
+public sealed record RuntimeInstallOutcome(
+    RuntimeInstallStatus Status,
+    string Message,
+    AgentLogLevel Level);
+
 public class RemoteAgentInstaller
 {
     private const string PayloadsRootFolderName = "AgentPayloads";
+    private const string PrerequisitesFolderName = "Prerequisites";
+    // x64 only — modern agent EXE is PE machine 0x8664; x86 runtime cannot run it
+    private const string AspNetCoreRuntimeInstallerGlob = "aspnetcore-runtime-8.*-win-x64.exe";
+    private const int DotNetInstallerTimeoutSeconds = 300;
     private const uint HKeyLocalMachine = 0x80000002;
+
     private readonly Action<string, string, string, AgentLogLevel> _log;
+    private string? _username;
+    private string? _password;
 
     [DllImport("mpr.dll", CharSet = CharSet.Unicode)]
     private static extern int WNetAddConnection2(ref NETRESOURCE netResource, string? password, string? username, int flags);
@@ -34,6 +61,8 @@ public class RemoteAgentInstaller
 
     public async Task InstallAsync(ComputerConfig computer, string? username = null, string? password = null)
     {
+        _username = username;
+        _password = password;
         await Task.Run(() =>
         {
             var plan = ResolveDeploymentPlanForHost(computer.Host);
@@ -66,6 +95,8 @@ public class RemoteAgentInstaller
 
     public async Task UpdateAsync(ComputerConfig computer, string? username = null, string? password = null)
     {
+        _username = username;
+        _password = password;
         await Task.Run(() =>
         {
             var plan = ResolveDeploymentPlanForHost(computer.Host);
@@ -94,8 +125,41 @@ public class RemoteAgentInstaller
         });
     }
 
+    public async Task<RuntimeInstallOutcome> InstallDotNetRuntimeAsync(
+        ComputerConfig computer,
+        string? username = null,
+        string? password = null)
+    {
+        _username = username;
+        _password = password;
+
+        return await Task.Run(() =>
+        {
+            var os = GetRemoteOperatingSystemInfo(computer.Host);
+            var target = ClassifyRuntimeInstallTarget(os);
+            if (target != RuntimeInstallTarget.ModernSupported)
+                return BuildRuntimeSkipOutcome(computer, os, target);
+
+            var unc = $@"\\{computer.Host}\Admin$";
+            if (!IsLoopback(computer.Host))
+                ConnectSmb(unc, username, password);
+
+            try
+            {
+                return InstallAspNetCore8Runtime(computer, unc);
+            }
+            finally
+            {
+                if (!IsLoopback(computer.Host))
+                    DisconnectSmb(unc);
+            }
+        });
+    }
+
     public async Task UninstallAsync(ComputerConfig computer, string? username = null, string? password = null)
     {
+        _username = username;
+        _password = password;
         await Task.Run(() =>
         {
             var unc = $@"\\{computer.Host}\Admin$";
@@ -174,6 +238,31 @@ public class RemoteAgentInstaller
 
     internal static bool HasNetFramework48OrNewer(int? releaseKey) => releaseKey >= 528040;
 
+    internal static RuntimeInstallTarget ClassifyRuntimeInstallTarget(RemoteOperatingSystemInfo os)
+    {
+        if (os.IsWindows7 || os.IsLegacyServer)
+            return RuntimeInstallTarget.LegacySupported;
+
+        if (os.IsSupportedModernClient || os.IsSupportedModernServer)
+            return RuntimeInstallTarget.ModernSupported;
+
+        return RuntimeInstallTarget.Unsupported;
+    }
+
+    internal static RuntimeInstallOutcome InterpretRuntimeInstallerExitCode(int exitCode) => exitCode switch
+    {
+        0 => new RuntimeInstallOutcome(
+            RuntimeInstallStatus.Installed,
+            ".NET 8 Runtime установлен.",
+            AgentLogLevel.Success),
+        3010 => new RuntimeInstallOutcome(
+            RuntimeInstallStatus.InstalledRebootRequired,
+            ".NET 8 Runtime установлен, требуется перезагрузка компьютера.",
+            AgentLogLevel.Warning),
+        _ => throw new InvalidOperationException(
+            $"Установщик .NET 8 завершился с кодом {exitCode}.")
+    };
+
     private static void CopyAgentFiles(string targetDir, ComputerConfig computer, AgentDeploymentPlan plan)
     {
         var sourceDir = GetPayloadSourceDirectory(plan);
@@ -199,14 +288,20 @@ public class RemoteAgentInstaller
         return Path.Combine(sourceRoot, PayloadsRootFolderName, plan.PayloadFolderName);
     }
 
-    private static AgentDeploymentPlan ResolveDeploymentPlanForHost(string host)
+    private static string GetPrerequisitesSourceDirectory()
+    {
+        var sourceRoot = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!;
+        return Path.Combine(sourceRoot, PrerequisitesFolderName);
+    }
+
+    private AgentDeploymentPlan ResolveDeploymentPlanForHost(string host)
     {
         var os = GetRemoteOperatingSystemInfo(host);
         var releaseKey = (os.IsWindows7 || os.IsLegacyServer) ? TryGetNetFrameworkReleaseKey(host) : null;
         return ResolveDeploymentPlan(os, releaseKey);
     }
 
-    private static RemoteOperatingSystemInfo GetRemoteOperatingSystemInfo(string host)
+    private RemoteOperatingSystemInfo GetRemoteOperatingSystemInfo(string host)
     {
         var scope = WmiScope(host);
         var query = new ObjectQuery("SELECT Caption, Version, OSArchitecture, ProductType, ServicePackMajorVersion FROM Win32_OperatingSystem");
@@ -227,12 +322,9 @@ public class RemoteAgentInstaller
             Convert.ToInt32(os["ServicePackMajorVersion"] ?? 0));
     }
 
-    private static int? TryGetNetFrameworkReleaseKey(string host)
+    private int? TryGetNetFrameworkReleaseKey(string host)
     {
-        var scope = new ManagementScope($@"\\{host}\root\default");
-        scope.Connect();
-
-        using var reg = new ManagementClass(scope, new ManagementPath("StdRegProv"), null);
+        using var reg = new ManagementClass(WmiScopeDefault(host), new ManagementPath("StdRegProv"), null);
         using var inParams = reg.GetMethodParameters("GetDWORDValue");
         inParams["hDefKey"] = HKeyLocalMachine;
         inParams["sSubKeyName"] = @"SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full";
@@ -249,7 +341,151 @@ public class RemoteAgentInstaller
         return Convert.ToInt32(outParams["uValue"]);
     }
 
-    private static void CreateService(ComputerConfig computer, AgentDeploymentPlan plan)
+    private RuntimeInstallOutcome BuildRuntimeSkipOutcome(
+        ComputerConfig computer,
+        RemoteOperatingSystemInfo os,
+        RuntimeInstallTarget target)
+    {
+        var outcome = target switch
+        {
+            RuntimeInstallTarget.LegacySupported => new RuntimeInstallOutcome(
+                RuntimeInstallStatus.SkippedNotRequired,
+                $".NET 8 Runtime не требуется: для {os.Caption} используется legacy-агент.",
+                AgentLogLevel.Info),
+            RuntimeInstallTarget.Unsupported => new RuntimeInstallOutcome(
+                RuntimeInstallStatus.SkippedUnsupported,
+                $".NET 8 Runtime пропущен: ОС '{os.Caption}' не поддерживает modern-агент.",
+                AgentLogLevel.Info),
+            _ => throw new ArgumentOutOfRangeException(nameof(target), target, null)
+        };
+
+        _log(computer.Name, "Установка .NET 8 Runtime не требуется", outcome.Message, outcome.Level);
+        return outcome;
+    }
+
+    private RuntimeInstallOutcome InstallAspNetCore8Runtime(ComputerConfig computer, string unc)
+    {
+        var localInstallerPath = GetLocalRuntimeInstallerPath();
+        var installerFileName = Path.GetFileName(localInstallerPath);
+        var isLoopback = IsLoopback(computer.Host);
+        var transferDirectory = isLoopback
+            ? Path.Combine(@"C:\Windows", "Temp")
+            : Path.Combine(unc, "Temp");
+        var targetInstallerPath = Path.Combine(@"C:\Windows\Temp", installerFileName);
+        var remoteInstallerPath = Path.Combine(transferDirectory, installerFileName);
+        var markerFileName = $"dotnet-runtime-exit-{Guid.NewGuid():N}.txt";
+        var targetMarkerPath = Path.Combine(@"C:\Windows\Temp", markerFileName);
+        var remoteMarkerPath = Path.Combine(transferDirectory, markerFileName);
+
+        _log(computer.Name, "Установка .NET 8 ASP.NET Core Runtime", installerFileName, AgentLogLevel.Info);
+        File.Copy(localInstallerPath, remoteInstallerPath, overwrite: true);
+
+        try
+        {
+            var commandLine = BuildRuntimeInstallerCommandLine(targetInstallerPath, targetMarkerPath);
+            _log(computer.Name, "Запуск установщика .NET 8 (это может занять несколько минут)", string.Empty, AgentLogLevel.Info);
+            var pid = RunProcessViaWmi(computer.Host, commandLine);
+
+            _log(computer.Name, "Ожидание завершения установки .NET 8", $"PID: {pid}", AgentLogLevel.Info);
+            var exitCode = WaitForRuntimeInstallerExitCode(remoteMarkerPath, pid, DotNetInstallerTimeoutSeconds);
+            var outcome = InterpretRuntimeInstallerExitCode(exitCode);
+
+            _log(computer.Name, "Установка .NET 8 ASP.NET Core Runtime завершена", outcome.Message, outcome.Level);
+            return outcome;
+        }
+        finally
+        {
+            try { File.Delete(remoteInstallerPath); } catch { }
+            try { File.Delete(remoteMarkerPath); } catch { }
+        }
+    }
+
+    private static string GetLocalRuntimeInstallerPath()
+    {
+        var prerequisitesDirectory = GetPrerequisitesSourceDirectory();
+        if (!Directory.Exists(prerequisitesDirectory))
+            throw new DirectoryNotFoundException(
+                $"Каталог prerequisites '{prerequisitesDirectory}' не найден.");
+
+        var installerPath = Directory
+            .GetFiles(prerequisitesDirectory, AspNetCoreRuntimeInstallerGlob)
+            .OrderByDescending(File.GetLastWriteTimeUtc)
+            .FirstOrDefault();
+        if (installerPath == null)
+            throw new FileNotFoundException(
+                "Не найден офлайн-установщик .NET 8 ASP.NET Core Runtime в каталоге Prerequisites.",
+                prerequisitesDirectory);
+
+        return installerPath;
+    }
+
+    private static string BuildRuntimeInstallerCommandLine(string installerPath, string markerPath) =>
+        $"cmd.exe /c \"\"{installerPath}\" /quiet /norestart & echo %ERRORLEVEL% > \"{markerPath}\"\"";
+
+    private uint RunProcessViaWmi(string host, string commandLine)
+    {
+        using var processClass = new ManagementClass(WmiScope(host), new ManagementPath("Win32_Process"), null);
+        using var inParams = processClass.GetMethodParameters("Create");
+        inParams["CommandLine"] = commandLine;
+
+        using var outParams = processClass.InvokeMethod("Create", inParams, null);
+        if (outParams == null)
+            throw new InvalidOperationException("Win32_Process.Create не вернул результат.");
+
+        var returnValue = Convert.ToInt32(outParams["ReturnValue"]);
+        if (returnValue != 0)
+            throw new InvalidOperationException(
+                $"Win32_Process.Create вернул код {returnValue}. " +
+                "Убедитесь, что учётная запись имеет право на запуск процессов на удалённой машине.");
+
+        return Convert.ToUInt32(outParams["ProcessId"]);
+    }
+
+    private static int WaitForRuntimeInstallerExitCode(string markerPath, uint processId, int timeoutSeconds)
+    {
+        var deadline = DateTime.UtcNow.AddSeconds(timeoutSeconds);
+        while (DateTime.UtcNow < deadline)
+        {
+            if (TryReadRuntimeInstallerExitCode(markerPath, out var exitCode))
+                return exitCode;
+
+            Thread.Sleep(5000);
+        }
+
+        throw new TimeoutException(
+            $"Установщик .NET 8 (PID {processId}) не записал код завершения за {timeoutSeconds} секунд. " +
+            "Проверьте состояние процесса на целевой машине вручную.");
+    }
+
+    private static bool TryReadRuntimeInstallerExitCode(string markerPath, out int exitCode)
+    {
+        exitCode = 0;
+        if (!File.Exists(markerPath))
+            return false;
+
+        try
+        {
+            var rawValue = File.ReadAllText(markerPath).Trim();
+            if (string.IsNullOrWhiteSpace(rawValue))
+                return false;
+
+            if (!int.TryParse(rawValue, out exitCode))
+                throw new InvalidOperationException(
+                    $"Файл результата установщика .NET содержит некорректное значение '{rawValue}'.");
+
+            return true;
+        }
+        catch (IOException)
+        {
+            return false;
+        }
+        catch (UnauthorizedAccessException)
+        {
+            return false;
+        }
+    }
+
+    private void CreateService(ComputerConfig computer, AgentDeploymentPlan plan)
     {
         var scope = WmiScope(computer.Host);
         var mc = new ManagementClass(scope, new ManagementPath("Win32_Service"), null);
@@ -289,14 +525,16 @@ public class RemoteAgentInstaller
                 : $"Win32_Service.Create вернул код {returnVal}");
     }
 
-    private static void StartService(ComputerConfig computer)
+    private void StartService(ComputerConfig computer)
     {
         using var service = GetServiceObject(computer.Host);
         if (service == null)
             throw new InvalidOperationException($"Служба '{Constants.ServiceName}' не найдена после установки.");
 
+        var startedAt = DateTime.UtcNow;
         var startResult = Convert.ToInt32(service.InvokeMethod("StartService", null) ?? 0);
-        if (startResult != 0 && startResult != 10)
+        // 0 = success, 7 = request timeout (service may still start), 10 = already running
+        if (startResult != 0 && startResult != 7 && startResult != 10)
             throw new InvalidOperationException($"Win32_Service.StartService вернул код {startResult}.");
 
         for (var i = 0; i < 30; i++)
@@ -312,10 +550,39 @@ public class RemoteAgentInstaller
         service.Get();
         var finalState = Convert.ToString(service["State"]) ?? "Unknown";
         var exitCode = Convert.ToString(service["ExitCode"]) ?? "Unknown";
-        throw new InvalidOperationException($"Служба не перешла в состояние Running. Текущее состояние: {finalState}, ExitCode: {exitCode}.");
+        var logSnippet = TryGetRecentEventLogErrors(computer.Host, startedAt);
+        var detail = logSnippet != null ? $" Журнал событий: {logSnippet}" : string.Empty;
+        throw new InvalidOperationException(
+            $"Служба не перешла в состояние Running. Текущее состояние: {finalState}, ExitCode: {exitCode}.{detail}");
     }
 
-    private static void StopService(ComputerConfig computer)
+    private string? TryGetRecentEventLogErrors(string host, DateTime since)
+    {
+        try
+        {
+            var scope = WmiScope(host);
+            var wmiTime = since.ToUniversalTime().ToString("yyyyMMddHHmmss.000000+000");
+            var query = new ObjectQuery(
+                "SELECT Message, SourceName FROM Win32_NTLogEvent " +
+                $"WHERE Logfile='Application' AND TimeGenerated > '{wmiTime}' " +
+                $"AND (SourceName='{Constants.ServiceName}' OR SourceName='.NET Runtime' OR SourceName='Application Error') " +
+                "AND EventType <= 2");
+            using var searcher = new ManagementObjectSearcher(scope, query);
+            var messages = searcher.Get()
+                .Cast<ManagementObject>()
+                .Select(e => Convert.ToString(e["Message"])?.Trim())
+                .Where(m => !string.IsNullOrEmpty(m))
+                .Take(3)
+                .ToList();
+            return messages.Count > 0 ? string.Join(" | ", messages) : null;
+        }
+        catch
+        {
+            return null;
+        }
+    }
+
+    private void StopService(ComputerConfig computer)
     {
         using var service = GetServiceObject(computer.Host);
         if (service == null) return;
@@ -332,13 +599,13 @@ public class RemoteAgentInstaller
         }
     }
 
-    private static void DeleteService(ComputerConfig computer)
+    private void DeleteService(ComputerConfig computer)
     {
         using var service = GetServiceObject(computer.Host);
         service?.InvokeMethod("Delete", null);
     }
 
-    private static ManagementObject? GetServiceObject(string host)
+    private ManagementObject? GetServiceObject(string host)
     {
         var scope = WmiScope(host);
         var query = new ObjectQuery($"SELECT * FROM Win32_Service WHERE Name='{Constants.ServiceName}'");
@@ -346,9 +613,34 @@ public class RemoteAgentInstaller
         return searcher.Get().Cast<ManagementObject>().FirstOrDefault();
     }
 
-    private static ManagementScope WmiScope(string host)
+    private ManagementScope WmiScope(string host)
     {
-        var scope = new ManagementScope($@"\\{host}\root\cimv2");
+        var path = $@"\\{host}\root\cimv2";
+        var scope = _username != null && !IsLoopback(host)
+            ? new ManagementScope(path, new ConnectionOptions
+              {
+                  Username = _username,
+                  Password = _password,
+                  Impersonation = ImpersonationLevel.Impersonate,
+                  Authentication = AuthenticationLevel.PacketPrivacy
+              })
+            : new ManagementScope(path);
+        scope.Connect();
+        return scope;
+    }
+
+    private ManagementScope WmiScopeDefault(string host)
+    {
+        var path = $@"\\{host}\root\default";
+        var scope = _username != null && !IsLoopback(host)
+            ? new ManagementScope(path, new ConnectionOptions
+              {
+                  Username = _username,
+                  Password = _password,
+                  Impersonation = ImpersonationLevel.Impersonate,
+                  Authentication = AuthenticationLevel.PacketPrivacy
+              })
+            : new ManagementScope(path);
         scope.Connect();
         return scope;
     }
@@ -384,5 +676,3 @@ public class RemoteAgentInstaller
         WNetCancelConnection2(unc, 0, true);
     }
 }
-
-

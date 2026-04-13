@@ -1,4 +1,5 @@
 using ScreensView.Viewer.Services;
+using ScreensView.Viewer.Views;
 
 namespace ScreensView.Tests;
 
@@ -116,11 +117,101 @@ public sealed class RemoteAgentInstallerTests : IDisposable
     }
 
     [Fact]
+    public void ClassifyRuntimeInstallTarget_Windows10_RequiresRuntimeInstall()
+    {
+        var os = new RemoteOperatingSystemInfo(
+            "Microsoft Windows 10 Pro",
+            new Version(10, 0, 19045),
+            "64-bit",
+            1,
+            0);
+
+        var target = RemoteAgentInstaller.ClassifyRuntimeInstallTarget(os);
+
+        Assert.Equal(RuntimeInstallTarget.ModernSupported, target);
+    }
+
+    [Fact]
+    public void ClassifyRuntimeInstallTarget_Server2012R2_SkipsAsNotRequired()
+    {
+        var os = new RemoteOperatingSystemInfo(
+            "Microsoft Windows Server 2012 R2 Standard",
+            new Version(6, 3, 9600),
+            "64-bit",
+            3,
+            0);
+
+        var target = RemoteAgentInstaller.ClassifyRuntimeInstallTarget(os);
+
+        Assert.Equal(RuntimeInstallTarget.LegacySupported, target);
+    }
+
+    [Fact]
+    public void ClassifyRuntimeInstallTarget_Windows81_SkipsAsUnsupported()
+    {
+        var os = new RemoteOperatingSystemInfo(
+            "Microsoft Windows 8.1 Pro",
+            new Version(6, 3, 9600),
+            "64-bit",
+            1,
+            0);
+
+        var target = RemoteAgentInstaller.ClassifyRuntimeInstallTarget(os);
+
+        Assert.Equal(RuntimeInstallTarget.Unsupported, target);
+    }
+
+    [Theory]
+    [InlineData(0, RuntimeInstallStatus.Installed, AgentLogLevel.Success)]
+    [InlineData(3010, RuntimeInstallStatus.InstalledRebootRequired, AgentLogLevel.Warning)]
+    public void InterpretRuntimeInstallerExitCode_KnownCodes_ReturnExpectedOutcome(
+        int exitCode,
+        RuntimeInstallStatus expectedStatus,
+        AgentLogLevel expectedLevel)
+    {
+        var outcome = RemoteAgentInstaller.InterpretRuntimeInstallerExitCode(exitCode);
+
+        Assert.Equal(expectedStatus, outcome.Status);
+        Assert.Equal(expectedLevel, outcome.Level);
+        Assert.NotEmpty(outcome.Message);
+    }
+
+    [Fact]
+    public void InterpretRuntimeInstallerExitCode_UnexpectedCode_ThrowsHelpfulError()
+    {
+        var ex = Assert.Throws<InvalidOperationException>(
+            () => RemoteAgentInstaller.InterpretRuntimeInstallerExitCode(1603));
+
+        Assert.Contains("1603", ex.Message);
+    }
+
+    [Fact]
+    public void BuildRuntimeCompletionMessage_RebootRequired_ExplainsNextStep()
+    {
+        var outcome = new RuntimeInstallOutcome(
+            RuntimeInstallStatus.InstalledRebootRequired,
+            "Требуется перезагрузка",
+            AgentLogLevel.Warning);
+
+        var message = InstallProgressWindow.BuildCompletionMessage(InstallProgressWindow.Mode.InstallDotNetRuntime, outcome);
+
+        Assert.Contains("перезагрузка", message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void BuildServiceCommand_QuotesExecutablePath()
     {
         var command = RemoteAgentInstaller.BuildServiceCommand(AgentDeploymentPlan.Legacy);
 
         Assert.Equal("\"C:\\Windows\\ScreensViewAgent\\ScreensView.Agent.Legacy.exe\"", command);
+    }
+
+    [Fact]
+    public void GetWindowTitle_InstallDotNetRuntime_ReturnsExpectedTitle()
+    {
+        var title = InstallProgressWindow.GetWindowTitle(InstallProgressWindow.Mode.InstallDotNetRuntime);
+
+        Assert.Equal("Установка .NET 8 Runtime", title);
     }
 
     [Fact]
