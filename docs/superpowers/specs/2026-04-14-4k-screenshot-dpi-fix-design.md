@@ -43,12 +43,17 @@ private static readonly IntPtr DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 = new 
 In `Run()`, immediately after `pipe.Connect(5_000)` and before the `GetSystemMetrics` calls:
 
 ```csharp
-SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+var prevCtx = SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+if (prevCtx == IntPtr.Zero)
+    throw new InvalidOperationException(
+        "SetThreadDpiAwarenessContext failed — requires Windows 10 version 1607 or later.");
 ```
+
+`SetThreadDpiAwarenessContext` returns the previous context on success, or `IntPtr.Zero` on failure — it does **not** throw. The explicit check ensures that a failure results in an `InvalidOperationException`, which is caught by the existing outer `catch` in `Run()`. That catch calls `TryWriteLockedResult` (returns false — this is not a locked-desktop condition) and then `Environment.Exit(2)`, so the service receives no JPEG and logs a helper failure rather than silently returning a cropped frame.
 
 After this call `GetSystemMetrics` returns physical pixels (3840×2160) and `CopyFromScreen` captures the full physical screen at native resolution.
 
-**OS requirement:** `SetThreadDpiAwarenessContext` requires Windows 10 version 1607 (RS1) or later. Per CLAUDE.md, the modern agent is only deployed to Windows 10/11, so this API is always available. If the call fails (returns `IntPtr.Zero`), the existing `catch` block in `Run()` handles it gracefully.
+**OS requirement:** `SetThreadDpiAwarenessContext` requires Windows 10 version 1607 (RS1) or later. CLAUDE.md lists "Windows 10/11 and supported server OS" as the modern agent's target — this should be understood as requiring at minimum version 1607 for correct DPI-aware capture. Windows Server 2016 (also version 1607) satisfies this requirement.
 
 ### `ScreensView.Agent.Legacy/ScreenshotHelper.cs`
 
