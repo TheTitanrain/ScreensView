@@ -28,14 +28,35 @@ public sealed record RuntimeInstallOutcome(
     string Message,
     AgentLogLevel Level);
 
+internal enum RuntimeInstallerPackage
+{
+    DotNetRuntime,
+    AspNetCoreRuntime
+}
+
+internal sealed record RuntimeInstallerSpec(
+    RuntimeInstallerPackage Package,
+    string DisplayName,
+    string FileGlob);
+
+internal sealed record RuntimeInstallStepResult(
+    RuntimeInstallerPackage Package,
+    RuntimeInstallOutcome Outcome);
+
 public class RemoteAgentInstaller
 {
     private const string PayloadsRootFolderName = "AgentPayloads";
     private const string PrerequisitesFolderName = "Prerequisites";
     // x64 only — modern agent EXE is PE machine 0x8664; x86 runtime cannot run it
+    private const string DotNetRuntimeInstallerGlob = "dotnet-runtime-8.*-win-x64.exe";
     private const string AspNetCoreRuntimeInstallerGlob = "aspnetcore-runtime-8.*-win-x64.exe";
     private const int DotNetInstallerTimeoutSeconds = 300;
     private const uint HKeyLocalMachine = 0x80000002;
+    private static readonly RuntimeInstallerSpec[] RequiredRuntimeInstallers =
+    [
+        new(RuntimeInstallerPackage.DotNetRuntime, ".NET Runtime", DotNetRuntimeInstallerGlob),
+        new(RuntimeInstallerPackage.AspNetCoreRuntime, "ASP.NET Core Runtime", AspNetCoreRuntimeInstallerGlob)
+    ];
 
     private readonly Action<string, string, string, AgentLogLevel> _log;
     private string? _username;
@@ -125,7 +146,7 @@ public class RemoteAgentInstaller
         });
     }
 
-    public async Task<RuntimeInstallOutcome> InstallDotNetRuntimeAsync(
+    public async Task<RuntimeInstallOutcome> InstallDotNetRuntimesAsync(
         ComputerConfig computer,
         string? username = null,
         string? password = null)
@@ -146,7 +167,7 @@ public class RemoteAgentInstaller
 
             try
             {
-                return InstallAspNetCore8Runtime(computer, unc);
+                return InstallRuntimePackages(computer, unc);
             }
             finally
             {
@@ -249,6 +270,28 @@ public class RemoteAgentInstaller
         return RuntimeInstallTarget.Unsupported;
     }
 
+    internal static IReadOnlyList<RuntimeInstallerSpec> GetRequiredRuntimeInstallers() => RequiredRuntimeInstallers;
+
+    internal static string ResolveRuntimeInstallerPath(string prerequisitesDirectory, RuntimeInstallerPackage package)
+    {
+        if (!Directory.Exists(prerequisitesDirectory))
+            throw new DirectoryNotFoundException(
+                $"Каталог prerequisites '{prerequisitesDirectory}' не найден.");
+
+        var installer = RequiredRuntimeInstallers.Single(candidate => candidate.Package == package);
+        var installerPath = Directory
+            .GetFiles(prerequisitesDirectory, installer.FileGlob)
+            .OrderByDescending(File.GetLastWriteTimeUtc)
+            .FirstOrDefault();
+        if (installerPath == null)
+            throw new FileNotFoundException(
+                $"Не найден офлайн-установщик {installer.DisplayName} в каталоге Prerequisites. " +
+                $"Ожидается файл '{installer.FileGlob}'.",
+                prerequisitesDirectory);
+
+        return installerPath;
+    }
+
     internal static RuntimeInstallOutcome InterpretRuntimeInstallerExitCode(int exitCode) => exitCode switch
     {
         0 => new RuntimeInstallOutcome(
@@ -262,6 +305,37 @@ public class RemoteAgentInstaller
         _ => throw new InvalidOperationException(
             $"Установщик .NET 8 завершился с кодом {exitCode}.")
     };
+
+    internal static RuntimeInstallOutcome InterpretRuntimeInstallerExitCode(int exitCode, string packageDisplayName) => exitCode switch
+    {
+        0 => new RuntimeInstallOutcome(
+            RuntimeInstallStatus.Installed,
+            $"{packageDisplayName} установлен.",
+            AgentLogLevel.Success),
+        3010 => new RuntimeInstallOutcome(
+            RuntimeInstallStatus.InstalledRebootRequired,
+            $"{packageDisplayName} установлен, требуется перезагрузка компьютера.",
+            AgentLogLevel.Warning),
+        _ => throw new InvalidOperationException(
+            $"Установщик {packageDisplayName} завершился с кодом {exitCode}.")
+    };
+
+    internal static RuntimeInstallOutcome CombineRuntimeInstallOutcomes(IReadOnlyList<RuntimeInstallStepResult> stepResults)
+    {
+        if (stepResults.Count == 0)
+            throw new ArgumentException("Не переданы результаты установки runtime-пакетов.", nameof(stepResults));
+
+        var rebootRequired = stepResults.Any(step => step.Outcome.Status == RuntimeInstallStatus.InstalledRebootRequired);
+        return rebootRequired
+            ? new RuntimeInstallOutcome(
+                RuntimeInstallStatus.InstalledRebootRequired,
+                ".NET 8 runtimes установлены, требуется перезагрузка компьютера.",
+                AgentLogLevel.Warning)
+            : new RuntimeInstallOutcome(
+                RuntimeInstallStatus.Installed,
+                ".NET 8 runtimes установлены.",
+                AgentLogLevel.Success);
+    }
 
     private static void CopyAgentFiles(string targetDir, ComputerConfig computer, AgentDeploymentPlan plan)
     {
@@ -350,22 +424,40 @@ public class RemoteAgentInstaller
         {
             RuntimeInstallTarget.LegacySupported => new RuntimeInstallOutcome(
                 RuntimeInstallStatus.SkippedNotRequired,
-                $".NET 8 Runtime не требуется: для {os.Caption} используется legacy-агент.",
+                $".NET 8 runtimes не требуются: для {os.Caption} используется legacy-агент.",
                 AgentLogLevel.Info),
             RuntimeInstallTarget.Unsupported => new RuntimeInstallOutcome(
                 RuntimeInstallStatus.SkippedUnsupported,
-                $".NET 8 Runtime пропущен: ОС '{os.Caption}' не поддерживает modern-агент.",
+                $".NET 8 runtimes пропущены: ОС '{os.Caption}' не поддерживает modern-агент.",
                 AgentLogLevel.Info),
             _ => throw new ArgumentOutOfRangeException(nameof(target), target, null)
         };
 
-        _log(computer.Name, "Установка .NET 8 Runtime не требуется", outcome.Message, outcome.Level);
+        _log(computer.Name, "Установка .NET 8 runtimes не требуется", outcome.Message, outcome.Level);
         return outcome;
     }
 
-    private RuntimeInstallOutcome InstallAspNetCore8Runtime(ComputerConfig computer, string unc)
+    private RuntimeInstallOutcome InstallRuntimePackages(ComputerConfig computer, string unc)
     {
-        var localInstallerPath = GetLocalRuntimeInstallerPath();
+        var prerequisitesDirectory = GetPrerequisitesSourceDirectory();
+        var stepResults = new List<RuntimeInstallStepResult>();
+
+        foreach (var installer in RequiredRuntimeInstallers)
+        {
+            var localInstallerPath = ResolveRuntimeInstallerPath(prerequisitesDirectory, installer.Package);
+            var outcome = InstallRuntimePackage(computer, unc, installer, localInstallerPath);
+            stepResults.Add(new RuntimeInstallStepResult(installer.Package, outcome));
+        }
+
+        return CombineRuntimeInstallOutcomes(stepResults);
+    }
+
+    private RuntimeInstallOutcome InstallRuntimePackage(
+        ComputerConfig computer,
+        string unc,
+        RuntimeInstallerSpec installer,
+        string localInstallerPath)
+    {
         var installerFileName = Path.GetFileName(localInstallerPath);
         var isLoopback = IsLoopback(computer.Host);
         var transferDirectory = isLoopback
@@ -373,24 +465,24 @@ public class RemoteAgentInstaller
             : Path.Combine(unc, "Temp");
         var targetInstallerPath = Path.Combine(@"C:\Windows\Temp", installerFileName);
         var remoteInstallerPath = Path.Combine(transferDirectory, installerFileName);
-        var markerFileName = $"dotnet-runtime-exit-{Guid.NewGuid():N}.txt";
+        var markerFileName = $"dotnet-runtime-exit-{installer.Package}-{Guid.NewGuid():N}.txt";
         var targetMarkerPath = Path.Combine(@"C:\Windows\Temp", markerFileName);
         var remoteMarkerPath = Path.Combine(transferDirectory, markerFileName);
 
-        _log(computer.Name, "Установка .NET 8 ASP.NET Core Runtime", installerFileName, AgentLogLevel.Info);
+        _log(computer.Name, $"Установка {installer.DisplayName}", installerFileName, AgentLogLevel.Info);
         File.Copy(localInstallerPath, remoteInstallerPath, overwrite: true);
 
         try
         {
             var commandLine = BuildRuntimeInstallerCommandLine(targetInstallerPath, targetMarkerPath);
-            _log(computer.Name, "Запуск установщика .NET 8 (это может занять несколько минут)", string.Empty, AgentLogLevel.Info);
+            _log(computer.Name, $"Запуск установщика {installer.DisplayName} (это может занять несколько минут)", string.Empty, AgentLogLevel.Info);
             var pid = RunProcessViaWmi(computer.Host, commandLine);
 
-            _log(computer.Name, "Ожидание завершения установки .NET 8", $"PID: {pid}", AgentLogLevel.Info);
+            _log(computer.Name, $"Ожидание завершения установки {installer.DisplayName}", $"PID: {pid}", AgentLogLevel.Info);
             var exitCode = WaitForRuntimeInstallerExitCode(remoteMarkerPath, pid, DotNetInstallerTimeoutSeconds);
-            var outcome = InterpretRuntimeInstallerExitCode(exitCode);
+            var outcome = InterpretRuntimeInstallerExitCode(exitCode, installer.DisplayName);
 
-            _log(computer.Name, "Установка .NET 8 ASP.NET Core Runtime завершена", outcome.Message, outcome.Level);
+            _log(computer.Name, $"Установка {installer.DisplayName} завершена", outcome.Message, outcome.Level);
             return outcome;
         }
         finally
@@ -398,25 +490,6 @@ public class RemoteAgentInstaller
             try { File.Delete(remoteInstallerPath); } catch { }
             try { File.Delete(remoteMarkerPath); } catch { }
         }
-    }
-
-    private static string GetLocalRuntimeInstallerPath()
-    {
-        var prerequisitesDirectory = GetPrerequisitesSourceDirectory();
-        if (!Directory.Exists(prerequisitesDirectory))
-            throw new DirectoryNotFoundException(
-                $"Каталог prerequisites '{prerequisitesDirectory}' не найден.");
-
-        var installerPath = Directory
-            .GetFiles(prerequisitesDirectory, AspNetCoreRuntimeInstallerGlob)
-            .OrderByDescending(File.GetLastWriteTimeUtc)
-            .FirstOrDefault();
-        if (installerPath == null)
-            throw new FileNotFoundException(
-                "Не найден офлайн-установщик .NET 8 ASP.NET Core Runtime в каталоге Prerequisites.",
-                prerequisitesDirectory);
-
-        return installerPath;
     }
 
     private static string BuildRuntimeInstallerCommandLine(string installerPath, string markerPath) =>

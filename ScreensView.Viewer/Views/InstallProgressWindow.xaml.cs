@@ -9,7 +9,7 @@ namespace ScreensView.Viewer.Views;
 
 public partial class InstallProgressWindow : Window
 {
-    public enum Mode { Install, Uninstall, UpdateAll, InstallDotNetRuntime }
+    public enum Mode { Install, Uninstall, UpdateAll, InstallDotNetRuntimes }
 
     private readonly Mode _mode;
     private readonly List<ComputerConfig> _computers;
@@ -35,7 +35,7 @@ public partial class InstallProgressWindow : Window
         Mode.Install => "Установка агента",
         Mode.Uninstall => "Удаление агента",
         Mode.UpdateAll => "Обновление агентов",
-        Mode.InstallDotNetRuntime => "Установка .NET 8 Runtime",
+        Mode.InstallDotNetRuntimes => "Установка .NET 8 runtimes",
         _ => "Операция"
     };
 
@@ -44,7 +44,7 @@ public partial class InstallProgressWindow : Window
         Mode.Install => "Агент установлен и запущен",
         Mode.Uninstall => "Агент удалён",
         Mode.UpdateAll => "Агент обновлён",
-        Mode.InstallDotNetRuntime => runtimeOutcome?.Message
+        Mode.InstallDotNetRuntimes => runtimeOutcome?.Message
             ?? throw new ArgumentNullException(nameof(runtimeOutcome)),
         _ => string.Empty
     };
@@ -54,7 +54,7 @@ public partial class InstallProgressWindow : Window
         Mode.Install => "Успешно",
         Mode.Uninstall => "Успешно",
         Mode.UpdateAll => "Успешно",
-        Mode.InstallDotNetRuntime => runtimeOutcome?.Status switch
+        Mode.InstallDotNetRuntimes => runtimeOutcome?.Status switch
         {
             RuntimeInstallStatus.Installed => "Успешно",
             RuntimeInstallStatus.InstalledRebootRequired => "Предупреждение",
@@ -70,7 +70,7 @@ public partial class InstallProgressWindow : Window
         Mode.Install => AgentLogLevel.Success,
         Mode.Uninstall => AgentLogLevel.Success,
         Mode.UpdateAll => AgentLogLevel.Success,
-        Mode.InstallDotNetRuntime => runtimeOutcome?.Level
+        Mode.InstallDotNetRuntimes => runtimeOutcome?.Level
             ?? throw new ArgumentNullException(nameof(runtimeOutcome)),
         _ => AgentLogLevel.Info
     };
@@ -98,8 +98,8 @@ public partial class InstallProgressWindow : Window
                         case Mode.UpdateAll:
                             await installer.UpdateAsync(computer, _username, _password);
                             break;
-                        case Mode.InstallDotNetRuntime:
-                            runtimeOutcome = await installer.InstallDotNetRuntimeAsync(computer, _username, _password);
+                        case Mode.InstallDotNetRuntimes:
+                            runtimeOutcome = await installer.InstallDotNetRuntimesAsync(computer, _username, _password);
                             break;
                     }
 

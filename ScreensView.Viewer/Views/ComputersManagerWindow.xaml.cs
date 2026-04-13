@@ -49,7 +49,7 @@ public partial class ComputersManagerWindow : Window
         BtnDelete.IsEnabled             = count >= 1;
         BtnInstall.IsEnabled            = count >= 1;
         BtnUninstall.IsEnabled          = count >= 1;
-        BtnInstallDotNetRuntime.IsEnabled = count >= 1;
+        BtnInstallDotNetRuntimes.IsEnabled = count >= 1;
     }
 
     private void EnabledCheckBox_Click(object sender, RoutedEventArgs e)
@@ -128,11 +128,11 @@ public partial class ComputersManagerWindow : Window
         LaunchOperation(InstallProgressWindow.Mode.Uninstall, configs);
     }
 
-    private void InstallDotNetRuntime_Click(object sender, RoutedEventArgs e)
+    private void InstallDotNetRuntimes_Click(object sender, RoutedEventArgs e)
     {
         var configs = SelectedConfigs;
         if (configs.Count == 0) return;
-        LaunchOperation(InstallProgressWindow.Mode.InstallDotNetRuntime, configs);
+        LaunchOperation(InstallProgressWindow.Mode.InstallDotNetRuntimes, configs);
     }
 
     private void LaunchInstall(List<Shared.Models.ComputerConfig> configs) =>

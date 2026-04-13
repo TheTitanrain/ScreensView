@@ -8,6 +8,25 @@ public sealed class RemoteAgentInstallerTests : IDisposable
     private readonly string _tempRoot = Path.Combine(Path.GetTempPath(), "ScreensViewTests", Guid.NewGuid().ToString("N"));
 
     [Fact]
+    public void GetRequiredRuntimeInstallers_ReturnsDotNetThenAspNetCore()
+    {
+        var installers = RemoteAgentInstaller.GetRequiredRuntimeInstallers();
+
+        Assert.Collection(
+            installers,
+            installer =>
+            {
+                Assert.Equal(RuntimeInstallerPackage.DotNetRuntime, installer.Package);
+                Assert.Equal("dotnet-runtime-8.*-win-x64.exe", installer.FileGlob);
+            },
+            installer =>
+            {
+                Assert.Equal(RuntimeInstallerPackage.AspNetCoreRuntime, installer.Package);
+                Assert.Equal("aspnetcore-runtime-8.*-win-x64.exe", installer.FileGlob);
+            });
+    }
+
+    [Fact]
     public void ResolveDeploymentPlan_Windows7Sp1WithNet48_UsesLegacyPayload()
     {
         var os = new RemoteOperatingSystemInfo(
@@ -186,6 +205,78 @@ public sealed class RemoteAgentInstallerTests : IDisposable
     }
 
     [Fact]
+    public void ResolveRuntimeInstallerPath_PicksNewestMatchingInstaller()
+    {
+        var prerequisitesDir = Path.Combine(_tempRoot, "Prerequisites");
+        Directory.CreateDirectory(prerequisitesDir);
+
+        var older = Path.Combine(prerequisitesDir, "dotnet-runtime-8.0.24-win-x64.exe");
+        var newer = Path.Combine(prerequisitesDir, "dotnet-runtime-8.0.25-win-x64.exe");
+        File.WriteAllText(older, "old");
+        File.WriteAllText(newer, "new");
+        File.SetLastWriteTimeUtc(older, new DateTime(2026, 4, 10, 0, 0, 0, DateTimeKind.Utc));
+        File.SetLastWriteTimeUtc(newer, new DateTime(2026, 4, 11, 0, 0, 0, DateTimeKind.Utc));
+
+        var resolved = RemoteAgentInstaller.ResolveRuntimeInstallerPath(
+            prerequisitesDir,
+            RuntimeInstallerPackage.DotNetRuntime);
+
+        Assert.Equal(newer, resolved);
+    }
+
+    [Fact]
+    public void ResolveRuntimeInstallerPath_MissingPackage_ThrowsHelpfulError()
+    {
+        var prerequisitesDir = Path.Combine(_tempRoot, "Prerequisites");
+        Directory.CreateDirectory(prerequisitesDir);
+        File.WriteAllText(Path.Combine(prerequisitesDir, "aspnetcore-runtime-8.0.25-win-x64.exe"), "aspnet");
+
+        var ex = Assert.Throws<FileNotFoundException>(() =>
+            RemoteAgentInstaller.ResolveRuntimeInstallerPath(
+                prerequisitesDir,
+                RuntimeInstallerPackage.DotNetRuntime));
+
+        Assert.Contains(".NET Runtime", ex.Message);
+        Assert.Contains("dotnet-runtime-8.*-win-x64.exe", ex.Message);
+    }
+
+    [Fact]
+    public void CombineRuntimeInstallOutcomes_AllInstalled_ReturnsSuccess()
+    {
+        var outcome = RemoteAgentInstaller.CombineRuntimeInstallOutcomes(
+        [
+            new RuntimeInstallStepResult(
+                RuntimeInstallerPackage.DotNetRuntime,
+                new RuntimeInstallOutcome(RuntimeInstallStatus.Installed, ".NET Runtime установлен.", AgentLogLevel.Success)),
+            new RuntimeInstallStepResult(
+                RuntimeInstallerPackage.AspNetCoreRuntime,
+                new RuntimeInstallOutcome(RuntimeInstallStatus.Installed, "ASP.NET Core Runtime установлен.", AgentLogLevel.Success))
+        ]);
+
+        Assert.Equal(RuntimeInstallStatus.Installed, outcome.Status);
+        Assert.Equal(AgentLogLevel.Success, outcome.Level);
+        Assert.Contains("runtimes установлены", outcome.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public void CombineRuntimeInstallOutcomes_RebootRequiredInAnyStep_ReturnsWarning()
+    {
+        var outcome = RemoteAgentInstaller.CombineRuntimeInstallOutcomes(
+        [
+            new RuntimeInstallStepResult(
+                RuntimeInstallerPackage.DotNetRuntime,
+                new RuntimeInstallOutcome(RuntimeInstallStatus.InstalledRebootRequired, ".NET Runtime установлен, требуется перезагрузка компьютера.", AgentLogLevel.Warning)),
+            new RuntimeInstallStepResult(
+                RuntimeInstallerPackage.AspNetCoreRuntime,
+                new RuntimeInstallOutcome(RuntimeInstallStatus.Installed, "ASP.NET Core Runtime установлен.", AgentLogLevel.Success))
+        ]);
+
+        Assert.Equal(RuntimeInstallStatus.InstalledRebootRequired, outcome.Status);
+        Assert.Equal(AgentLogLevel.Warning, outcome.Level);
+        Assert.Contains("перезагрузка", outcome.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
     public void BuildRuntimeCompletionMessage_RebootRequired_ExplainsNextStep()
     {
         var outcome = new RuntimeInstallOutcome(
@@ -193,7 +284,7 @@ public sealed class RemoteAgentInstallerTests : IDisposable
             "Требуется перезагрузка",
             AgentLogLevel.Warning);
 
-        var message = InstallProgressWindow.BuildCompletionMessage(InstallProgressWindow.Mode.InstallDotNetRuntime, outcome);
+        var message = InstallProgressWindow.BuildCompletionMessage(InstallProgressWindow.Mode.InstallDotNetRuntimes, outcome);
 
         Assert.Contains("перезагрузка", message, StringComparison.OrdinalIgnoreCase);
     }
@@ -207,11 +298,11 @@ public sealed class RemoteAgentInstallerTests : IDisposable
     }
 
     [Fact]
-    public void GetWindowTitle_InstallDotNetRuntime_ReturnsExpectedTitle()
+    public void GetWindowTitle_InstallDotNetRuntimes_ReturnsExpectedTitle()
     {
-        var title = InstallProgressWindow.GetWindowTitle(InstallProgressWindow.Mode.InstallDotNetRuntime);
+        var title = InstallProgressWindow.GetWindowTitle(InstallProgressWindow.Mode.InstallDotNetRuntimes);
 
-        Assert.Equal("Установка .NET 8 Runtime", title);
+        Assert.Equal("Установка .NET 8 runtimes", title);
     }
 
     [Fact]

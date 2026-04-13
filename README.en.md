@@ -35,6 +35,7 @@ dotnet test ScreensView.Tests/ScreensView.Tests.csproj
 - **Viewer**: `.NET 8`, Windows 10/11
 - **Modern Agent**: `.NET 8`, Windows 10/11
 - **Legacy Agent**: Windows 7 SP1 with `.NET Framework 4.8`
+- The framework-dependent modern agent requires both `dotnet-runtime-8.x-win-x64` and `aspnetcore-runtime-8.x-win-x64` on the target machine unless you use a self-contained distribution outside this project
 - Agent installation requires administrative privileges because the service provisions a certificate and HTTPS binding
 - **Both agents must run as `LocalSystem`**. This is required by `WTSQueryUserToken` for screen capture from a Windows Service. A service running under another account will fail to capture the screen because `WTSQueryUserToken` requires `SeTcbPrivilege`, which is only available to `LocalSystem`
 - Remote installation requires local administrator rights on the target machine, an accessible `Admin$` share, and working WMI access (`135` + dynamic RPC)
@@ -107,11 +108,12 @@ dotnet run --project ScreensView.Viewer
 2. Use **Add** for one computer or **Add multiple** for bulk entry. The bulk dialog supports **By hosts** and **By IP range**, auto-generates API keys, and can immediately offer agent installation for the new machines.
 3. In **Add computer**, fill in the **Computer**, **Connection**, and optionally **Screen description** sections for LLM comparison: name, host, port, and API key.
 4. The **Manage Computers** window supports multi-select: **Delete**, **Install agent**, and **Remove agent** apply to the selected rows, while **Update agents** updates all enabled computers.
-5. The **Enabled** column can be toggled directly in the table. Disabled machines are not polled by Viewer, do not participate in bulk agent updates, and display an explicit disabled mark on the card.
-6. Click **Start** to begin polling screenshots.
-7. Double-click a card or use **Open** from the context menu to open a dedicated zoom window with the live screenshot. Locked machines do not open in zoom; the card remains in the grid with the lock overlay.
-8. Right-clicking a tile opens a context menu with **Open**, **Edit**, **Run LLM now**, **Ping**, and **Delete**.
-9. If needed, open **Settings** and enable **Autostart** so Viewer launches with Windows.
+5. If the target machine is missing the modern-agent prerequisites, use **Install .NET 8 runtimes** to install `.NET Runtime` and `ASP.NET Core Runtime` in sequence.
+6. The **Enabled** column can be toggled directly in the table. Disabled machines are not polled by Viewer, do not participate in bulk agent updates, and display an explicit disabled mark on the card.
+7. Click **Start** to begin polling screenshots.
+8. Double-click a card or use **Open** from the context menu to open a dedicated zoom window with the live screenshot. Locked machines do not open in zoom; the card remains in the grid with the lock overlay.
+9. Right-clicking a tile opens a context menu with **Open**, **Edit**, **Run LLM now**, **Ping**, and **Delete**.
+10. If needed, open **Settings** and enable **Autostart** so Viewer launches with Windows.
 
 ### LLM Screen Analysis
 
@@ -154,6 +156,7 @@ The **Manage Computers** window provides:
 
 - **Install agent** for one or more selected computers
 - **Remove agent** for one or more selected computers
+- **Install .NET 8 runtimes** for one or more selected computers that will run the modern agent
 - **Update agents** for all enabled computers without requiring a manual row selection
 - An optional immediate install offer after **Add multiple** for the freshly added set
 
@@ -172,6 +175,7 @@ Target machine requirements:
 
 Viewer copies the selected payload into `C:\Windows\ScreensViewAgent\`, creates the `ScreensViewAgent` service, and starts it.
 For install, uninstall, and update operations, Viewer prompts for local administrator credentials on the target machine and uses them for `Admin$`, WMI, and service control.
+The **Install .NET 8 runtimes** action uses the same credentials and installs `dotnet-runtime-8.*-win-x64.exe` first, followed by `aspnetcore-runtime-8.*-win-x64.exe` from `ScreensView.Viewer/Prerequisites/`.
 
 The install/update/uninstall progress window shows each step in real time with color coding: green for success, red for failure, yellow for warning (for example, the service could not stop but the operation continued).
 

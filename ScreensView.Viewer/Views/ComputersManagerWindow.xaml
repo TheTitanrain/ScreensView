@@ -94,10 +94,10 @@
                     </StackPanel>
                 </Button>
 
-                <Button x:Name="BtnInstallDotNetRuntime" Style="{StaticResource ToolbarButton}" Click="InstallDotNetRuntime_Click" IsEnabled="False">
+                <Button x:Name="BtnInstallDotNetRuntimes" Style="{StaticResource ToolbarButton}" Click="InstallDotNetRuntimes_Click" IsEnabled="False">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE7FC;" FontSize="14" VerticalAlignment="Center"/>
-                        <TextBlock Text=" Установить .NET 8 Runtime" VerticalAlignment="Center"/>
+                        <TextBlock Text=" Установить .NET 8 runtimes" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
 

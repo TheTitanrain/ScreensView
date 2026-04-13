@@ -74,10 +74,11 @@
 
   <Target Name="WarnIfPrerequisitesMissing" AfterTargets="CopyPrerequisites">
     <ItemGroup>
+      <_DotNetRuntimeInstaller Include="$(OutputPath)Prerequisites\dotnet-runtime-8.*-win-x64.exe" />
       <_AspNetCoreInstaller Include="$(OutputPath)Prerequisites\aspnetcore-runtime-8.*-win-x64.exe" />
     </ItemGroup>
-    <Warning Text="No aspnetcore-runtime-8.*-win-x64.exe found in Prerequisites\. Download from https://dotnet.microsoft.com/download/dotnet/8.0 (ASP.NET Core Runtime 8 → Windows → Installer x64) and place in ScreensView.Viewer\Prerequisites\."
-             Condition="'@(_AspNetCoreInstaller)' == ''" />
+    <Warning Text="Missing required .NET 8 runtime installers in Prerequisites\. Download both dotnet-runtime-8.*-win-x64.exe and aspnetcore-runtime-8.*-win-x64.exe from https://dotnet.microsoft.com/download/dotnet/8.0 and place them in ScreensView.Viewer\Prerequisites\."
+             Condition="'@(_DotNetRuntimeInstaller)' == '' or '@(_AspNetCoreInstaller)' == ''" />
   </Target>
 
 </Project>
