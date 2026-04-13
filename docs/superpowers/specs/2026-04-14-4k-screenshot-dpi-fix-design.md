@@ -40,7 +40,7 @@ private static extern IntPtr SetThreadDpiAwarenessContext(IntPtr dpiContext);
 private static readonly IntPtr DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 = new IntPtr(-4);
 ```
 
-In `Run()`, first line after opening the pipe:
+In `Run()`, immediately after `pipe.Connect(5_000)` and before the `GetSystemMetrics` calls:
 
 ```csharp
 SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
@@ -48,20 +48,24 @@ SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
 
 After this call `GetSystemMetrics` returns physical pixels (3840×2160) and `CopyFromScreen` captures the full physical screen at native resolution.
 
+**OS requirement:** `SetThreadDpiAwarenessContext` requires Windows 10 version 1607 (RS1) or later. Per CLAUDE.md, the modern agent is only deployed to Windows 10/11, so this API is always available. If the call fails (returns `IntPtr.Zero`), the existing `catch` block in `Run()` handles it gracefully.
+
 ### `ScreensView.Agent.Legacy/ScreenshotHelper.cs`
 
-The legacy agent targets .NET Framework 4.8 and Windows 7 SP1+. `SetThreadDpiAwarenessContext` is only available on Windows 10 1607+, so use `SetProcessDPIAware` (available since Windows Vista) which sets system-DPI-aware mode — sufficient for Windows 7 where per-monitor DPI V2 does not exist:
+The legacy agent targets .NET Framework 4.8 and Windows 7 SP1+. `SetThreadDpiAwarenessContext` is only available on Windows 10 1607+, so use `SetProcessDPIAware` (available since Windows Vista) which sets **system-DPI-aware** mode:
 
 ```csharp
 [DllImport("user32.dll")]
 private static extern bool SetProcessDPIAware();
 ```
 
-In `Run()`, first line:
+In `Run()`, immediately after `pipe.Connect(5_000)` and before the `GetSystemMetrics` calls:
 
 ```csharp
 SetProcessDPIAware();
 ```
+
+**Note:** `SetProcessDPIAware` sets System DPI Aware mode (not per-monitor). This is correct and sufficient for Windows 7, which has no per-monitor DPI support. On Windows 8.1+ with multi-monitor mixed-DPI setups, `SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE)` from `SHCore.dll` would be more precise, but the primary deployment target for the legacy agent is Windows 7 SP1 with .NET Framework 4.8, so system-DPI-aware is the right choice.
 
 ## Scope
 
