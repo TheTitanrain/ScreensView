@@ -13,6 +13,7 @@ public partial class App : Application
     protected override async void OnStartup(StartupEventArgs e)
     {
         base.OnStartup(e);
+        using var startupShutdown = new StartupShutdownScope(new ApplicationShutdownModeHost(this));
         await ViewerUpdateService.CheckAndUpdateAsync();
 
         var settingsService = new ViewerSettingsService();
@@ -64,6 +65,52 @@ public partial class App : Application
         mainWindow = new MainWindow(viewModel, workflow);
         MainWindow = mainWindow;
         mainWindow.Show();
+    }
+}
+
+internal interface IShutdownModeHost
+{
+    ShutdownMode ShutdownMode { get; set; }
+    bool IsShuttingDown { get; }
+}
+
+internal sealed class ApplicationShutdownModeHost(Application application) : IShutdownModeHost
+{
+    private readonly Application _application = application ?? throw new ArgumentNullException(nameof(application));
+
+    public ShutdownMode ShutdownMode
+    {
+        get => _application.ShutdownMode;
+        set => _application.ShutdownMode = value;
+    }
+
+    public bool IsShuttingDown
+        => _application.Dispatcher.HasShutdownStarted || _application.Dispatcher.HasShutdownFinished;
+}
+
+internal sealed class StartupShutdownScope : IDisposable
+{
+    private readonly IShutdownModeHost _host;
+    private readonly ShutdownMode _previousMode;
+    private bool _disposed;
+
+    public StartupShutdownScope(IShutdownModeHost host)
+    {
+        _host = host ?? throw new ArgumentNullException(nameof(host));
+        _previousMode = host.ShutdownMode;
+        _host.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+    }
+
+    public void Dispose()
+    {
+        if (_disposed)
+            return;
+
+        _disposed = true;
+        if (_host.IsShuttingDown)
+            return;
+
+        _host.ShutdownMode = _previousMode;
     }
 }
 
