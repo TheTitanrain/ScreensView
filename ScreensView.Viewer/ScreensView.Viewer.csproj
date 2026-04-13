@@ -30,22 +30,32 @@
   </PropertyGroup>
 
   <Target Name="BuildAgentPayloads" BeforeTargets="CopyAgentPayloads">
-    <MSBuild Projects="$(MSBuildThisFileDirectory)..\ScreensView.Agent\ScreensView.Agent.csproj;$(MSBuildThisFileDirectory)..\ScreensView.Agent.Legacy\ScreensView.Agent.Legacy.csproj"
+    <!-- Modern agent: publish to get all NuGet dependencies in the output directory -->
+    <MSBuild Projects="$(MSBuildThisFileDirectory)..\ScreensView.Agent\ScreensView.Agent.csproj"
+             Targets="Restore;Publish"
+             Properties="Configuration=$(Configuration);PublishDir=$(MSBuildThisFileDirectory)..\ScreensView.Agent\bin\$(Configuration)\net8.0-windows\publish\" />
+    <!-- Legacy agent: plain build is sufficient (.NET Framework resolves via GAC/local) -->
+    <MSBuild Projects="$(MSBuildThisFileDirectory)..\ScreensView.Agent.Legacy\ScreensView.Agent.Legacy.csproj"
              Targets="Restore;Build"
              Properties="Configuration=$(Configuration)" />
   </Target>
 
   <Target Name="CopyAgentPayloads" AfterTargets="Build">
+    <!-- Clean staging dirs first so stale files (e.g. artifacts/) don't survive between builds -->
+    <RemoveDir Directories="$(OutputPath)AgentPayloads\Modern" />
+    <MakeDir Directories="$(OutputPath)AgentPayloads\Modern" />
+
     <ItemGroup>
-      <ModernAgentFiles Include="$(MSBuildThisFileDirectory)..\ScreensView.Agent\bin\$(Configuration)\net8.0-windows\*.*"
-                        Exclude="**\*.pdb" />
+      <!-- Use **\*.* to recursively include runtimes/ subdirectory; exclude pdb and artifacts/ -->
+      <ModernAgentFiles Include="$(MSBuildThisFileDirectory)..\ScreensView.Agent\bin\$(Configuration)\net8.0-windows\publish\**\*.*"
+                        Exclude="**\*.pdb;**\artifacts\**" />
       <LegacyAgentFiles Include="$(MSBuildThisFileDirectory)..\ScreensView.Agent.Legacy\bin\$(Configuration)\net48\*.*"
                         Exclude="**\*.pdb" />
     </ItemGroup>
 
+    <!-- DestinationFiles preserves subdirectory structure relative to the publish root -->
     <Copy SourceFiles="@(ModernAgentFiles)"
-          DestinationFolder="$(OutputPath)AgentPayloads\Modern"
-          SkipUnchangedFiles="true" />
+          DestinationFiles="@(ModernAgentFiles->'$(OutputPath)AgentPayloads\Modern\%(RecursiveDir)%(Filename)%(Extension)')" />
     <Copy SourceFiles="@(LegacyAgentFiles)"
           DestinationFolder="$(OutputPath)AgentPayloads\Legacy"
           SkipUnchangedFiles="true" />

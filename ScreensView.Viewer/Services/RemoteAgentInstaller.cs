@@ -248,12 +248,27 @@ public class RemoteAgentInstaller
         if (!Directory.Exists(sourceDir))
             throw new DirectoryNotFoundException($"Agent payload directory '{sourceDir}' was not found.");
 
+        CopyDirectoryRecursive(sourceDir, targetDir);
+    }
+
+    private static void CopyDirectoryRecursive(string sourceDir, string targetDir)
+    {
         foreach (var file in Directory.GetFiles(sourceDir, "*.*"))
         {
             var name = Path.GetFileName(file);
             if (name.StartsWith("ScreensView.Viewer", StringComparison.OrdinalIgnoreCase)) continue;
             if (name.EndsWith(".pdb", StringComparison.OrdinalIgnoreCase)) continue;
             File.Copy(file, Path.Combine(targetDir, name), overwrite: true);
+        }
+
+        foreach (var subDir in Directory.GetDirectories(sourceDir))
+        {
+            var subDirName = Path.GetFileName(subDir);
+            if (subDirName.Equals("artifacts", StringComparison.OrdinalIgnoreCase)) continue;
+            var targetSubDir = Path.Combine(targetDir, subDirName);
+            if (!Directory.Exists(targetSubDir))
+                Directory.CreateDirectory(targetSubDir);
+            CopyDirectoryRecursive(subDir, targetSubDir);
         }
     }
 
