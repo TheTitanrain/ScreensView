@@ -20,6 +20,11 @@ internal static class ScreenshotHelper
     [DllImport("user32.dll", SetLastError = true, CharSet = CharSet.Unicode)]
     private static extern bool GetUserObjectInformation(IntPtr hObj, int nIndex, IntPtr pvInfo, uint nLength, out uint lpnLengthNeeded);
 
+    [DllImport("user32.dll")]
+    private static extern IntPtr SetThreadDpiAwarenessContext(IntPtr dpiContext);
+
+    private static readonly IntPtr DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2 = new IntPtr(-4);
+
     private const int SM_XVIRTUALSCREEN = 76;
     private const int SM_YVIRTUALSCREEN = 77;
     private const int SM_CXVIRTUALSCREEN = 78;
@@ -36,6 +41,11 @@ internal static class ScreenshotHelper
         {
             pipe = new NamedPipeClientStream(".", pipeName, PipeDirection.Out);
             pipe.Connect(5_000);
+
+            var prevCtx = SetThreadDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
+            if (prevCtx == IntPtr.Zero)
+                throw new InvalidOperationException(
+                    "SetThreadDpiAwarenessContext failed — requires Windows 10 version 1607 or later.");
 
             if (IsSecureDesktopActive())
             {
