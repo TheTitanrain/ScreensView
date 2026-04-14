@@ -19,16 +19,16 @@ Screen monitoring system for computers inside a local network. An agent on each 
 
 - The main repository branch is `master`.
 - Short-lived feature branches are removed after merge into `master` so local worktrees do not accumulate merged branches.
-- The repo keeps both solution formats: `ScreensView.slnx` and the compatibility `ScreensView.sln`. For ClickOnce publish from Visual Studio, use `ScreensView.sln`: in the current VS 18.4 build, publish through `.slnx` can fail with a generic shell error.
+- The canonical solution file for the repository is `ScreensView.slnx`. Do not add a sibling `ScreensView.sln` with the same base name: root-level `dotnet` commands and Visual Studio publish tooling become ambiguous.
 
 ### Build and Test
 
 ```bash
-dotnet build
+dotnet build ScreensView.slnx
 dotnet test ScreensView.Tests/ScreensView.Tests.csproj
 ```
 
-- `dotnet build` compiles the whole solution, including Viewer, modern/legacy agents, and the shared library.
+- `dotnet build ScreensView.slnx` compiles the whole solution, including Viewer, modern/legacy agents, and the shared library.
 - During Viewer build/publish, both agent payloads are staged through nested project builds; those calls must keep each project's own `TargetFramework` so shared-library restore assets are not corrupted.
 - `ScreensView.Tests` contains the main verification suite for shared contracts, Viewer services, the LLM pipeline, and remote agent deployment scenarios.
 

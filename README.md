@@ -19,16 +19,16 @@
 
 - Основная ветка репозитория: `master`.
 - Короткоживущие feature-ветки удаляются после слияния в `master`, чтобы локальные worktree не накапливали уже влитые ветки.
-- В репозитории хранятся оба формата solution: `ScreensView.slnx` и совместимый `ScreensView.sln`. Для ClickOnce publish из Visual Studio используйте `ScreensView.sln`: в текущей VS 18.4 publish через `.slnx` может завершаться generic-ошибкой оболочки.
+- Канонический solution-файл репозитория — `ScreensView.slnx`. Не добавляйте рядом одноимённый `ScreensView.sln`: root-level `dotnet` команды и publish tooling Visual Studio начинают видеть неоднозначный solution selection.
 
 ### Сборка и проверка
 
 ```bash
-dotnet build
+dotnet build ScreensView.slnx
 dotnet test ScreensView.Tests/ScreensView.Tests.csproj
 ```
 
-- `dotnet build` собирает всё решение, включая Viewer, modern/legacy agent и общую библиотеку.
+- `dotnet build ScreensView.slnx` собирает всё решение, включая Viewer, modern/legacy agent и общую библиотеку.
 - Viewer при build/publish дополнительно staging'ит payload обоих агентов через вложенные сборки проектов; в этих вызовах нужно сохранять собственные `TargetFramework` каждого проекта, чтобы не ломать restore общей библиотеки.
 - `ScreensView.Tests` содержит основной набор xUnit-проверок для shared-контрактов, Viewer-сервисов, LLM-пайплайна и сценариев удалённого развёртывания агента.
 
