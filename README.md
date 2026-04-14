@@ -19,6 +19,7 @@
 
 - Основная ветка репозитория: `master`.
 - Короткоживущие feature-ветки удаляются после слияния в `master`, чтобы локальные worktree не накапливали уже влитые ветки.
+- В репозитории хранятся оба формата solution: `ScreensView.slnx` и совместимый `ScreensView.sln`. Для ClickOnce publish из Visual Studio используйте `ScreensView.sln`: в текущей VS 18.4 publish через `.slnx` может завершаться generic-ошибкой оболочки.
 
 ### Сборка и проверка
 

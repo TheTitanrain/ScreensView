@@ -19,6 +19,7 @@ Screen monitoring system for computers inside a local network. An agent on each 
 
 - The main repository branch is `master`.
 - Short-lived feature branches are removed after merge into `master` so local worktrees do not accumulate merged branches.
+- The repo keeps both solution formats: `ScreensView.slnx` and the compatibility `ScreensView.sln`. For ClickOnce publish from Visual Studio, use `ScreensView.sln`: in the current VS 18.4 build, publish through `.slnx` can fail with a generic shell error.
 
 ### Build and Test
 
