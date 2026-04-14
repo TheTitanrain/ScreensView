@@ -1,0 +1,25 @@
+<Project>
+
+  <!--
+    Workaround for .NET 8 SDK + VS MSBuild ClickOnce incompatibility.
+
+    The .NET SDK's ComputeAndCopyFilesToPublishDirectory already produces a complete ClickOnce package:
+    setup.exe, Launcher.exe, .application deployment manifest, and Application Files\.
+    The legacy VS MSBuild targets (_CopyFilesToPublishFolder, _DeploymentGenerateBootstrapper,
+    _DeploymentSignClickOnceDeployment) then run and fail because they expect a different file layout
+    than what the .NET 8 SDK produces.
+
+    Since Directory.Build.targets is imported after Microsoft.Common.CurrentVersion.targets, these
+    overrides take effect and suppress the broken legacy steps without affecting normal builds.
+  -->
+
+  <Target Name="_CopyFilesToPublishFolder"
+          Condition="'$(PublishProtocol)' == 'ClickOnce'" />
+
+  <Target Name="_DeploymentGenerateBootstrapper"
+          Condition="'$(PublishProtocol)' == 'ClickOnce'" />
+
+  <Target Name="_DeploymentSignClickOnceDeployment"
+          Condition="'$(PublishProtocol)' == 'ClickOnce'" />
+
+</Project>

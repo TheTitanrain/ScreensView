@@ -29,18 +29,40 @@
     <ApplicationIcon>screensview.ico</ApplicationIcon>
   </PropertyGroup>
 
+  <!-- Workaround for .NET 8 SDK + VS MSBuild ClickOnce incompatibility:
+       The SDK's ComputeAndCopyFilesToPublishDirectory already produces a complete ClickOnce package
+       (setup.exe, Launcher.exe, .application manifest, Application Files\). The legacy VS MSBuild target
+       _CopyFilesToPublishFolder then runs and fails: SourceFiles/DestinationFiles count mismatch (MSB3094)
+       because _DeploymentResolvedManifestEntryPoint is empty while _DeploymentManifestEntryPoint has 1 item,
+       and if GenerateManifests runs first, MSB3030 follows because the resolved path doesn't match the SDK layout.
+       Clearing the item groups before the target makes the Copy task a no-op (0 items, no mismatch). -->
+  <Target Name="_SkipLegacyClickOnceCopy"
+          BeforeTargets="_CopyFilesToPublishFolder"
+          Condition="'$(PublishProtocol)' == 'ClickOnce'">
+    <ItemGroup>
+      <_ApplicationManifestFinal Remove="@(_ApplicationManifestFinal)" />
+      <_DeploymentManifestEntryPoint Remove="@(_DeploymentManifestEntryPoint)" />
+      <_DeploymentResolvedManifestEntryPoint Remove="@(_DeploymentResolvedManifestEntryPoint)" />
+      <_DeploymentManifestFiles Remove="@(_DeploymentManifestFiles)" />
+    </ItemGroup>
+  </Target>
+
   <Target Name="BuildAgentPayloads" BeforeTargets="CopyAgentPayloads">
-    <!-- Prevent outer Viewer publish globals from leaking into agent restores/builds and poisoning shared restore assets. -->
+    <!-- Prevent outer Viewer publish globals from leaking into agent restores/builds and poisoning shared restore assets.
+         RemoveProperties strips ClickOnce-specific globals so they never flow into nested invocations.
+         TargetFramework is also pinned explicitly in Properties so each agent always builds for its intended TFM. -->
+    <!-- Clean the agent publish directory so stale ClickOnce artifacts from previous runs don't survive -->
+    <RemoveDir Directories="$(MSBuildThisFileDirectory)..\ScreensView.Agent\bin\$(Configuration)\net8.0-windows\publish" />
     <!-- Modern agent: publish to get all NuGet dependencies in the output directory -->
     <MSBuild Projects="$(MSBuildThisFileDirectory)..\ScreensView.Agent\ScreensView.Agent.csproj"
              Targets="Restore;Publish"
-             RemoveProperties="TargetFramework;PublishProfile"
-             Properties="Configuration=$(Configuration);PublishDir=$(MSBuildThisFileDirectory)..\ScreensView.Agent\bin\$(Configuration)\net8.0-windows\publish\" />
+             RemoveProperties="TargetFramework;PublishProfile;PublishUrl;InstallUrl;IsWebBootstrapper;BootstrapperEnabled;ApplicationVersion;ApplicationRevision;IsRevisionIncremented;CreateWebPageOnPublish;WebPageFilename;PublishProtocol;UpdateEnabled;UpdateMode;BootstrapperComponentsLocation;PublishReadyToRun"
+             Properties="Configuration=$(Configuration);TargetFramework=net8.0-windows;PublishDir=$(MSBuildThisFileDirectory)..\ScreensView.Agent\bin\$(Configuration)\net8.0-windows\publish\" />
     <!-- Legacy agent: plain build is sufficient (.NET Framework resolves via GAC/local) -->
     <MSBuild Projects="$(MSBuildThisFileDirectory)..\ScreensView.Agent.Legacy\ScreensView.Agent.Legacy.csproj"
              Targets="Restore;Build"
-             RemoveProperties="TargetFramework;PublishProfile"
-             Properties="Configuration=$(Configuration)" />
+             RemoveProperties="TargetFramework;PublishProfile;PublishUrl;InstallUrl;IsWebBootstrapper;BootstrapperEnabled;ApplicationVersion;ApplicationRevision;IsRevisionIncremented;CreateWebPageOnPublish;WebPageFilename;PublishProtocol;UpdateEnabled;UpdateMode;BootstrapperComponentsLocation;PublishReadyToRun"
+             Properties="Configuration=$(Configuration);TargetFramework=net48" />
   </Target>
 
   <Target Name="CopyAgentPayloads" AfterTargets="Build">
@@ -49,9 +71,9 @@
     <MakeDir Directories="$(OutputPath)AgentPayloads\Modern" />
 
     <ItemGroup>
-      <!-- Use **\*.* to recursively include runtimes/ subdirectory; exclude pdb and artifacts/ -->
+      <!-- Use **\*.* to recursively include runtimes/ subdirectory; exclude pdb, artifacts/, and any ClickOnce deployment artifacts -->
       <ModernAgentFiles Include="$(MSBuildThisFileDirectory)..\ScreensView.Agent\bin\$(Configuration)\net8.0-windows\publish\**\*.*"
-                        Exclude="**\*.pdb;**\artifacts\**" />
+                        Exclude="**\*.pdb;**\artifacts\**;**\*.application;**/setup.exe;**\Application Files\**" />
       <LegacyAgentFiles Include="$(MSBuildThisFileDirectory)..\ScreensView.Agent.Legacy\bin\$(Configuration)\net48\*.*"
                         Exclude="**\*.pdb" />
     </ItemGroup>
