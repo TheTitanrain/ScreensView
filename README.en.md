@@ -30,7 +30,7 @@ dotnet test ScreensView.Tests/ScreensView.Tests.csproj
 
 - `dotnet build ScreensView.slnx` compiles the whole solution, including Viewer, modern/legacy agents, and the shared library.
 - During Viewer build/publish, both agent payloads are staged through nested project builds; those calls must keep each project's own `TargetFramework` so shared-library restore assets are not corrupted.
-- Viewer ClickOnce publish uses a `.NET 8 SDK + Visual Studio ClickOnce` compatibility workaround: nested agent builds are isolated from outer publish globals, and legacy VS ClickOnce targets are suppressed in `ScreensView.Viewer/Directory.Build.targets` plus a defensive guard in `ScreensView.Agent/Directory.Build.targets` for nested agent publish.
+- Viewer ClickOnce publish uses a `.NET 8 SDK + Visual Studio ClickOnce` compatibility workaround: nested agent builds are isolated from outer publish globals, legacy VS ClickOnce targets are suppressed in `ScreensView.Viewer/Directory.Build.targets` plus a defensive guard in `ScreensView.Agent/Directory.Build.targets`, and publish output is additionally mirrored to `ScreensView.Viewer\bin\app.publish` for VS publish host compatibility.
 - The publish verification scenario (MSBuild command + expected artifacts) is documented in `docs/superpowers/plans/2026-04-14-clickonce-agent-publish-isolation.md`.
 - `ScreensView.Tests` contains the main verification suite for shared contracts, Viewer services, the LLM pipeline, and remote agent deployment scenarios.
 

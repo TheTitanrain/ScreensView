@@ -116,5 +116,30 @@
              Condition="'@(_DotNetRuntimeInstaller)' == '' or '@(_AspNetCoreInstaller)' == ''" />
   </Target>
 
+  <Target Name="MirrorClickOncePublishToLegacyBinRoot"
+          AfterTargets="Publish"
+          Condition="'$(PublishProtocol)' == 'ClickOnce'">
+    <PropertyGroup>
+      <!-- VS publish host may still probe $(ProjectDir)\bin\app.publish even when SDK publishes under bin\<Config>\<TFM>\app.publish -->
+      <_LegacyBinPublishDir>$(MSBuildProjectDirectory)\bin\app.publish\</_LegacyBinPublishDir>
+      <_ResolvedPublishDir Condition="$([System.IO.Path]::IsPathRooted('$(PublishDir)'))">$(PublishDir)</_ResolvedPublishDir>
+      <_ResolvedPublishDir Condition="'$(_ResolvedPublishDir)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\$(PublishDir)'))</_ResolvedPublishDir>
+    </PropertyGroup>
+
+    <RemoveDir Directories="$(_LegacyBinPublishDir)"
+               Condition="'$(_ResolvedPublishDir)' != '$(_LegacyBinPublishDir)' and Exists('$(_LegacyBinPublishDir)')" />
+    <MakeDir Directories="$(_LegacyBinPublishDir)"
+             Condition="'$(_ResolvedPublishDir)' != '$(_LegacyBinPublishDir)'" />
+
+    <ItemGroup Condition="'$(_ResolvedPublishDir)' != '$(_LegacyBinPublishDir)' and Exists('$(_ResolvedPublishDir)')">
+      <_PublishedFilesForLegacyPath Include="$(_ResolvedPublishDir)**\*.*" />
+    </ItemGroup>
+
+    <Copy SourceFiles="@(_PublishedFilesForLegacyPath)"
+          DestinationFiles="@(_PublishedFilesForLegacyPath->'$(_LegacyBinPublishDir)%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true"
+          Condition="'@(_PublishedFilesForLegacyPath)' != ''" />
+  </Target>
+
 </Project>
 

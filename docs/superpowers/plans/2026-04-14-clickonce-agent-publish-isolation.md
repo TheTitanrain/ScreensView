@@ -24,6 +24,8 @@
   - Добавлен защитный ClickOnce-override для nested publish `ScreensView.Agent`, чтобы исключить запуск legacy VS ClickOnce targets при утечке внешних publish-глобалов.
 - `ScreensView.Viewer/Properties/PublishProfiles/ClickOnce.pubxml`
   - Зафиксирован репозиторный ClickOnce профиль Viewer.
+- `ScreensView.Viewer/ScreensView.Viewer.csproj`
+  - Добавлен post-publish compatibility target `MirrorClickOncePublishToLegacyBinRoot`, который зеркалит SDK output в `ScreensView.Viewer\bin\app.publish` для Visual Studio publish host.
 
 ## Verification Scenario
 
