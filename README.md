@@ -30,7 +30,7 @@ dotnet test ScreensView.Tests/ScreensView.Tests.csproj
 
 - `dotnet build ScreensView.slnx` собирает всё решение, включая Viewer, modern/legacy agent и общую библиотеку.
 - Viewer при build/publish дополнительно staging'ит payload обоих агентов через вложенные сборки проектов; в этих вызовах нужно сохранять собственные `TargetFramework` каждого проекта, чтобы не ломать restore общей библиотеки.
-- ClickOnce publish для Viewer использует workaround совместимости `.NET 8 SDK + Visual Studio ClickOnce`: вложенные сборки агентов изолируются от внешнего publish-контекста, а legacy VS ClickOnce targets подавляются в `ScreensView.Viewer/Directory.Build.targets`.
+- ClickOnce publish для Viewer использует workaround совместимости `.NET 8 SDK + Visual Studio ClickOnce`: вложенные сборки агентов изолируются от внешнего publish-контекста, а legacy VS ClickOnce targets подавляются в `ScreensView.Viewer/Directory.Build.targets` и защитно в `ScreensView.Agent/Directory.Build.targets` для nested publish.
 - Проверочный сценарий publish (MSBuild + ожидаемые артефакты) описан в `docs/superpowers/plans/2026-04-14-clickonce-agent-publish-isolation.md`.
 - `ScreensView.Tests` содержит основной набор xUnit-проверок для shared-контрактов, Viewer-сервисов, LLM-пайплайна и сценариев удалённого развёртывания агента.
 

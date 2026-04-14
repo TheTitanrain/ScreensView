@@ -20,6 +20,8 @@
     - `_CopyFilesToPublishFolder`
     - `_DeploymentGenerateBootstrapper`
     - `_DeploymentSignClickOnceDeployment`
+- `ScreensView.Agent/Directory.Build.targets`
+  - Добавлен защитный ClickOnce-override для nested publish `ScreensView.Agent`, чтобы исключить запуск legacy VS ClickOnce targets при утечке внешних publish-глобалов.
 - `ScreensView.Viewer/Properties/PublishProfiles/ClickOnce.pubxml`
   - Зафиксирован репозиторный ClickOnce профиль Viewer.
 
