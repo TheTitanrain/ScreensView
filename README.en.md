@@ -28,6 +28,7 @@ dotnet test ScreensView.Tests/ScreensView.Tests.csproj
 ```
 
 - `dotnet build` compiles the whole solution, including Viewer, modern/legacy agents, and the shared library.
+- During Viewer build/publish, both agent payloads are staged through nested project builds; those calls must keep each project's own `TargetFramework` so shared-library restore assets are not corrupted.
 - `ScreensView.Tests` contains the main verification suite for shared contracts, Viewer services, the LLM pipeline, and remote agent deployment scenarios.
 
 ## Requirements

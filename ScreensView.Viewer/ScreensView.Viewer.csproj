@@ -30,13 +30,16 @@
   </PropertyGroup>
 
   <Target Name="BuildAgentPayloads" BeforeTargets="CopyAgentPayloads">
+    <!-- Prevent outer Viewer publish globals from leaking into agent restores/builds and poisoning shared restore assets. -->
     <!-- Modern agent: publish to get all NuGet dependencies in the output directory -->
     <MSBuild Projects="$(MSBuildThisFileDirectory)..\ScreensView.Agent\ScreensView.Agent.csproj"
              Targets="Restore;Publish"
+             RemoveProperties="TargetFramework;PublishProfile"
              Properties="Configuration=$(Configuration);PublishDir=$(MSBuildThisFileDirectory)..\ScreensView.Agent\bin\$(Configuration)\net8.0-windows\publish\" />
     <!-- Legacy agent: plain build is sufficient (.NET Framework resolves via GAC/local) -->
     <MSBuild Projects="$(MSBuildThisFileDirectory)..\ScreensView.Agent.Legacy\ScreensView.Agent.Legacy.csproj"
              Targets="Restore;Build"
+             RemoveProperties="TargetFramework;PublishProfile"
              Properties="Configuration=$(Configuration)" />
   </Target>
 

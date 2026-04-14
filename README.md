@@ -28,6 +28,7 @@ dotnet test ScreensView.Tests/ScreensView.Tests.csproj
 ```
 
 - `dotnet build` собирает всё решение, включая Viewer, modern/legacy agent и общую библиотеку.
+- Viewer при build/publish дополнительно staging'ит payload обоих агентов через вложенные сборки проектов; в этих вызовах нужно сохранять собственные `TargetFramework` каждого проекта, чтобы не ломать restore общей библиотеки.
 - `ScreensView.Tests` содержит основной набор xUnit-проверок для shared-контрактов, Viewer-сервисов, LLM-пайплайна и сценариев удалённого развёртывания агента.
 
 ## Требования
