@@ -241,6 +241,12 @@
                                     <MenuItem Header="Запустить LLM сейчас" Click="TileMenu_RunLlmNow"/>
                                     <MenuItem Header="Пинг" Click="TileMenu_Ping"/>
                                     <Separator/>
+                                    <MenuItem Header="RDP" Click="TileMenu_Rdp"/>
+                                    <MenuItem Header="Открыть папку" Click="TileMenu_OpenShare"/>
+                                    <Separator/>
+                                    <MenuItem Header="Перезагрузить" Click="TileMenu_Restart"/>
+                                    <MenuItem Header="Выключить" Click="TileMenu_Shutdown"/>
+                                    <Separator/>
                                     <MenuItem Header="Удалить" Click="TileMenu_Delete"/>
                                 </ContextMenu>
                             </Border.ContextMenu>

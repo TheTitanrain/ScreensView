@@ -116,6 +116,60 @@ public partial class MainWindow : Window
         }
     }
 
+    private void TileMenu_Rdp(object sender, RoutedEventArgs e)
+    {
+        var vm = GetMenuVm(sender);
+        if (vm == null) return;
+        System.Diagnostics.Process.Start("mstsc.exe", $"/v:{vm.Host}");
+    }
+
+    private void TileMenu_OpenShare(object sender, RoutedEventArgs e)
+    {
+        var vm = GetMenuVm(sender);
+        if (vm == null) return;
+        System.Diagnostics.Process.Start("explorer.exe", $@"\\{vm.Host}\c$");
+    }
+
+    private async void TileMenu_Restart(object sender, RoutedEventArgs e)
+    {
+        var vm = GetMenuVm(sender);
+        if (vm == null) return;
+        if (MessageBox.Show($"Перезагрузить «{vm.Name}»?", "Перезагрузка",
+                MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+        var dlg = new Views.CredentialsDialog { Owner = this };
+        if (dlg.ShowDialog() != true) return;
+        try
+        {
+            await Services.RemotePowerService.RestartAsync(vm.Host, dlg.Username, dlg.Password);
+            MessageBox.Show($"{vm.Name}: команда перезагрузки отправлена.", "Перезагрузка",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Ошибка: {ex.Message}", "Перезагрузка", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
+    private async void TileMenu_Shutdown(object sender, RoutedEventArgs e)
+    {
+        var vm = GetMenuVm(sender);
+        if (vm == null) return;
+        if (MessageBox.Show($"Выключить «{vm.Name}»?", "Выключение",
+                MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
+        var dlg = new Views.CredentialsDialog { Owner = this };
+        if (dlg.ShowDialog() != true) return;
+        try
+        {
+            await Services.RemotePowerService.ShutdownAsync(vm.Host, dlg.Username, dlg.Password);
+            MessageBox.Show($"{vm.Name}: команда выключения отправлена.", "Выключение",
+                MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+        catch (Exception ex)
+        {
+            MessageBox.Show($"Ошибка: {ex.Message}", "Выключение", MessageBoxButton.OK, MessageBoxImage.Error);
+        }
+    }
+
     private void TileMenu_Delete(object sender, RoutedEventArgs e)
     {
         var vm = GetMenuVm(sender);
