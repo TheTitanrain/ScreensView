@@ -29,24 +29,6 @@
     <ApplicationIcon>screensview.ico</ApplicationIcon>
   </PropertyGroup>
 
-  <!-- Workaround for .NET 8 SDK + VS MSBuild ClickOnce incompatibility:
-       The SDK's ComputeAndCopyFilesToPublishDirectory already produces a complete ClickOnce package
-       (setup.exe, Launcher.exe, .application manifest, Application Files\). The legacy VS MSBuild target
-       _CopyFilesToPublishFolder then runs and fails: SourceFiles/DestinationFiles count mismatch (MSB3094)
-       because _DeploymentResolvedManifestEntryPoint is empty while _DeploymentManifestEntryPoint has 1 item,
-       and if GenerateManifests runs first, MSB3030 follows because the resolved path doesn't match the SDK layout.
-       Clearing the item groups before the target makes the Copy task a no-op (0 items, no mismatch). -->
-  <Target Name="_SkipLegacyClickOnceCopy"
-          BeforeTargets="_CopyFilesToPublishFolder"
-          Condition="'$(PublishProtocol)' == 'ClickOnce'">
-    <ItemGroup>
-      <_ApplicationManifestFinal Remove="@(_ApplicationManifestFinal)" />
-      <_DeploymentManifestEntryPoint Remove="@(_DeploymentManifestEntryPoint)" />
-      <_DeploymentResolvedManifestEntryPoint Remove="@(_DeploymentResolvedManifestEntryPoint)" />
-      <_DeploymentManifestFiles Remove="@(_DeploymentManifestFiles)" />
-    </ItemGroup>
-  </Target>
-
   <Target Name="BuildAgentPayloads" BeforeTargets="CopyAgentPayloads">
     <!-- Prevent outer Viewer publish globals from leaking into agent restores/builds and poisoning shared restore assets.
          RemoveProperties strips ClickOnce-specific globals so they never flow into nested invocations.
@@ -114,31 +96,6 @@
     </ItemGroup>
     <Warning Text="Missing required .NET 8 runtime installers in Prerequisites\. Download both dotnet-runtime-8.*-win-x64.exe and aspnetcore-runtime-8.*-win-x64.exe from https://dotnet.microsoft.com/download/dotnet/8.0 and place them in ScreensView.Viewer\Prerequisites\."
              Condition="'@(_DotNetRuntimeInstaller)' == '' or '@(_AspNetCoreInstaller)' == ''" />
-  </Target>
-
-  <Target Name="MirrorClickOncePublishToLegacyBinRoot"
-          AfterTargets="Publish"
-          Condition="'$(PublishProtocol)' == 'ClickOnce'">
-    <PropertyGroup>
-      <!-- VS publish host may still probe $(ProjectDir)\bin\app.publish even when SDK publishes under bin\<Config>\<TFM>\app.publish -->
-      <_LegacyBinPublishDir>$(MSBuildProjectDirectory)\bin\app.publish\</_LegacyBinPublishDir>
-      <_ResolvedPublishDir Condition="$([System.IO.Path]::IsPathRooted('$(PublishDir)'))">$(PublishDir)</_ResolvedPublishDir>
-      <_ResolvedPublishDir Condition="'$(_ResolvedPublishDir)' == ''">$([System.IO.Path]::GetFullPath('$(MSBuildProjectDirectory)\$(PublishDir)'))</_ResolvedPublishDir>
-    </PropertyGroup>
-
-    <RemoveDir Directories="$(_LegacyBinPublishDir)"
-               Condition="'$(_ResolvedPublishDir)' != '$(_LegacyBinPublishDir)' and Exists('$(_LegacyBinPublishDir)')" />
-    <MakeDir Directories="$(_LegacyBinPublishDir)"
-             Condition="'$(_ResolvedPublishDir)' != '$(_LegacyBinPublishDir)'" />
-
-    <ItemGroup Condition="'$(_ResolvedPublishDir)' != '$(_LegacyBinPublishDir)' and Exists('$(_ResolvedPublishDir)')">
-      <_PublishedFilesForLegacyPath Include="$(_ResolvedPublishDir)**\*.*" />
-    </ItemGroup>
-
-    <Copy SourceFiles="@(_PublishedFilesForLegacyPath)"
-          DestinationFiles="@(_PublishedFilesForLegacyPath->'$(_LegacyBinPublishDir)%(RecursiveDir)%(Filename)%(Extension)')"
-          SkipUnchangedFiles="true"
-          Condition="'@(_PublishedFilesForLegacyPath)' != ''" />
   </Target>
 
 </Project>

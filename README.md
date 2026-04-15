@@ -29,9 +29,7 @@ dotnet test ScreensView.Tests/ScreensView.Tests.csproj
 ```
 
 - `dotnet build ScreensView.slnx` собирает всё решение, включая Viewer, modern/legacy agent и общую библиотеку.
-- Viewer при build/publish дополнительно staging'ит payload обоих агентов через вложенные сборки проектов; в этих вызовах нужно сохранять собственные `TargetFramework` каждого проекта, чтобы не ломать restore общей библиотеки.
-- ClickOnce publish для Viewer использует workaround совместимости `.NET 8 SDK + Visual Studio ClickOnce`: вложенные сборки агентов изолируются от внешнего publish-контекста, legacy VS ClickOnce targets подавляются в `ScreensView.Viewer/Directory.Build.targets` и защитно в `ScreensView.Agent/Directory.Build.targets`, а итоговый publish-output дополнительно зеркалится в `ScreensView.Viewer\bin\app.publish` для VS publish host compatibility.
-- Проверочный сценарий publish (MSBuild + ожидаемые артефакты) описан в `docs/superpowers/plans/2026-04-14-clickonce-agent-publish-isolation.md`.
+- Viewer при сборке дополнительно staging'ит payload обоих агентов через вложенные сборки проектов; в этих вызовах сохраняется собственный `TargetFramework` каждого проекта, чтобы не ломать restore общей библиотеки.
 - `ScreensView.Tests` содержит основной набор xUnit-проверок для shared-контрактов, Viewer-сервисов, LLM-пайплайна и сценариев удалённого развёртывания агента.
 
 ## Требования
@@ -45,6 +43,32 @@ dotnet test ScreensView.Tests/ScreensView.Tests.csproj
 - Для удалённой установки: права локального администратора на целевой машине, открытый `Admin$`, доступный WMI (порт 135 + dynamic RPC)
 
 > Windows 7 support — это compatibility path. В `2026` году он не считается поддерживаемой Microsoft платформой: `.NET Framework 4.8` следует lifecycle базовой Windows OS.
+
+## Установщики
+
+Для развёртывания без Visual Studio используйте Inno Setup скрипты в папке `installer/`.
+
+**Требования:** [Inno Setup 6](https://jrsoftware.org/isdl.php) (`iscc` в PATH).
+
+```cmd
+installer\build.cmd
+```
+
+Команда собирает Viewer через `dotnet build -c Release`, после чего генерирует два установщика в `installer\Output\`:
+
+| Файл | Назначение |
+|---|---|
+| `ScreensView.Viewer-Setup-x.y.z.exe` | Устанавливает Viewer с bundled agent payload в `%ProgramFiles%\ScreensView\Viewer\`. Проверяет наличие `.NET 8 Desktop Runtime`. |
+| `ScreensView.Agent-Setup.exe` | Устанавливает агент вручную на целевую машину, если удалённая установка из Viewer невозможна. |
+
+### Agent Setup
+
+- Автоматически определяет ОС: Win10+ → modern agent (`.NET 8`), Win7 → legacy agent (`.NET Framework 4.8`).
+- Генерирует API ключ при первой установке. Ключ показывается на отдельной странице мастера — скопируйте его в Viewer.
+- При обновлении ключ сохраняется из существующего `appsettings.json`.
+- Создаёт и запускает службу `ScreensViewAgent` под `LocalSystem`.
+
+> Modern agent требует `.NET 8 Runtime` и `ASP.NET Core Runtime` на целевой машине. Если их нет, служба не запустится — установите runtime вручную или через Viewer (**Установить .NET 8 runtimes**).
 
 ## Быстрый старт
 

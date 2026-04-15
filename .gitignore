@@ -39,3 +39,6 @@ artifacts/
 
 # .NET 8 offline installer (downloaded manually, not committed)
 ScreensView.Viewer/Prerequisites/*.exe
+
+# Inno Setup compiled output
+installer/Output/

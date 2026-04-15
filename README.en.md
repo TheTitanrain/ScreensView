@@ -29,9 +29,7 @@ dotnet test ScreensView.Tests/ScreensView.Tests.csproj
 ```
 
 - `dotnet build ScreensView.slnx` compiles the whole solution, including Viewer, modern/legacy agents, and the shared library.
-- During Viewer build/publish, both agent payloads are staged through nested project builds; those calls must keep each project's own `TargetFramework` so shared-library restore assets are not corrupted.
-- Viewer ClickOnce publish uses a `.NET 8 SDK + Visual Studio ClickOnce` compatibility workaround: nested agent builds are isolated from outer publish globals, legacy VS ClickOnce targets are suppressed in `ScreensView.Viewer/Directory.Build.targets` plus a defensive guard in `ScreensView.Agent/Directory.Build.targets`, and publish output is additionally mirrored to `ScreensView.Viewer\bin\app.publish` for VS publish host compatibility.
-- The publish verification scenario (MSBuild command + expected artifacts) is documented in `docs/superpowers/plans/2026-04-14-clickonce-agent-publish-isolation.md`.
+- During Viewer build, both agent payloads are staged through nested project builds; those calls keep each project's own `TargetFramework` so shared-library restore assets are not corrupted.
 - `ScreensView.Tests` contains the main verification suite for shared contracts, Viewer services, the LLM pipeline, and remote agent deployment scenarios.
 
 ## Requirements
@@ -45,6 +43,32 @@ dotnet test ScreensView.Tests/ScreensView.Tests.csproj
 - Remote installation requires local administrator rights on the target machine, an accessible `Admin$` share, and working WMI access (`135` + dynamic RPC)
 
 > Windows 7 support is a compatibility path. In `2026`, it is not considered a Microsoft-supported modern platform: `.NET Framework 4.8` follows the lifecycle of the base Windows OS.
+
+## Installers
+
+To deploy without Visual Studio, use the Inno Setup scripts in the `installer/` folder.
+
+**Requirement:** [Inno Setup 6](https://jrsoftware.org/isdl.php) with `iscc` on PATH.
+
+```cmd
+installer\build.cmd
+```
+
+This builds the Viewer via `dotnet build -c Release` and produces two installers in `installer\Output\`:
+
+| File | Purpose |
+|---|---|
+| `ScreensView.Viewer-Setup-x.y.z.exe` | Installs the Viewer with bundled agent payloads to `%ProgramFiles%\ScreensView\Viewer\`. Checks for `.NET 8 Desktop Runtime`. |
+| `ScreensView.Agent-Setup.exe` | Installs the agent manually on a target machine when remote installation from Viewer is not possible. |
+
+### Agent Setup
+
+- Auto-detects the OS: Win10+ → modern agent (`.NET 8`), Win7 → legacy agent (`.NET Framework 4.8`).
+- Generates an API key on fresh install. The key is shown on a dedicated wizard page — copy it into Viewer.
+- On upgrade the key is preserved from the existing `appsettings.json`.
+- Creates and starts the `ScreensViewAgent` service under `LocalSystem`.
+
+> The modern agent requires `.NET 8 Runtime` and `ASP.NET Core Runtime` on the target machine. If they are missing the service will not start — install the runtimes manually or via Viewer (**Install .NET 8 runtimes**).
 
 ## Quick Start
 
