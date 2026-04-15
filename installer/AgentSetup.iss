@@ -26,6 +26,9 @@ Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
 Source: "{#SourceDir}\AgentPayloads\Modern\*"; DestDir: "{app}"; Flags: ignoreversion recursesubdirs createallsubdirs; Excludes: "*.pdb"; Check: IsWin10OrLater
 ; Legacy agent (Win7/8, .NET Framework 4.8)
 Source: "{#SourceDir}\AgentPayloads\Legacy\*"; DestDir: "{app}"; Flags: ignoreversion; Excludes: "*.pdb"; Check: not IsWin10OrLater
+; .NET 8 runtime prerequisites — copied to {tmp}, deleted after install (Win10+ only)
+Source: "{#SourceDir}\Prerequisites\dotnet-runtime-8.*-win-x64.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall; Check: IsWin10OrLater
+Source: "{#SourceDir}\Prerequisites\aspnetcore-runtime-8.*-win-x64.exe"; DestDir: "{tmp}"; Flags: deleteafterinstall; Check: IsWin10OrLater
 
 [Code]
 var
@@ -52,6 +55,73 @@ begin
   Result := '';
   for i := 1 to 32 do
     Result := Result + chars[Random(16) + 1];
+end;
+
+// ── .NET 8 detection and install ─────────────────────────────────────────────
+
+function IsDotNet8RuntimeInstalled: Boolean;
+var
+  SubkeyNames: TArrayOfString;
+  i: Integer;
+begin
+  Result := False;
+  if RegGetSubkeyNames(HKLM,
+    'SOFTWARE\dotnet\Setup\InstalledVersions\x64\sharedfx\Microsoft.NETCore.App',
+    SubkeyNames) then
+    for i := 0 to GetArrayLength(SubkeyNames) - 1 do
+      if Pos('8.', SubkeyNames[i]) = 1 then
+      begin
+        Result := True;
+        Break;
+      end;
+end;
+
+function IsDotNet8AspNetCoreInstalled: Boolean;
+var
+  SubkeyNames: TArrayOfString;
+  i: Integer;
+begin
+  Result := False;
+  if RegGetSubkeyNames(HKLM,
+    'SOFTWARE\dotnet\Setup\InstalledVersions\x64\sharedfx\Microsoft.AspNetCore.App',
+    SubkeyNames) then
+    for i := 0 to GetArrayLength(SubkeyNames) - 1 do
+      if Pos('8.', SubkeyNames[i]) = 1 then
+      begin
+        Result := True;
+        Break;
+      end;
+end;
+
+function FindFileInTmp(const Pattern: String): String;
+var
+  FindRec: TFindRec;
+begin
+  Result := '';
+  if FindFirst(ExpandConstant('{tmp}\') + Pattern, FindRec) then
+  begin
+    Result := ExpandConstant('{tmp}\') + FindRec.Name;
+    FindClose(FindRec);
+  end;
+end;
+
+procedure InstallDotNetIfNeeded;
+var
+  RC: Integer;
+  InstallerPath: String;
+begin
+  if not IsDotNet8RuntimeInstalled then
+  begin
+    InstallerPath := FindFileInTmp('dotnet-runtime-8.*-win-x64.exe');
+    if InstallerPath <> '' then
+      Exec(InstallerPath, '/quiet /norestart', '', SW_SHOW, ewWaitUntilTerminated, RC);
+  end;
+  if not IsDotNet8AspNetCoreInstalled then
+  begin
+    InstallerPath := FindFileInTmp('aspnetcore-runtime-8.*-win-x64.exe');
+    if InstallerPath <> '' then
+      Exec(InstallerPath, '/quiet /norestart', '', SW_SHOW, ewWaitUntilTerminated, RC);
+  end;
 end;
 
 // ── Service helpers ───────────────────────────────────────────────────────────
@@ -99,10 +169,7 @@ begin
   if RC <> 0 then
     MsgBox(
       'Сервис установлен, но не запустился (код ' + IntToStr(RC) + ').' + #13#10 +
-      'Для современного агента требуются:' + #13#10 +
-      '  • .NET 8 Runtime' + #13#10 +
-      '  • ASP.NET Core 8 Runtime' + #13#10 +
-      'Скачайте с https://dotnet.microsoft.com/download/dotnet/8.0',
+      'Проверьте журнал событий Windows для диагностики.',
       mbError, MB_OK);
 end;
 
@@ -189,6 +256,9 @@ begin
     ssPostInstall:
       begin
         SettingsFile := ExpandConstant('{app}\appsettings.json');
+
+        if IsWin10OrLater then
+          InstallDotNetIfNeeded;
 
         if not FileExists(SettingsFile) then
         begin

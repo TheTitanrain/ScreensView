@@ -99,6 +99,8 @@ public class RemoteAgentInstaller
                 _log(computer.Name, "Остановка службы (если запущена)", string.Empty, AgentLogLevel.Info);
                 try { StopService(computer); }
                 catch (Exception ex) { _log(computer.Name, "Предупреждение: остановка службы", ex.Message, AgentLogLevel.Warning); }
+                if (plan == AgentDeploymentPlan.Modern)
+                    InstallRuntimePackages(computer, unc);
                 _log(computer.Name, "Копирование файлов", string.Empty, AgentLogLevel.Info);
                 CopyAgentFiles(targetDir, computer, plan);
                 _log(computer.Name, "Создание службы", string.Empty, AgentLogLevel.Info);
@@ -133,6 +135,8 @@ public class RemoteAgentInstaller
                 _log(computer.Name, "Остановка службы", string.Empty, AgentLogLevel.Info);
                 try { StopService(computer); }
                 catch (Exception ex) { _log(computer.Name, "Предупреждение: остановка службы", ex.Message, AgentLogLevel.Warning); }
+                if (plan == AgentDeploymentPlan.Modern)
+                    InstallRuntimePackages(computer, unc);
                 _log(computer.Name, "Обновление файлов", string.Empty, AgentLogLevel.Info);
                 CopyAgentFiles(targetDir, computer, plan);
                 _log(computer.Name, "Запуск службы", string.Empty, AgentLogLevel.Info);
