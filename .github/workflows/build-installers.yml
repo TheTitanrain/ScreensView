@@ -1,0 +1,80 @@
+name: Build Installers
+
+on:
+  push:
+    tags:
+      - 'v*'
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version (e.g. 1.2.3)'
+        required: false
+        default: '1.0.0'
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Install Inno Setup
+        run: choco install innosetup --no-progress -y
+
+      - name: Determine version
+        id: version
+        shell: bash
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            VERSION="${GITHUB_REF#refs/tags/v}"
+          else
+            VERSION="${{ github.event.inputs.version || '1.0.0' }}"
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+
+      - name: Download .NET 8 prerequisites
+        shell: pwsh
+        run: |
+          $meta = Invoke-RestMethod "https://dotnetcli.azureedge.net/dotnet/release-metadata/8.0/releases.json"
+          $rel  = $meta.releases[0]
+          $dotnet = $rel.runtime.files            | Where-Object { $_.name -match '^dotnet-runtime-\d+\.\d+\.\d+-win-x64\.exe$' } | Select-Object -First 1
+          $aspnet = $rel.'aspnetcore-runtime'.files | Where-Object { $_.name -match '^aspnetcore-runtime-\d+\.\d+\.\d+-win-x64\.exe$' } | Select-Object -First 1
+          New-Item -Force -ItemType Directory "ScreensView.Viewer\Prerequisites" | Out-Null
+          Write-Host "Downloading $($dotnet.name)..."
+          Invoke-WebRequest $dotnet.url -OutFile "ScreensView.Viewer\Prerequisites\$($dotnet.name)"
+          Write-Host "Downloading $($aspnet.name)..."
+          Invoke-WebRequest $aspnet.url -OutFile "ScreensView.Viewer\Prerequisites\$($aspnet.name)"
+
+      - name: Build Viewer (+ agent payloads)
+        run: dotnet build ScreensView.Viewer/ScreensView.Viewer.csproj -c Release
+
+      - name: Build Viewer installer
+        run: iscc /DAppVersion=${{ steps.version.outputs.version }} installer\ViewerSetup.iss
+
+      - name: Build Agent installer
+        run: iscc installer\AgentSetup.iss
+
+      - name: Upload Viewer installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: ScreensView.Viewer-Setup-${{ steps.version.outputs.version }}
+          path: installer/Output/ScreensView.Viewer-Setup-*.exe
+
+      - name: Upload Agent installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: ScreensView.Agent-Setup
+          path: installer/Output/ScreensView.Agent-Setup.exe
+
+      - name: Create GitHub Release
+        if: startsWith(github.ref, 'refs/tags/')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            installer/Output/ScreensView.Viewer-Setup-*.exe
+            installer/Output/ScreensView.Agent-Setup.exe
