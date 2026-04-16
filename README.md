@@ -1,86 +1,86 @@
 # ScreensView
 
-Система мониторинга экранов компьютеров в локальной сети. Агент на каждой машине отдаёт скриншот по HTTPS, наблюдатель отображает все экраны в сетке.
+Screen monitoring system for computers inside a local network. An agent on each machine exposes a screenshot over HTTPS, and the Viewer displays all screens in a single wall.
 
-- Публичный showcase: <https://titanrain.github.io/ScreensView/>
-- English guide: [README.en.md](README.en.md)
+- Public showcase: <https://titanrain.github.io/ScreensView/>
+- Russian guide: [README.ru.md](README.ru.md)
 
-## Структура решения
+## Solution Structure
 
-| Проект | Назначение |
+| Project | Purpose |
 |---|---|
-| `ScreensView.Agent` | Modern Windows Service (`.NET 8`) для Windows 10/11 и поддерживаемых серверных ОС |
-| `ScreensView.Agent.Legacy` | Legacy Windows Service (`.NET Framework 4.8`) для Windows 7 SP1 |
-| `ScreensView.Viewer` | WPF-приложение — сетка скриншотов, управление компьютерами |
-| `ScreensView.Shared` | Общие модели, константы и JSON-контракт агента |
-| `ScreensView.Tests` | xUnit-тесты: протокол именованного пайпа, `NoActiveSessionException` |
+| `ScreensView.Agent` | Modern Windows Service (`.NET 8`) for Windows 10/11 and supported server OS versions |
+| `ScreensView.Agent.Legacy` | Legacy Windows Service (`.NET Framework 4.8`) for Windows 7 SP1 |
+| `ScreensView.Viewer` | WPF application for the screenshot wall and computer management |
+| `ScreensView.Shared` | Shared models, constants, and the agent JSON contract |
+| `ScreensView.Tests` | xUnit tests for shared contracts, Viewer services, LLM pipeline, and remote deployment workflows |
 
-## Разработка
+## Development
 
-- Основная ветка репозитория: `master`.
-- Короткоживущие feature-ветки удаляются после слияния в `master`, чтобы локальные worktree не накапливали уже влитые ветки.
-- Канонический solution-файл репозитория — `ScreensView.slnx`. Не добавляйте рядом одноимённый `ScreensView.sln`: root-level `dotnet` команды и publish tooling Visual Studio начинают видеть неоднозначный solution selection.
+- The main repository branch is `master`.
+- Short-lived feature branches are removed after merge into `master` so local worktrees do not accumulate merged branches.
+- The canonical solution file for the repository is `ScreensView.slnx`. Do not add a sibling `ScreensView.sln` with the same base name: root-level `dotnet` commands and Visual Studio publish tooling become ambiguous.
 
-### Сборка и проверка
+### Build and Test
 
 ```bash
 dotnet build ScreensView.slnx
 dotnet test ScreensView.Tests/ScreensView.Tests.csproj
 ```
 
-- `dotnet build ScreensView.slnx` собирает всё решение, включая Viewer, modern/legacy agent и общую библиотеку.
-- Viewer при сборке дополнительно staging'ит payload обоих агентов через вложенные сборки проектов; в этих вызовах сохраняется собственный `TargetFramework` каждого проекта, чтобы не ломать restore общей библиотеки.
-- `ScreensView.Tests` содержит основной набор xUnit-проверок для shared-контрактов, Viewer-сервисов, LLM-пайплайна и сценариев удалённого развёртывания агента.
+- `dotnet build ScreensView.slnx` compiles the whole solution, including Viewer, modern/legacy agents, and the shared library.
+- During Viewer build, both agent payloads are staged through nested project builds; those calls keep each project's own `TargetFramework` so shared-library restore assets are not corrupted.
+- `ScreensView.Tests` contains the main verification suite for shared contracts, Viewer services, the LLM pipeline, and remote agent deployment scenarios.
 
-## Требования
+## Requirements
 
 - **Viewer**: `.NET 8`, Windows 10/11
 - **Modern Agent**: `.NET 8`, Windows 10/11
-- **Legacy Agent**: Windows 7 SP1 и установленный `.NET Framework 4.8`
-- Для framework-dependent modern-агента на целевой машине нужны оба runtime-пакета: `dotnet-runtime-8.x-win-x64` и `aspnetcore-runtime-8.x-win-x64` либо self-contained/self-hosted альтернатива вне этого проекта
-- Для агента: права администратора (сертификат и HTTPS binding в системе)
-- **Оба агента запускаются под `LocalSystem`** — это требование `WTSQueryUserToken` (захват экрана из Windows Service). Сервис, запущенный под другой учётной записью, получит ошибку при попытке сделать скриншот (`WTSQueryUserToken` требует привилегию `SeTcbPrivilege`, которая есть только у LocalSystem)
-- Для удалённой установки: права локального администратора на целевой машине, открытый `Admin$`, доступный WMI (порт 135 + dynamic RPC)
+- **Legacy Agent**: Windows 7 SP1 with `.NET Framework 4.8`
+- The framework-dependent modern agent requires both `dotnet-runtime-8.x-win-x64` and `aspnetcore-runtime-8.x-win-x64` on the target machine unless you use a self-contained distribution outside this project
+- Agent installation requires administrative privileges because the service provisions a certificate and HTTPS binding
+- **Both agents must run as `LocalSystem`**. This is required by `WTSQueryUserToken` for screen capture from a Windows Service. A service running under another account will fail to capture the screen because `WTSQueryUserToken` requires `SeTcbPrivilege`, which is only available to `LocalSystem`
+- Remote installation requires local administrator rights on the target machine, an accessible `Admin$` share, and working WMI access (`135` + dynamic RPC)
 
-> Windows 7 support — это compatibility path. В `2026` году он не считается поддерживаемой Microsoft платформой: `.NET Framework 4.8` следует lifecycle базовой Windows OS.
+> Windows 7 support is a compatibility path. In `2026`, it is not considered a Microsoft-supported modern platform: `.NET Framework 4.8` follows the lifecycle of the base Windows OS.
 
-## Установщики
+## Installers
 
-Для развёртывания без Visual Studio используйте Inno Setup скрипты в папке `installer/`.
+To deploy without Visual Studio, use the Inno Setup scripts in the `installer/` folder.
 
-**Требования:** [Inno Setup 6](https://jrsoftware.org/isdl.php) (`iscc` в PATH).
+**Requirement:** [Inno Setup 6](https://jrsoftware.org/isdl.php) with `iscc` on PATH.
 
 ```cmd
 installer\build.cmd
 ```
 
-Команда собирает Viewer через `dotnet build -c Release`, после чего генерирует два установщика в `installer\Output\`:
+This builds the Viewer via `dotnet build -c Release` and produces two installers in `installer\Output\`:
 
-| Файл | Назначение |
+| File | Purpose |
 |---|---|
-| `ScreensView.Viewer-Setup-x.y.z.exe` | Устанавливает Viewer с bundled agent payload в `%ProgramFiles%\ScreensView\Viewer\`. Проверяет наличие `.NET 8 Desktop Runtime`. |
-| `ScreensView.Agent-Setup.exe` | Устанавливает агент вручную на целевую машину, если удалённая установка из Viewer невозможна. |
+| `ScreensView.Viewer-Setup-x.y.z.exe` | Installs the Viewer with bundled agent payloads to `%ProgramFiles%\ScreensView\Viewer\`. Checks for `.NET 8 Desktop Runtime`. |
+| `ScreensView.Agent-Setup.exe` | Installs the agent manually on a target machine when remote installation from Viewer is not possible. |
 
 ### Agent Setup
 
-- Автоматически определяет ОС: Win10+ → modern agent (`.NET 8`), Win7 → legacy agent (`.NET Framework 4.8`).
-- Генерирует API ключ при первой установке. Ключ показывается на отдельной странице мастера — скопируйте его в Viewer.
-- При обновлении ключ сохраняется из существующего `appsettings.json`.
-- Создаёт и запускает службу `ScreensViewAgent` под `LocalSystem`.
+- Auto-detects the OS: Win10+ → modern agent (`.NET 8`), Win7 → legacy agent (`.NET Framework 4.8`).
+- Generates an API key on fresh install. The key is shown on a dedicated wizard page — copy it into Viewer.
+- On upgrade the key is preserved from the existing `appsettings.json`.
+- Creates and starts the `ScreensViewAgent` service under `LocalSystem`.
 
-> Modern agent требует `.NET 8 Runtime` и `ASP.NET Core Runtime` на целевой машине. Если их нет, служба не запустится — установите runtime вручную или через Viewer (**Установить .NET 8 runtimes**).
+> The modern agent requires `.NET 8 Runtime` and `ASP.NET Core Runtime` on the target machine. If they are missing the service will not start — install the runtimes manually or via Viewer (**Install .NET 8 runtimes**).
 
-## Быстрый старт
+## Quick Start
 
-### 1. Настройка агента
+### 1. Agent Configuration
 
-Оба варианта агента используют один и тот же `appsettings.json`:
+Both agent variants use the same `appsettings.json`:
 
 ```json
 {
   "Agent": {
     "Port": 5443,
-    "ApiKey": "ВАШ_СЕКРЕТНЫЙ_КЛЮЧ",
+    "ApiKey": "YOUR_SECRET_KEY",
     "ScreenshotQuality": 75
   }
 }
@@ -88,259 +88,220 @@ installer\build.cmd
 
 ### 2. Modern Agent (`Windows 10/11`)
 
-**Запуск для тестирования** (от администратора):
-```
+**Run for testing** (as Administrator):
+
+```bash
 dotnet run --project ScreensView.Agent
 ```
 
-**Установка как Windows Service** (от администратора):
-```
-sc create ScreensViewAgent binPath= "C:\путь\к\ScreensView.Agent.exe" start= auto
+**Install as a Windows Service** (as Administrator):
+
+```text
+sc create ScreensViewAgent binPath= "C:\path\to\ScreensView.Agent.exe" start= auto
 sc start ScreensViewAgent
 ```
 
 ### 3. Legacy Agent (`Windows 7 SP1`)
 
-**Сборка legacy-агента**:
-```
+**Build the legacy agent**:
+
+```bash
 dotnet build ScreensView.Agent.Legacy/ScreensView.Agent.Legacy.csproj
 ```
 
-**Установка как Windows Service** (от администратора):
-```
-sc create ScreensViewAgent binPath= "C:\путь\к\ScreensView.Agent.Legacy.exe" start= auto
+**Install as a Windows Service** (as Administrator):
+
+```text
+sc create ScreensViewAgent binPath= "C:\path\to\ScreensView.Agent.Legacy.exe" start= auto
 sc start ScreensViewAgent
 ```
 
-Legacy-агент сам создаёт self-signed сертификат и на старте обновляет HTTPS binding через `netsh http`.
+The legacy agent creates a self-signed certificate and refreshes the HTTPS binding through `netsh http` on startup.
 
-### 4. Проверка агента
+### 4. Agent Health Check
 
+```bash
+curl -k -H "X-Api-Key: YOUR_SECRET_KEY" https://localhost:5443/health
 ```
-curl -k -H "X-Api-Key: ВАШ_СЕКРЕТНЫЙ_КЛЮЧ" https://localhost:5443/health
-```
 
-> При отсутствии активного пользователя на консоли или при заблокированной рабочей станции `/screenshot` возвращает **HTTP 503** вместо скриншота. Это штатное поведение: viewer помечает такую машину как `Locked` и показывает оверлей с замком, потому что агент не может захватить изображение с secure desktop.
+> If no active console user exists or the workstation is locked, `/screenshot` returns **HTTP 503** instead of an image. This is expected behavior: Viewer marks the machine as `Locked` and shows a lock overlay because the agent cannot capture the secure desktop.
 
 ### 5. Viewer
 
-```
+```bash
 dotnet run --project ScreensView.Viewer
 ```
 
-Viewer также можно запустить сразу с конкретным внешним файлом подключений:
+1. Click **Computers** to open **Manage Computers**.
+2. Use **Add** for one computer or **Add multiple** for bulk entry. The bulk dialog supports **By hosts** and **By IP range**, auto-generates API keys, and can immediately offer agent installation for the new machines.
+3. In **Add computer**, fill in the **Computer**, **Connection**, and optionally **Screen description** sections for LLM comparison: name, host, port, and API key.
+4. The **Manage Computers** window supports multi-select: **Delete**, **Install agent**, and **Remove agent** apply to the selected rows, while **Update agents** updates all enabled computers.
+5. If the target machine is missing the modern-agent prerequisites, use **Install .NET 8 runtimes** to install `.NET Runtime` and `ASP.NET Core Runtime` in sequence.
+6. The **Enabled** column can be toggled directly in the table. Disabled machines are not polled by Viewer, do not participate in bulk agent updates, and display an explicit disabled mark on the card.
+7. Click **Start** to begin polling screenshots.
+8. Double-click a card or use **Open** from the context menu to open a dedicated zoom window with the live screenshot. Locked machines do not open in zoom; the card remains in the grid with the lock overlay.
+9. Right-clicking a tile opens a context menu with **Open**, **Edit**, **Run LLM now**, **Ping**, and **Delete**.
+10. If needed, open **Settings** and enable **Autostart** so Viewer launches with Windows.
 
-```
-dotnet run --project ScreensView.Viewer -- --connections-file "C:\Shared\connections.svc"
-```
+### LLM Screen Analysis
 
-- `--connections-file` принимает только абсолютный путь или UNC-путь.
-- Если указанный файл не существует или не открывается, Viewer покажет ошибку и завершит запуск.
-- При таком запуске Viewer не делает тихий fallback на локальный `%AppData%\ScreensView\computers.json` или на другой сохранённый источник.
+Viewer can locally compare a screenshot with the expected screen description.
 
-1. Нажать **Компьютеры** и открыть окно **Управление компьютерами**.
-2. Для одиночного добавления используйте **Добавить**. Для массового — **Добавить несколько**: диалог поддерживает вкладки **По хостам** и **По диапазону IP**, автоматически генерирует API-ключи и после сохранения может сразу предложить установить агент на новые машины.
-3. В диалоге **Добавить компьютер** заполнить секции **Компьютер**, **Подключение** и при необходимости **Описание экрана** для LLM-сравнения с ожидаемым типом экрана: имя, хост, порт и API-ключ.
-4. В окне **Управление компьютерами** список поддерживает multi-select: **Удалить**, **Установить агент** и **Удалить агент** работают по выбранным строкам, а **Обновить агентов** обновляет все включённые компьютеры.
-5. Если для modern-агента на целевой машине ещё нет нужных runtime-зависимостей, используйте кнопку **Установить .NET 8 runtimes**: Viewer установит `.NET Runtime` и `ASP.NET Core Runtime` по очереди.
-6. Колонку **Включён** можно переключать прямо в таблице: выключенные машины не опрашиваются Viewer, не участвуют в массовом обновлении агентов и получают явную пометку `Откл.` в карточке.
-7. Нажать **Запустить** — скриншоты появятся в сетке.
-8. Двойной клик по карточке или действие **Открыть** в контекстном меню открывает отдельное zoom-окно с живым скриншотом. Для состояния `Locked` zoom не открывается: карточка остаётся в сетке с оверлеем блокировки.
-9. Правый клик по тайлу открывает контекстное меню: **Открыть**, **Редактировать**, **Запустить LLM сейчас**, **Пинг**, **Удалить**.
-10. При необходимости откройте **Настройки** и включите **Автозапуск**, чтобы Viewer запускался вместе с Windows.
+1. Open **Settings** and enable **Screen analysis**.
+2. On first use, pick a model and click **Download**. The default is a compatible `LLaVA v1.5 7B`. Experimental entries such as `Gemma 4 E2B`, `Qwen3.5-0.8B`, and other GGUF variants can also appear in Settings.
+3. If the selected backend is `CUDA (NVIDIA)`, Viewer downloads two separate archives from the `llama.cpp` release: the main `llama-...-bin-win-cuda-12...zip` containing `llama-server.exe` and a separate `cudart-llama-...-bin-win-cuda-12...zip` archive containing the CUDA runtime DLLs. If the backend status shows `Not downloaded` or `Partially downloaded`, use **Download backend** in Settings to repair the local binaries.
+4. Open **Edit** for the computer and fill in **Screen description**.
 
-### LLM-анализ экрана
+- The screen description helps LLM compare the current screenshot with the expected screen type.
+- Focus on stable visual structure: large blocks, columns, color zones, timelines, tables, or tiles.
+- Do not list small, constantly changing details such as precise timestamps, identifiers, surnames, comments, or other dynamic fields.
+- Example: `A scoreboard with large numbers on the left and wide rows on the right; the overall structure, color zones, and large time intervals matter more than exact values.`
 
-Viewer может локально сверять скриншот компьютера с ожидаемым описанием экрана.
+5. After that, the card shows an LLM badge in the top-right corner:
 
-1. Откройте **Настройки** и включите **Распознавание экрана**.
-2. При первом запуске выберите модель и нажмите **Скачать**. По умолчанию выбран совместимый `LLaVA v1.5 7B`. В списке также доступны экспериментальные `Gemma 4 E2B`, `Qwen3.5-0.8B` и другие GGUF-варианты из настроек.
-3. Если выбран backend `CUDA (NVIDIA)`, Viewer скачивает два отдельных архива из релиза `llama.cpp`: основной `llama-...-bin-win-cuda-12...zip` с `llama-server.exe` и отдельный `cudart-llama-...-bin-win-cuda-12...zip` с CUDA runtime DLL. Если статус backend показывает `Не скачан` или `Скачан не полностью`, нажмите **Скачать бэкенд** в настройках, чтобы восстановить локальные бинарники.
-4. Для нужного компьютера откройте **Редактировать** и заполните поле **Описание экрана**.
+- `?` - service enabled but screen description is missing
+- `LLM` - description exists and the first check is pending
+- `...` - analysis of the current screenshot is in progress
+- `✓` - screen matches the description
+- `✗` - screen does not match the description
+- `!` - analysis error
 
-- Описание экрана помогает LLM сравнивать текущий скриншот с ожидаемым типом экрана.
-- Пишите про стабильную визуальную структуру: крупные блоки, колонки, цветовые зоны, таймлайны, таблицы или плитки.
-- Не перечисляйте мелкие и постоянно меняющиеся детали: точные времена, номера, фамилии, комментарии и другие динамические поля.
-- Пример: `Табло с крупными номерами слева и широкими строками справа; важны общая структура, цветовые зоны и крупные интервалы времени.`
+If screen analysis is disabled, the badge is hidden on all cards.
+The **LLM now** toolbar button runs an out-of-band LLM check for all cards immediately.
+The context menu also exposes **Run LLM now** for a single computer.
+Viewer marshals command availability updates back to the WPF dispatcher, so manual LLM execution remains safe even if model startup completes on a background thread after a download or model switch.
 
-5. После этого в правом верхнем углу карточки появляется бейдж статуса LLM:
+If the model or projector fails to load, Viewer shows `Model load error` in Settings and writes details to `%AppData%\ScreensView\logs\viewer.log`.
+If the log contains `unknown model architecture`, the selected GGUF is not supported by the current `LLama` runtime even if the files downloaded successfully.
+For multimodal requests, Viewer uses a fast profile: it resizes screenshots to a `768 px` long edge, encodes JPEG with quality `80`, limits the model response, and for some Qwen variants additionally lowers the image token budget on the `llama-server` side.
+If a screenshot exactly matches one of the last 16 already analyzed frames for the same computer, Viewer reuses the cached result and skips another LLM call.
+During screen analysis, `viewer.log` writes the outcome per computer and separate events such as `CacheHit`, `CacheMiss`, `SkipStaleScreenshot`, `Timeout`, and `Cancelled`.
+For LLM debugging, `viewer.log` also writes `LlmInferenceService.RawResponseMismatch`, `LlmInferenceService.RawResponseEmptyExplanation`, and `LlmInferenceService.RawResponseParseError` with the raw model response and the normalized string after stripping `<think>...</think>`.
 
-- `?` — сервис включён, но описание экрана не задано
-- `LLM` — описание есть, ожидается первая проверка
-- `···` — идёт анализ текущего скриншота
-- `✓` — экран соответствует описанию
-- `✗` — экран не соответствует описанию
-- `!` — ошибка анализа
+## Remote Agent Installation and Maintenance
 
-Если распознавание выключено, бейдж скрывается на всех карточках.
-Кнопка **LLM сейчас** в верхнем toolbar запускает внеочередную LLM-проверку сразу для всех карточек, не дожидаясь следующего интервала.
-В контекстном меню карточки доступно действие **Запустить LLM сейчас** для немедленной проверки только этого компьютера.
-Viewer возвращает обновление доступности этих команд обратно в WPF dispatcher, поэтому ручной запуск остаётся безопасным даже если проверка модели завершилась на фоновом потоке после скачивания или смены модели.
+The **Manage Computers** window provides:
 
-Если модель или projector не загружаются, Viewer покажет состояние `Ошибка загрузки модели` в настройках и запишет детали в `%AppData%\ScreensView\logs\viewer.log`.
-Если в логе есть строка `unknown model architecture`, значит выбранный `GGUF` не поддерживается текущим `LLama` runtime, даже если файлы скачаны полностью.
-Для multimodal-запросов Viewer теперь использует fast-profile: уменьшает скриншот до длинной стороны `768 px`, кодирует JPEG с quality `80`, ограничивает короткий ответ модели и для части Qwen-моделей дополнительно снижает image token budget на стороне `llama-server`.
-Если новый скриншот в точности совпадает с одним из последних 16 уже проверенных кадров этого компьютера, Viewer переиспользует предыдущий результат и не вызывает LLM повторно.
-Во время проверки экрана `viewer.log` пишет итог по каждому компьютеру и отдельные события `CacheHit`, `CacheMiss`, `SkipStaleScreenshot`, `Timeout`, `Cancelled`, чтобы было видно, почему конкретный кадр проверялся или был пропущен.
-Для LLM-debug `viewer.log` также пишет `LlmInferenceService.RawResponseMismatch`, `LlmInferenceService.RawResponseEmptyExplanation` и `LlmInferenceService.RawResponseParseError` с полным сырым ответом модели и нормализованной строкой после вырезания `<think>...</think>`.
+- **Install agent** for one or more selected computers
+- **Remove agent** for one or more selected computers
+- **Install .NET 8 runtimes** for one or more selected computers that will run the modern agent
+- **Update agents** for all enabled computers without requiring a manual row selection
+- An optional immediate install offer after **Add multiple** for the freshly added set
 
-## Удалённая установка и обслуживание агента
+Viewer automatically selects the payload for the target OS:
 
-В окне **Управление компьютерами** доступны операции:
+- `Windows 10/11` and supported server versions -> `ScreensView.Agent` (`.NET 8`)
+- `Windows 7 SP1` + `.NET Framework 4.8` -> `ScreensView.Agent.Legacy` (`net48`)
+- `Windows 7` without `.NET Framework 4.8` -> installation stops with a diagnostic error
+- Unsupported OS versions -> installation stops with an explicit message
 
-- **Установить агент** для одного или нескольких выбранных компьютеров.
-- **Удалить агент** для одного или нескольких выбранных компьютеров.
-- **Установить .NET 8 runtimes** для одного или нескольких выбранных компьютеров с modern-агентом.
-- **Обновить агентов** для всех включённых компьютеров без необходимости вручную выбирать строки.
-- Сразу после **Добавить несколько** Viewer может предложить установить агент на весь только что добавленный набор.
+Target machine requirements:
 
-Viewer автоматически выбирает payload по целевой ОС:
+- `Admin$` must be available (`\\hostname\Admin$`)
+- WMI must be reachable (`135` + dynamic RPC)
+- credentials must have local administrator rights
 
-- `Windows 10/11` и поддерживаемые серверные ОС → `ScreensView.Agent` (`.NET 8`)
-- `Windows 7 SP1` + `.NET Framework 4.8` → `ScreensView.Agent.Legacy` (`net48`)
-- `Windows 7` без `.NET Framework 4.8` → установка прерывается с диагностической ошибкой
-- неподдерживаемые ОС (например, старые workstation-версии между Windows 7 и Windows 10) → установка прерывается с явным сообщением
+Viewer copies the selected payload into `C:\Windows\ScreensViewAgent\`, creates the `ScreensViewAgent` service, and starts it.
+For install, uninstall, and update operations, Viewer prompts for local administrator credentials on the target machine and uses them for `Admin$`, WMI, and service control.
+The **Install .NET 8 runtimes** action uses the same credentials and installs `dotnet-runtime-8.*-win-x64.exe` first, followed by `aspnetcore-runtime-8.*-win-x64.exe` from `ScreensView.Viewer/Prerequisites/`.
 
-Требования к целевой машине:
+The install/update/uninstall progress window shows each step in real time with color coding: green for success, red for failure, yellow for warning (for example, the service could not stop but the operation continued).
 
-- открыт `Admin$` (`\\hostname\Admin$`)
-- разрешён WMI (порт `135` + dynamic RPC)
-- учётная запись с правами локального администратора
+## Security
 
-Viewer копирует выбранный payload в `C:\Windows\ScreensViewAgent\`, создаёт и запускает службу `ScreensViewAgent`.
-Для операций установки, удаления и обновления Viewer запрашивает учётные данные локального администратора целевой машины и использует их для доступа к `Admin$`, WMI и управлению службой.
-Установка `.NET 8 runtimes` использует те же учётные данные и ставит сначала `dotnet-runtime-8.*-win-x64.exe`, затем `aspnetcore-runtime-8.*-win-x64.exe` из `ScreensView.Viewer/Prerequisites/`.
-
-Окно установки/обновления/удаления отображает каждый шаг в реальном времени с цветовой индикацией: зелёный — успех, красный — ошибка, жёлтый — предупреждение (например, служба не смогла остановиться, но операция продолжена).
-
-## Безопасность
-
-| Угроза | Защита |
+| Threat | Protection |
 |---|---|
-| Перехват трафика | HTTPS (TLS 1.2+), self-signed сертификат |
-| Несанкционированный доступ к агенту | API-ключ в заголовке `X-Api-Key` |
-| Подмена сертификата | Pinning SHA-256 thumbprint в Viewer |
+| Traffic interception | HTTPS (TLS 1.2+), self-signed certificate |
+| Unauthorized access to the agent | API key in the `X-Api-Key` header |
+| Certificate substitution | Pinned SHA-256 thumbprint in Viewer |
 
-Сертификат генерируется автоматически при первом запуске агента и хранится в `LocalMachine\My`.
+The certificate is generated automatically on first agent start and stored in `LocalMachine\My`.
 
-## Обновление
+## Updates
 
-### Агент (из Viewer)
+### Agent (from Viewer)
 
-Выбрать компьютер → **Управление компьютерами** → остановит службу, заменит payload, затем снова запустит службу. В этом же окне кнопка **Обновить агентов** обновляет все активные машины параллельно, сохраняя выбор `modern`/`legacy` по ОС.
+Choose a computer -> **Manage Computers** -> Viewer stops the service, replaces the payload, and starts the service again. **Update agents** in the same window updates all active machines in parallel while preserving the modern/legacy selection for each OS.
 
-### Viewer (авто-обновление)
+### Viewer (auto-update)
 
-При запуске Viewer проверяет GitHub Releases. Если есть новая версия — предлагает обновиться. Та же проверка доступна вручную в окне «О программе» по кнопке «Проверить обновления». В проекте используется такой репозиторий в `ScreensView.Viewer/Services/ViewerUpdateService.cs`:
+On startup, Viewer checks GitHub Releases. If a new version exists, Viewer offers an update. The same check is available manually from the **About** window through **Check for updates**. The repository URL used by `ScreensView.Viewer/Services/ViewerUpdateService.cs` is:
 
 ```csharp
 private const string GitHubReleasesUrl =
     "https://api.github.com/repos/titanrain/ScreensView/releases/latest";
 ```
 
-Если Viewer был запущен с `--connections-file`, этот CLI-аргумент пробрасывается через auto-update restart: после установки новой версии приложение снова откроется с тем же override-файлом.
-Временный startup-выбор и пароль не переносятся между процессами, поэтому после обновления Viewer может повторно показать startup prompt или запросить пароль.
+### Viewer Settings
 
-### Настройки Viewer
+Viewer stores its local settings in `%AppData%\ScreensView\viewer-settings.json`.
 
-Viewer хранит локальные настройки в `%AppData%\ScreensView\viewer-settings.json`.
+- **Settings** is the single place for all mutable Viewer settings: `General`, `Screen analysis`, and `Connections storage`.
+- The **Refresh interval** slider in `General` stores `RefreshIntervalSeconds` and restores it on the next launch.
+- **Refresh now** in the toolbar requests fresh screenshots from all enabled computers without changing the background polling state.
+- **LLM now** in the toolbar runs an out-of-band LLM check against the current screenshots for all machines that have screen analysis enabled and a ready model.
+- **Autostart when I sign in to Windows** in `General` enables or disables Viewer startup at user logon.
+- On Windows, this corresponds to the `ScreensView` value in `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`.
+- Viewer also stores connections-source metadata: the path to the external file and the locally remembered password for that file if the user chose `Remember password on this computer`.
+- The top toolbar contains only **Computers**, **Start/Stop**, **Refresh now**, **LLM now**, **Settings**, and **About**.
 
-- Окно **Настройки** теперь является единой точкой для всех изменяемых параметров Viewer: `Общие`, `Распознавание экрана`, `Хранилище подключений`.
-- Слайдер **Интервал обновления** в секции `Общие` сохраняет последнее выбранное значение в `RefreshIntervalSeconds` и восстанавливает его при следующем запуске Viewer.
-- Кнопка **Обновить сейчас** в toolbar сразу запрашивает свежие изображения у всех включённых компьютеров, не меняя состояние автообновления.
-- Кнопка **LLM сейчас** в toolbar сразу запускает внеочередную LLM-проверку по текущим скриншотам у всех компьютеров, для которых включено распознавание и готова модель.
-- Чекбокс **Автозапуск при входе в Windows** в секции `Общие` включает или выключает запуск Viewer при входе в Windows.
-- На Windows это соответствует значению `ScreensView` в `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`.
-- Viewer также хранит метаданные источника подключений: путь к внешнему файлу и локально сохранённый пароль к нему, если пользователь выбрал `Запомнить пароль на этом компьютере`.
-- Верхний toolbar после этого содержит только действия: **Компьютеры**, **Запустить/Остановить**, **Обновить сейчас**, **LLM сейчас**, **Настройки**, **О программе**.
+### Connections File
 
-### Файл подключений
+Viewer uses the local `%AppData%\ScreensView\computers.json` by default.
 
-По умолчанию Viewer использует локальный `%AppData%\ScreensView\computers.json`.
+- In local mode, the computer list belongs only to the current Windows user.
+- `ApiKey` fields in the local `computers.json` are stored through DPAPI.
+- **Screen description** is saved together with the rest of the computer configuration and restored after restart.
+- If `ConnectionsFilePath` in `%AppData%\ScreensView\viewer-settings.json` is empty, the local file remains the active source.
 
-- В локальном режиме список компьютеров хранится только для текущего Windows-пользователя.
-- Поля `ApiKey` в локальном `computers.json` сохраняются через DPAPI.
-- Поле **Описание экрана** сохраняется вместе с остальной конфигурацией компьютера и восстанавливается после перезапуска Viewer.
-- Если `ConnectionsFilePath` в `%AppData%\ScreensView\viewer-settings.json` пустой, активным источником остаётся локальный файл.
+Viewer can switch to an external encrypted connections file through **Settings -> Connections storage -> Connections file...**.
 
-Viewer может переключиться на внешний зашифрованный файл подключений через **Настройки → Хранилище подключений → Файл подключений...**.
+- If you select a new file, Viewer asks for a password, creates the encrypted container, and migrates the current list into it.
+- If you select an existing file, Viewer asks for the password to open it.
+- The external file stores the full list in encrypted form (`PBKDF2-SHA256` + `AES-GCM`), including `ApiKey`.
+- Before selecting an external file, Viewer warns that it should not be stored in a broadly accessible shared folder without access restrictions.
 
-- Если выбран новый файл, Viewer запросит пароль, создаст зашифрованный контейнер и перенесёт туда текущий список подключений.
-- Если выбран существующий файл, Viewer запросит пароль для открытия этого файла.
-- Внешний файл хранит весь список подключений в зашифрованном виде (`PBKDF2-SHA256` + `AES-GCM`), включая `ApiKey`.
-- Перед выбором внешнего файла Viewer предупреждает, что файл нельзя хранить в общедоступной папке без ограничения доступа.
+#### How to Create a Shared Connections File for the First Time
 
-#### Запуск Viewer с `--connections-file`
+1. First, add all required computers in the normal local mode.
+2. Open **Settings**.
+3. In **Connections storage**, click **Connections file...**.
+4. Pick a new file in a shared folder with restricted access.
+5. Set a password for the new file and optionally enable **Remember password on this computer**.
+6. Viewer immediately exports the current connections list into the encrypted file and switches to it.
 
-Viewer можно запустить сразу с конкретным внешним файлом подключений:
+After that:
 
-```
-ScreensView.Viewer.exe --connections-file "\\server\share\connections.svc"
-```
+- all further computer-list changes are saved into the shared file;
+- other users can select the same file and open it with the password;
+- each user can decide whether to remember the password locally on their own machine.
 
-- Допустимы только абсолютные пути и UNC-пути.
-- Если файл не существует, указывает на папку или не открывается как файл подключений, Viewer показывает ошибку и завершает запуск.
-- При таком запуске override-файл обязателен именно для этого старта: Viewer не переключается молча на локальный или ранее сохранённый источник.
+If the list is still empty, you can create the external file first and populate it afterward.
 
-Если в `viewer-settings.json` ещё нет внешнего файла подключений, на старте Viewer предлагает:
+### External File Password
 
-- **Сделать основным** — сохранить этот путь как новый `ConnectionsFilePath`.
-- **Только на этот запуск** — открыть файл только для текущего процесса, не меняя `viewer-settings.json`.
-- **Отмена** — закрыть Viewer.
+- The password is required to open the external connections file.
+- **Remember password on this computer** stores the password only for the current Windows user on that computer and only in encrypted form.
+- The remembered password is encrypted with DPAPI and stored in `%AppData%\ScreensView\viewer-settings.json`.
+- If the remembered password stops working, Viewer clears it and prompts for manual entry again.
+- If a wrong password is entered during startup before the main window exists, Viewer shows the warning and does not crash because of a missing owner window.
+- During early startup before `MainWindow` is shown, Viewer keeps the process alive between those dialogs so the password can be retried immediately.
+- The password window grows vertically with the file path and text size so the **Cancel** and **OK** buttons remain visible.
+- On startup, Viewer does not silently fall back to the local file: the user must enter the password, explicitly switch back to local storage, or cancel startup.
 
-Если в настройках уже сохранён другой внешний файл, стартовый prompt предлагает те же варианты, но **Сделать основным** фактически заменяет сохранённый путь на новый.
+### Revert to the Local File
 
-- Это единственный сценарий, где Viewer может изменить persistent source ещё до открытия главного окна, без перехода в **Настройки**.
-- Если переданный путь совпадает с уже сохранённым `ConnectionsFilePath`, отдельный вопрос о замене не показывается, но startup override всё равно остаётся обязательным: при ошибке открытия Viewer не уходит в локальный режим.
+In **Settings**, the **Connections storage** section exposes an explicit **Use local file** action.
 
-Во временном режиме:
+- Viewer saves the current set of connections back to `%AppData%\ScreensView\computers.json`.
+- `ConnectionsFilePath` and the locally remembered password are cleared from `viewer-settings.json`.
+- The list stays available in the UI immediately after the switch, without restarting the application.
+- The **Manage Computers** window preserves the read-only source indicator so the operator can see where the editable list is stored.
 
-- список компьютеров и все последующие изменения сохраняются в override-файл только до закрытия текущего процесса;
-- `ConnectionsFilePath` и локально сохранённый пароль не меняются;
-- опция **Запомнить пароль на этом компьютере** недоступна;
-- read-only индикатор источника в **Настройках** и **Управлении компьютерами** показывает фактический runtime source с пометкой, что он используется только на этот запуск.
+## Agent Configuration
 
-#### Как впервые создать общий файл подключений
-
-1. Сначала добавьте все нужные компьютеры в Viewer в обычном локальном режиме.
-2. Откройте **Настройки**.
-3. В секции **Хранилище подключений** нажмите **Файл подключений...**.
-4. Выберите новый файл в общей папке с ограниченным доступом.
-5. Задайте пароль для нового файла и при необходимости включите **Запомнить пароль на этом компьютере**.
-6. Viewer сразу экспортирует текущий список подключений в этот зашифрованный файл и переключится на него.
-
-После этого:
-
-- все дальнейшие изменения списка компьютеров будут сохраняться уже в этот общий файл;
-- другие пользователи смогут выбрать тот же файл у себя и открыть его по паролю;
-- каждый пользователь может сохранить пароль только локально на своём компьютере.
-
-Если список компьютеров ещё пустой, можно сначала создать внешний файл, а потом наполнять его уже в общем режиме.
-
-### Пароль внешнего файла
-
-- Пароль требуется для открытия внешнего файла подключений.
-- Опция **Запомнить пароль на этом компьютере** сохраняет пароль только локально для текущего пользователя Windows и только в зашифрованном виде.
-- Локально запомненный пароль шифруется через DPAPI и хранится в `%AppData%\ScreensView\viewer-settings.json`.
-- Если сохранённый пароль больше не подходит, Viewer очищает его и снова просит ввести пароль вручную.
-- Если неверный пароль введён на старте до открытия главного окна, Viewer показывает предупреждение и не падает из-за отсутствия активного owner-окна.
-- Во время раннего startup до показа `MainWindow` Viewer не завершает процесс между такими диалогами, поэтому после неверного пароля можно сразу повторить ввод.
-- Окно пароля автоматически подстраивает высоту под путь файла и размер текста, поэтому кнопки **Отмена** и **OK** остаются видимыми.
-- При старте Viewer не делает тихий fallback на локальный файл: пользователь должен либо ввести пароль, либо явно переключиться обратно на локальное хранение, либо отменить запуск.
-
-### Возврат к локальному файлу
-
-В окне **Настройки** в секции **Хранилище подключений** доступно явное действие **Использовать локальный файл**.
-
-- Viewer сохраняет текущий набор подключений обратно в `%AppData%\ScreensView\computers.json`.
-- `ConnectionsFilePath` и локально сохранённый пароль очищаются в `viewer-settings.json`.
-- После переключения список компьютеров в UI остаётся доступным сразу, без перезапуска приложения.
-- Окно **Управление компьютерами** при этом сохраняет read-only индикатор текущего источника, чтобы было видно, где именно хранится редактируемый список.
-
-## Настройка агента
-
-| Параметр | По умолчанию | Описание |
+| Parameter | Default | Description |
 |---|---|---|
-| `Agent:Port` | `5443` | HTTPS-порт |
-| `Agent:ApiKey` | *(обязательно)* | Секретный ключ авторизации |
-| `Agent:ScreenshotQuality` | `75` | Качество JPEG (1–100) |
+| `Agent:Port` | `5443` | HTTPS port |
+| `Agent:ApiKey` | *(required)* | Secret authorization key |
+| `Agent:ScreenshotQuality` | `75` | JPEG quality (1-100) |
