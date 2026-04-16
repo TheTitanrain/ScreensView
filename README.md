@@ -13,7 +13,7 @@ Screen monitoring system for computers inside a local network. An agent on each 
 | `ScreensView.Agent.Legacy` | Legacy Windows Service (`.NET Framework 4.8`) for Windows 7 SP1 |
 | `ScreensView.Viewer` | WPF application for the screenshot wall and computer management |
 | `ScreensView.Shared` | Shared models, constants, and the agent JSON contract |
-| `ScreensView.Tests` | xUnit tests for shared contracts, Viewer services, LLM pipeline, and remote deployment workflows |
+| `ScreensView.Tests` | xUnit tests: named pipe protocol and `NoActiveSessionException` |
 
 ## Development
 
@@ -132,6 +132,16 @@ curl -k -H "X-Api-Key: YOUR_SECRET_KEY" https://localhost:5443/health
 dotnet run --project ScreensView.Viewer
 ```
 
+Viewer can also be launched directly with an external connections file:
+
+```
+dotnet run --project ScreensView.Viewer -- --connections-file "C:\Shared\connections.svc"
+```
+
+- `--connections-file` accepts only absolute or UNC paths.
+- If the specified file does not exist or cannot be opened, Viewer shows an error and exits.
+- In this mode, Viewer does not silently fall back to the local `%AppData%\ScreensView\computers.json` or any other saved source.
+
 1. Click **Computers** to open **Manage Computers**.
 2. Use **Add** for one computer or **Add multiple** for bulk entry. The bulk dialog supports **By hosts** and **By IP range**, auto-generates API keys, and can immediately offer agent installation for the new machines.
 3. In **Add computer**, fill in the **Computer**, **Connection**, and optionally **Screen description** sections for LLM comparison: name, host, port, and API key.
@@ -232,6 +242,9 @@ private const string GitHubReleasesUrl =
     "https://api.github.com/repos/titanrain/ScreensView/releases/latest";
 ```
 
+If Viewer was launched with `--connections-file`, that CLI argument is forwarded through the auto-update restart: after the new version installs, the application re-opens with the same override file.
+The temporary startup choice and password are not carried between processes, so after an update Viewer may show the startup prompt or ask for the password again.
+
 ### Viewer Settings
 
 Viewer stores its local settings in `%AppData%\ScreensView\viewer-settings.json`.
@@ -260,6 +273,36 @@ Viewer can switch to an external encrypted connections file through **Settings -
 - If you select an existing file, Viewer asks for the password to open it.
 - The external file stores the full list in encrypted form (`PBKDF2-SHA256` + `AES-GCM`), including `ApiKey`.
 - Before selecting an external file, Viewer warns that it should not be stored in a broadly accessible shared folder without access restrictions.
+
+#### Launching Viewer with `--connections-file`
+
+Viewer can be launched directly with a specific external connections file:
+
+```
+ScreensView.Viewer.exe --connections-file "\\server\share\connections.svc"
+```
+
+- Only absolute paths and UNC paths are accepted.
+- If the file does not exist, points to a directory, or cannot be opened as a connections file, Viewer shows an error and exits.
+- In this mode the override file is required for this specific launch: Viewer does not silently switch to the local or previously saved source.
+
+If `viewer-settings.json` does not yet have an external connections file saved, Viewer offers on startup:
+
+- **Make primary** — save this path as the new `ConnectionsFilePath`.
+- **This session only** — open the file for the current process only without changing `viewer-settings.json`.
+- **Cancel** — close Viewer.
+
+If a different external file is already saved in settings, the startup prompt offers the same options, but **Make primary** replaces the saved path with the new one.
+
+- This is the only scenario where Viewer can change the persistent source before the main window opens, without going through **Settings**.
+- If the supplied path matches the already saved `ConnectionsFilePath`, no replacement prompt is shown, but the startup override is still required: on open error Viewer does not fall back to local mode.
+
+In temporary mode:
+
+- the computer list and all subsequent changes are saved to the override file only until the current process closes;
+- `ConnectionsFilePath` and the locally remembered password are not changed;
+- the **Remember password on this computer** option is unavailable;
+- the read-only source indicator in **Settings** and **Manage Computers** shows the actual runtime source with a note that it is used for this session only.
 
 #### How to Create a Shared Connections File for the First Time
 
