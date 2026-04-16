@@ -42,13 +42,16 @@ jobs:
         run: |
           $meta = Invoke-RestMethod "https://dotnetcli.azureedge.net/dotnet/release-metadata/8.0/releases.json"
           $rel  = $meta.releases[0]
-          $dotnet = $rel.runtime.files            | Where-Object { $_.name -match '^dotnet-runtime-\d+\.\d+\.\d+-win-x64\.exe$' } | Select-Object -First 1
-          $aspnet = $rel.'aspnetcore-runtime'.files | Where-Object { $_.name -match '^aspnetcore-runtime-\d+\.\d+\.\d+-win-x64\.exe$' } | Select-Object -First 1
+          # name field has no version (e.g. "dotnet-runtime-win-x64.exe"); versioned filename is in the URL
+          $dotnet = $rel.runtime.files            | Where-Object { $_.name -eq 'dotnet-runtime-win-x64.exe' } | Select-Object -First 1
+          $aspnet = $rel.'aspnetcore-runtime'.files | Where-Object { $_.name -eq 'aspnetcore-runtime-win-x64.exe' } | Select-Object -First 1
           New-Item -Force -ItemType Directory "ScreensView.Viewer\Prerequisites" | Out-Null
-          Write-Host "Downloading $($dotnet.name)..."
-          Invoke-WebRequest $dotnet.url -OutFile "ScreensView.Viewer\Prerequisites\$($dotnet.name)"
-          Write-Host "Downloading $($aspnet.name)..."
-          Invoke-WebRequest $aspnet.url -OutFile "ScreensView.Viewer\Prerequisites\$($aspnet.name)"
+          $dotnetFile = $dotnet.url.Split('/')[-1]
+          $aspnetFile = $aspnet.url.Split('/')[-1]
+          Write-Host "Downloading $dotnetFile..."
+          Invoke-WebRequest $dotnet.url -OutFile "ScreensView.Viewer\Prerequisites\$dotnetFile"
+          Write-Host "Downloading $aspnetFile..."
+          Invoke-WebRequest $aspnet.url -OutFile "ScreensView.Viewer\Prerequisites\$aspnetFile"
 
       - name: Build Viewer (+ agent payloads)
         run: dotnet build ScreensView.Viewer/ScreensView.Viewer.csproj -c Release
