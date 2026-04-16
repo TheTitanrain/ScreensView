@@ -1,20 +1,20 @@
 <Window x:Class="ScreensView.Viewer.Views.AddMultipleComputersWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Добавить несколько компьютеров" Height="380" Width="460"
+        Title="{DynamicResource Str.WindowTitle.AddMultiple}" Height="380" Width="460"
         WindowStartupLocation="CenterOwner" ResizeMode="CanResizeWithGrip">
     <DockPanel Margin="12">
         <StackPanel DockPanel.Dock="Bottom" Orientation="Horizontal"
                     HorizontalAlignment="Right" Margin="0,10,0,0">
-            <Button x:Name="BtnAdd" Content="Добавить" Width="100" Margin="0,0,8,0"
+            <Button x:Name="BtnAdd" Content="{DynamicResource Str.AddMultiple.BtnAdd}" Width="100" Margin="0,0,8,0"
                     IsDefault="True" Click="Add_Click"/>
-            <Button Content="Отмена" Width="80" IsCancel="True"/>
+            <Button Content="{DynamicResource Str.AddMultiple.BtnCancel}" Width="80" IsCancel="True"/>
         </StackPanel>
 
         <TabControl x:Name="Tabs" SelectionChanged="Tabs_SelectionChanged">
 
             <!-- Tab 1: By hosts -->
-            <TabItem Header="По хостам">
+            <TabItem Header="{DynamicResource Str.AddMultiple.TabHosts}">
                 <Grid Margin="8">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -24,7 +24,7 @@
                         <RowDefinition Height="Auto"/>
                     </Grid.RowDefinitions>
 
-                    <Label Grid.Row="0" Content="Хосты (по одному на строку):"/>
+                    <Label Grid.Row="0" Content="{DynamicResource Str.AddMultiple.HostsLabel}"/>
                     <TextBox Grid.Row="1" x:Name="HostsBox" AcceptsReturn="True"
                              VerticalScrollBarVisibility="Auto"
                              FontFamily="Consolas" Margin="0,0,0,8"
@@ -34,19 +34,19 @@
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="80"/>
                         </Grid.ColumnDefinitions>
-                        <Label Grid.Column="0" Content="Порт:" VerticalAlignment="Center"/>
+                        <Label Grid.Column="0" Content="{DynamicResource Str.AddMultiple.PortLabel}" VerticalAlignment="Center"/>
                         <TextBox Grid.Column="1" x:Name="HostsPortBox"
                                  TextChanged="HostsBox_TextChanged"/>
                     </Grid>
                     <TextBlock Grid.Row="3" Foreground="Gray" FontStyle="Italic" Margin="0,0,0,2"
-                               Text="API-ключ генерируется автоматически для каждого"/>
+                               Text="{DynamicResource Str.AddMultiple.ApiKeyHint}"/>
                     <TextBlock Grid.Row="4" x:Name="HostsCountLabel"
                                Foreground="Gray" FontStyle="Italic"/>
                 </Grid>
             </TabItem>
 
             <!-- Tab 2: By IP range -->
-            <TabItem Header="По диапазону IP">
+            <TabItem Header="{DynamicResource Str.AddMultiple.TabRange}">
                 <Grid Margin="8">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto"/>
@@ -63,10 +63,10 @@
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
                         </Grid.ColumnDefinitions>
-                        <Label Grid.Column="0" Content="С:" VerticalAlignment="Center"/>
+                        <Label Grid.Column="0" Content="{DynamicResource Str.AddMultiple.RangeFrom}" VerticalAlignment="Center"/>
                         <TextBox Grid.Column="1" x:Name="StartIpBox" Margin="0,0,8,0"
                                  TextChanged="IpRange_TextChanged"/>
-                        <Label Grid.Column="2" Content="По:" VerticalAlignment="Center"/>
+                        <Label Grid.Column="2" Content="{DynamicResource Str.AddMultiple.RangeTo}" VerticalAlignment="Center"/>
                         <TextBox Grid.Column="3" x:Name="EndIpBox"
                                  TextChanged="IpRange_TextChanged"/>
                     </Grid>
@@ -76,13 +76,13 @@
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="80"/>
                         </Grid.ColumnDefinitions>
-                        <Label Grid.Column="0" Content="Порт:" VerticalAlignment="Center"/>
+                        <Label Grid.Column="0" Content="{DynamicResource Str.AddMultiple.PortLabel}" VerticalAlignment="Center"/>
                         <TextBox Grid.Column="1" x:Name="RangePortBox"
                                  TextChanged="IpRange_TextChanged"/>
                     </Grid>
 
                     <TextBlock Grid.Row="2" Foreground="Gray" FontStyle="Italic" Margin="0,0,0,2"
-                               Text="API-ключ генерируется автоматически для каждого"/>
+                               Text="{DynamicResource Str.AddMultiple.ApiKeyHint}"/>
                     <TextBlock Grid.Row="3" x:Name="RangeStatusLabel"
                                Foreground="Gray" FontStyle="Italic" TextWrapping="Wrap"/>
                 </Grid>

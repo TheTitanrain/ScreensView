@@ -64,7 +64,7 @@ internal sealed class ConnectionsSourceWorkflowService(
     {
         if (!startupOptions.IsValid)
         {
-            dialogs.ShowStartupOverrideError(startupOptions.ErrorMessage ?? "Некорректные параметры запуска.");
+            dialogs.ShowStartupOverrideError(startupOptions.ErrorMessage ?? LocalizationService.Get("Str.Connections.InvalidParams"));
             return null;
         }
 
@@ -168,8 +168,8 @@ internal sealed class ConnectionsSourceWorkflowService(
         if (!sourceState.UsesExternalFile || string.IsNullOrWhiteSpace(sourceState.FilePath))
         {
             return new ConnectionsSourceUiState(
-                @"Локальный файл: %AppData%\ScreensView\computers.json",
-                "Источник меняется в окне «Настройки».",
+                LocalizationService.Get("Str.Connections.LocalFile"),
+                LocalizationService.Get("Str.Connections.SourceHint"),
                 UsesExternalFile: false,
                 CanSwitchToLocal: false);
         }
@@ -177,8 +177,8 @@ internal sealed class ConnectionsSourceWorkflowService(
         return new ConnectionsSourceUiState(
             sourceState.FilePath,
             sourceState.IsTemporaryOverride
-                ? "Источник используется только на этот запуск. После перезапуска Viewer вернётся к сохранённому источнику."
-                : "Источник меняется в окне «Настройки».",
+                ? LocalizationService.Get("Str.Connections.TempHint")
+                : LocalizationService.Get("Str.Connections.SourceHint"),
             UsesExternalFile: true,
             CanSwitchToLocal: true);
     }
@@ -187,7 +187,7 @@ internal sealed class ConnectionsSourceWorkflowService(
     {
         if (!_fileExists(overridePath) || _directoryExists(overridePath))
         {
-            dialogs.ShowStartupOverrideError($"Файл подключений '{overridePath}' не найден.");
+            dialogs.ShowStartupOverrideError(string.Format(LocalizationService.Get("Str.Connections.FileNotFound"), overridePath));
             return null;
         }
 
@@ -375,8 +375,8 @@ internal sealed class ConnectionsSourceDialogs(Func<Window?>? ownerProvider = nu
     {
         return ShowMessage(
                    GetOwner(),
-                   "Файл подключений будет доступен всем, у кого есть сам файл и пароль к нему. Храните его только в папке с ограниченным доступом.",
-                   "Внешний файл подключений",
+                   LocalizationService.Get("Str.Connections.ExternalFileWarning"),
+                   LocalizationService.Get("Str.Connections.Title"),
                    MessageBoxButton.OKCancel,
                    MessageBoxImage.Warning)
                == MessageBoxResult.OK;
@@ -386,7 +386,7 @@ internal sealed class ConnectionsSourceDialogs(Func<Window?>? ownerProvider = nu
     {
         var dialog = new SaveFileDialog
         {
-            Title = "Выберите файл подключений",
+            Title = LocalizationService.Get("Str.Connections.PickFileTitle"),
             Filter = "Files (*.json;*.svc)|*.json;*.svc|All files (*.*)|*.*",
             AddExtension = true,
             OverwritePrompt = false,
@@ -416,9 +416,9 @@ internal sealed class ConnectionsSourceDialogs(Func<Window?>? ownerProvider = nu
         ShowMessage(
             GetOwner(),
             needsPassword
-                ? "Не удалось открыть файл подключений. Проверьте пароль и попробуйте снова."
-                : "Не удалось открыть файл подключений.",
-            "Файл подключений",
+                ? LocalizationService.Get("Str.Connections.OpenFailedPassword")
+                : LocalizationService.Get("Str.Connections.OpenFailed"),
+            LocalizationService.Get("Str.Connections.Title"),
             MessageBoxButton.OK,
             needsPassword ? MessageBoxImage.Warning : MessageBoxImage.Error);
     }
@@ -427,8 +427,8 @@ internal sealed class ConnectionsSourceDialogs(Func<Window?>? ownerProvider = nu
     {
         ShowMessage(
             GetOwner(),
-            "Не удалось создать внешний файл подключений.",
-            "Файл подключений",
+            LocalizationService.Get("Str.Connections.CreateFailed"),
+            LocalizationService.Get("Str.Connections.Title"),
             MessageBoxButton.OK,
             MessageBoxImage.Error);
     }
@@ -437,8 +437,8 @@ internal sealed class ConnectionsSourceDialogs(Func<Window?>? ownerProvider = nu
     {
         ShowMessage(
             GetOwner(),
-            "Не удалось переключиться на локальный файл подключений.",
-            "Файл подключений",
+            LocalizationService.Get("Str.Connections.SwitchLocalFailed"),
+            LocalizationService.Get("Str.Connections.Title"),
             MessageBoxButton.OK,
             MessageBoxImage.Error);
     }
@@ -447,8 +447,8 @@ internal sealed class ConnectionsSourceDialogs(Func<Window?>? ownerProvider = nu
     {
         var result = ShowMessage(
             GetOwner(),
-            "Внешний файл подключений не открыт. Переключиться на локальный файл подключений?",
-            "Файл подключений",
+            LocalizationService.Get("Str.Connections.FallbackPrompt"),
+            LocalizationService.Get("Str.Connections.Title"),
             MessageBoxButton.YesNoCancel,
             MessageBoxImage.Question);
 
@@ -463,13 +463,13 @@ internal sealed class ConnectionsSourceDialogs(Func<Window?>? ownerProvider = nu
     public StartupConnectionsFileOverrideChoice AskStartupConnectionsFileOverrideChoice(string overridePath, string? savedPath)
     {
         var prompt = string.IsNullOrWhiteSpace(savedPath)
-            ? $"Открыт Viewer с файлом подключений:\n{overridePath}\n\nСделать этот файл основным источником подключений?"
-            : $"В настройках уже сохранён другой файл подключений:\n{savedPath}\n\nИспользовать вместо него файл:\n{overridePath}\n\nСделать новый файл основным источником подключений?";
+            ? string.Format(LocalizationService.Get("Str.Connections.OverrideNew"), overridePath)
+            : string.Format(LocalizationService.Get("Str.Connections.OverrideExisting"), savedPath, overridePath);
 
         var result = ShowMessage(
             GetOwner(),
-            $"{prompt}\n\nДа — сделать основным.\nНет — использовать только на этот запуск.\nОтмена — закрыть Viewer.",
-            "Файл подключений",
+            prompt + LocalizationService.Get("Str.Connections.OverrideSuffix"),
+            LocalizationService.Get("Str.Connections.Title"),
             MessageBoxButton.YesNoCancel,
             MessageBoxImage.Question);
 
@@ -486,7 +486,7 @@ internal sealed class ConnectionsSourceDialogs(Func<Window?>? ownerProvider = nu
         ShowMessage(
             GetOwner(),
             message,
-            "Файл подключений",
+            LocalizationService.Get("Str.Connections.Title"),
             MessageBoxButton.OK,
             MessageBoxImage.Error);
     }

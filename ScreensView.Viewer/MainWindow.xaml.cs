@@ -88,7 +88,7 @@ public partial class MainWindow : Window
         }
         catch (Exception ex)
         {
-            MessageBox.Show(this, $"Ошибка: {ex.Message}", "LLM", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(this, string.Format(LocalizationService.Get("Str.Msg.Error"), ex.Message), "LLM", MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -105,14 +105,15 @@ public partial class MainWindow : Window
             });
             bool ok = await http.CheckHealthAsync(vm.ToConfig());
             MessageBox.Show(
-                ok ? $"{vm.Name}: агент доступен." : $"{vm.Name}: агент недоступен.",
-                "Пинг",
+                ok ? string.Format(LocalizationService.Get("Str.Msg.PingOk"), vm.Name)
+                   : string.Format(LocalizationService.Get("Str.Msg.PingFail"), vm.Name),
+                LocalizationService.Get("Str.Msg.Ping"),
                 MessageBoxButton.OK,
                 ok ? MessageBoxImage.Information : MessageBoxImage.Warning);
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Ошибка: {ex.Message}", "Пинг", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(string.Format(LocalizationService.Get("Str.Msg.Error"), ex.Message), LocalizationService.Get("Str.Msg.Ping"), MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -134,19 +135,23 @@ public partial class MainWindow : Window
     {
         var vm = GetMenuVm(sender);
         if (vm == null) return;
-        if (MessageBox.Show($"Перезагрузить «{vm.Name}»?", "Перезагрузка",
+        if (MessageBox.Show(
+                string.Format(LocalizationService.Get("Str.Msg.RestartConfirm"), vm.Name),
+                LocalizationService.Get("Str.Msg.RestartTitle"),
                 MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
         var dlg = new Views.CredentialsDialog { Owner = this };
         if (dlg.ShowDialog() != true) return;
         try
         {
             await Services.RemotePowerService.RestartAsync(vm.Host, dlg.Username, dlg.Password);
-            MessageBox.Show($"{vm.Name}: команда перезагрузки отправлена.", "Перезагрузка",
+            MessageBox.Show(
+                string.Format(LocalizationService.Get("Str.Msg.RestartSent"), vm.Name),
+                LocalizationService.Get("Str.Msg.RestartTitle"),
                 MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Ошибка: {ex.Message}", "Перезагрузка", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(string.Format(LocalizationService.Get("Str.Msg.Error"), ex.Message), LocalizationService.Get("Str.Msg.RestartTitle"), MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -154,19 +159,23 @@ public partial class MainWindow : Window
     {
         var vm = GetMenuVm(sender);
         if (vm == null) return;
-        if (MessageBox.Show($"Выключить «{vm.Name}»?", "Выключение",
+        if (MessageBox.Show(
+                string.Format(LocalizationService.Get("Str.Msg.ShutdownConfirm"), vm.Name),
+                LocalizationService.Get("Str.Msg.ShutdownTitle"),
                 MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
         var dlg = new Views.CredentialsDialog { Owner = this };
         if (dlg.ShowDialog() != true) return;
         try
         {
             await Services.RemotePowerService.ShutdownAsync(vm.Host, dlg.Username, dlg.Password);
-            MessageBox.Show($"{vm.Name}: команда выключения отправлена.", "Выключение",
+            MessageBox.Show(
+                string.Format(LocalizationService.Get("Str.Msg.ShutdownSent"), vm.Name),
+                LocalizationService.Get("Str.Msg.ShutdownTitle"),
                 MessageBoxButton.OK, MessageBoxImage.Information);
         }
         catch (Exception ex)
         {
-            MessageBox.Show($"Ошибка: {ex.Message}", "Выключение", MessageBoxButton.OK, MessageBoxImage.Error);
+            MessageBox.Show(string.Format(LocalizationService.Get("Str.Msg.Error"), ex.Message), LocalizationService.Get("Str.Msg.ShutdownTitle"), MessageBoxButton.OK, MessageBoxImage.Error);
         }
     }
 
@@ -174,7 +183,9 @@ public partial class MainWindow : Window
     {
         var vm = GetMenuVm(sender);
         if (vm == null) return;
-        if (MessageBox.Show($"Удалить «{vm.Name}»?", "Удаление",
+        if (MessageBox.Show(
+                string.Format(LocalizationService.Get("Str.Msg.DeleteConfirm"), vm.Name),
+                LocalizationService.Get("Str.Msg.DeleteTitle"),
                 MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
         _vm.RemoveComputer(vm);
     }

@@ -35,10 +35,12 @@ public partial class AddMultipleComputersWindow : Window
             int.TryParse(HostsPortBox.Text, out var p) ? p : 0,
             _existingHosts);
         HostsCountLabel.Text = hosts.Count > 0
-            ? $"{hosts.Count} компьютер(а/ов) будет добавлено"
+            ? string.Format(LocalizationService.Get("Str.AddMultiple.CountFormat"), hosts.Count)
             : string.Empty;
         BtnAdd.IsEnabled = true;
-        BtnAdd.Content = hosts.Count > 0 ? $"Добавить ({hosts.Count})" : "Добавить";
+        BtnAdd.Content = hosts.Count > 0
+            ? string.Format(LocalizationService.Get("Str.AddMultiple.BtnAddCount"), hosts.Count)
+            : LocalizationService.Get("Str.AddMultiple.BtnAdd");
     }
 
     // ── IP range tab ────────────────────────────────────────────────────────
@@ -54,7 +56,7 @@ public partial class AddMultipleComputersWindow : Window
             RangeStatusLabel.Text = string.Empty;
             RangeStatusLabel.Foreground = System.Windows.Media.Brushes.Gray;
             BtnAdd.IsEnabled = false;
-            BtnAdd.Content = "Добавить";
+            BtnAdd.Content = LocalizationService.Get("Str.AddMultiple.BtnAdd");
             return;
         }
 
@@ -68,14 +70,14 @@ public partial class AddMultipleComputersWindow : Window
             RangeStatusLabel.Text = error;
             RangeStatusLabel.Foreground = System.Windows.Media.Brushes.Red;
             BtnAdd.IsEnabled = false;
-            BtnAdd.Content = "Добавить";
+            BtnAdd.Content = LocalizationService.Get("Str.AddMultiple.BtnAdd");
         }
         else
         {
-            RangeStatusLabel.Text = $"{result.Count} компьютер(а/ов) будет добавлено";
+            RangeStatusLabel.Text = string.Format(LocalizationService.Get("Str.AddMultiple.CountFormat"), result.Count);
             RangeStatusLabel.Foreground = System.Windows.Media.Brushes.Gray;
             BtnAdd.IsEnabled = true;
-            BtnAdd.Content = $"Добавить ({result.Count})";
+            BtnAdd.Content = string.Format(LocalizationService.Get("Str.AddMultiple.BtnAddCount"), result.Count);
         }
     }
 
@@ -96,14 +98,14 @@ public partial class AddMultipleComputersWindow : Window
         {
             if (!int.TryParse(HostsPortBox.Text, out int port) || port < 1 || port > 65535)
             {
-                MessageBox.Show("Введите корректный порт (1–65535).", "Ошибка",
+                MessageBox.Show(LocalizationService.Get("Str.Val.InvalidPort"), LocalizationService.Get("Str.Val.Title"),
                     MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
             Results = [.. BulkComputerParser.ParseHosts(HostsBox.Text, port, _existingHosts)];
             if (Results.Count == 0)
             {
-                MessageBox.Show("Введите хотя бы один хост.", "Ошибка",
+                MessageBox.Show(LocalizationService.Get("Str.Val.EnterHost2"), LocalizationService.Get("Str.Val.Title"),
                     MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
@@ -112,7 +114,7 @@ public partial class AddMultipleComputersWindow : Window
         {
             if (!int.TryParse(RangePortBox.Text, out int port) || port < 1 || port > 65535)
             {
-                MessageBox.Show("Введите корректный порт (1–65535).", "Ошибка",
+                MessageBox.Show(LocalizationService.Get("Str.Val.InvalidPort"), LocalizationService.Get("Str.Val.Title"),
                     MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }

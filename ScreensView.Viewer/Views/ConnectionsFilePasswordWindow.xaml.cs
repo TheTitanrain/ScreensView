@@ -1,4 +1,5 @@
 using System.Windows;
+using ScreensView.Viewer.Services;
 
 namespace ScreensView.Viewer.Views;
 
@@ -18,12 +19,12 @@ public partial class ConnectionsFilePasswordWindow : Window
         _mode = mode;
 
         TxtTitle.Text = mode == ConnectionsFilePasswordMode.CreateNew
-            ? "Создание зашифрованного файла подключений"
-            : "Открытие зашифрованного файла подключений";
+            ? LocalizationService.Get("Str.Password.TitleCreate")
+            : LocalizationService.Get("Str.Password.TitleOpen");
         TxtPath.Text = filePath;
         RememberPasswordHint.Text = mode == ConnectionsFilePasswordMode.CreateNew
-            ? "Пароль сохраняется только локально для текущего пользователя Windows и только в зашифрованном виде."
-            : "Пароль сохраняется только локально для текущего пользователя Windows.";
+            ? LocalizationService.Get("Str.Password.HintCreate")
+            : LocalizationService.Get("Str.Password.HintOpen");
         ConfirmPanel.Visibility = mode == ConnectionsFilePasswordMode.CreateNew
             ? Visibility.Visible
             : Visibility.Collapsed;
@@ -45,13 +46,13 @@ public partial class ConnectionsFilePasswordWindow : Window
         var password = PasswordInput.Password;
         if (string.IsNullOrWhiteSpace(password))
         {
-            MessageBox.Show(this, "Введите пароль.", "Пароль", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(this, LocalizationService.Get("Str.Val.EnterPassword"), LocalizationService.Get("Str.Val.PasswordTitle"), MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
         if (_mode == ConnectionsFilePasswordMode.CreateNew && password != ConfirmPasswordInput.Password)
         {
-            MessageBox.Show(this, "Подтверждение пароля не совпадает.", "Пароль", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(this, LocalizationService.Get("Str.Val.PasswordMismatch"), LocalizationService.Get("Str.Val.PasswordTitle"), MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 

@@ -25,15 +25,15 @@
                         BorderThickness="1"
                         CornerRadius="12">
                     <StackPanel>
-                        <TextBlock Text="Компьютер"
+                        <TextBlock Text="{DynamicResource Str.AddEdit.ComputerSection}"
                                    FontSize="16"
                                    FontWeight="SemiBold"
                                    Foreground="#FF1F2430"/>
                         <TextBlock Margin="0,4,0,12"
                                    Foreground="#FF5D6472"
-                                   Text="Укажите, как компьютер будет отображаться в списке и нужен ли он в мониторинге."/>
+                                   Text="{DynamicResource Str.AddEdit.ComputerDesc}"/>
 
-                        <TextBlock Text="Имя компьютера"
+                        <TextBlock Text="{DynamicResource Str.AddEdit.NameLabel}"
                                    FontWeight="SemiBold"
                                    Foreground="#FF2B3140"/>
                         <TextBox x:Name="NameBox"
@@ -41,7 +41,7 @@
                                  MinHeight="30"/>
 
                         <CheckBox x:Name="EnabledCheck"
-                                  Content="Включён"
+                                  Content="{DynamicResource Str.AddEdit.Enabled}"
                                   IsChecked="True"/>
                     </StackPanel>
                 </Border>
@@ -53,13 +53,13 @@
                         BorderThickness="1"
                         CornerRadius="12">
                     <StackPanel>
-                        <TextBlock Text="Подключение"
+                        <TextBlock Text="{DynamicResource Str.AddEdit.ConnSection}"
                                    FontSize="16"
                                    FontWeight="SemiBold"
                                    Foreground="#FF1F2430"/>
                         <TextBlock Margin="0,4,0,12"
                                    Foreground="#FF5D6472"
-                                   Text="Основные параметры подключения. Имя и хост остаются главными ориентирами в форме."/>
+                                   Text="{DynamicResource Str.AddEdit.ConnDesc}"/>
 
                         <Grid x:Name="HostPortRow" Margin="0,0,0,14">
                             <Grid.ColumnDefinitions>
@@ -68,7 +68,7 @@
                             </Grid.ColumnDefinitions>
 
                             <StackPanel Grid.Column="0" Margin="0,0,12,0">
-                                <TextBlock Text="Хост / IP-адрес"
+                                <TextBlock Text="{DynamicResource Str.AddEdit.HostLabel}"
                                            FontWeight="SemiBold"
                                            Foreground="#FF2B3140"/>
                                 <TextBox x:Name="HostBox"
@@ -77,7 +77,7 @@
                             </StackPanel>
 
                             <StackPanel Grid.Column="1">
-                                <TextBlock Text="Порт"
+                                <TextBlock Text="{DynamicResource Str.AddEdit.PortLabel}"
                                            FontWeight="SemiBold"
                                            Foreground="#FF2B3140"/>
                                 <TextBox x:Name="PortBox"
@@ -86,7 +86,7 @@
                             </StackPanel>
                         </Grid>
 
-                        <TextBlock Text="API-ключ"
+                        <TextBlock Text="{DynamicResource Str.AddEdit.ApiKeyLabel}"
                                    FontWeight="SemiBold"
                                    Foreground="#FF2B3140"/>
                         <Grid Margin="0,6,0,0">
@@ -102,7 +102,7 @@
                                     Grid.Column="1"
                                     Margin="8,0,0,0"
                                     Padding="14,6"
-                                    Content="Сгенерировать"
+                                    Content="{DynamicResource Str.AddEdit.Generate}"
                                     Click="Generate_Click"/>
                         </Grid>
                     </StackPanel>
@@ -114,14 +114,14 @@
                         BorderThickness="1"
                         CornerRadius="12">
                     <StackPanel>
-                        <TextBlock Text="Описание экрана"
+                        <TextBlock Text="{DynamicResource Str.AddEdit.DescSection}"
                                    FontSize="16"
                                    FontWeight="SemiBold"
                                    Foreground="#FF1F2430"/>
                         <TextBlock Margin="0,4,0,12"
                                    Foreground="#FF5D6472"
                                    TextWrapping="Wrap"
-                                   Text="Поле необязательное и нужно для сравнения текущего скриншота с ожидаемым типом экрана. Опишите общий layout: крупные блоки, колонки, цветовые зоны. Не указывайте точные времена, номера и фамилии."/>
+                                   Text="{DynamicResource Str.AddEdit.DescHint}"/>
                         <TextBox x:Name="DescriptionBox"
                                  MinHeight="120"
                                  AcceptsReturn="True"
@@ -147,7 +147,7 @@
                         Click="Ok_Click"/>
                 <Button Width="96"
                         Padding="14,6"
-                        Content="Отмена"
+                        Content="{DynamicResource Str.AddEdit.BtnCancel}"
                         IsCancel="True"/>
             </StackPanel>
         </Border>

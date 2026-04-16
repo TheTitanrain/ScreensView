@@ -32,18 +32,18 @@ public partial class InstallProgressWindow : Window
 
     internal static string GetWindowTitle(Mode mode) => mode switch
     {
-        Mode.Install => "Установка агента",
-        Mode.Uninstall => "Удаление агента",
-        Mode.UpdateAll => "Обновление агентов",
-        Mode.InstallDotNetRuntimes => "Установка .NET 8 runtimes",
-        _ => "Операция"
+        Mode.Install => LocalizationService.Get("Str.Install.TitleInstall"),
+        Mode.Uninstall => LocalizationService.Get("Str.Install.TitleUninstall"),
+        Mode.UpdateAll => LocalizationService.Get("Str.Install.TitleUpdateAll"),
+        Mode.InstallDotNetRuntimes => LocalizationService.Get("Str.Install.TitleDotNet"),
+        _ => LocalizationService.Get("Str.Install.TitleOther")
     };
 
     internal static string BuildCompletionMessage(Mode mode, RuntimeInstallOutcome? runtimeOutcome = null) => mode switch
     {
-        Mode.Install => "Агент установлен и запущен",
-        Mode.Uninstall => "Агент удалён",
-        Mode.UpdateAll => "Агент обновлён",
+        Mode.Install => LocalizationService.Get("Str.Install.Msg.Installed"),
+        Mode.Uninstall => LocalizationService.Get("Str.Install.Msg.Uninstalled"),
+        Mode.UpdateAll => LocalizationService.Get("Str.Install.Msg.Updated"),
         Mode.InstallDotNetRuntimes => runtimeOutcome?.Message
             ?? throw new ArgumentNullException(nameof(runtimeOutcome)),
         _ => string.Empty
@@ -51,15 +51,15 @@ public partial class InstallProgressWindow : Window
 
     private static string BuildCompletionStatus(Mode mode, RuntimeInstallOutcome? runtimeOutcome = null) => mode switch
     {
-        Mode.Install => "Успешно",
-        Mode.Uninstall => "Успешно",
-        Mode.UpdateAll => "Успешно",
+        Mode.Install => LocalizationService.Get("Str.Install.Status.Success"),
+        Mode.Uninstall => LocalizationService.Get("Str.Install.Status.Success"),
+        Mode.UpdateAll => LocalizationService.Get("Str.Install.Status.Success"),
         Mode.InstallDotNetRuntimes => runtimeOutcome?.Status switch
         {
-            RuntimeInstallStatus.Installed => "Успешно",
-            RuntimeInstallStatus.InstalledRebootRequired => "Предупреждение",
-            RuntimeInstallStatus.SkippedNotRequired => "Пропуск",
-            RuntimeInstallStatus.SkippedUnsupported => "Пропуск",
+            RuntimeInstallStatus.Installed => LocalizationService.Get("Str.Install.Status.Success"),
+            RuntimeInstallStatus.InstalledRebootRequired => LocalizationService.Get("Str.Install.Status.Warning"),
+            RuntimeInstallStatus.SkippedNotRequired => LocalizationService.Get("Str.Install.Status.Skip"),
+            RuntimeInstallStatus.SkippedUnsupported => LocalizationService.Get("Str.Install.Status.Skip"),
             _ => throw new ArgumentNullException(nameof(runtimeOutcome))
         },
         _ => string.Empty
@@ -83,7 +83,7 @@ public partial class InstallProgressWindow : Window
             new ParallelOptions { MaxDegreeOfParallelism = 4 },
             async (computer, ct) =>
             {
-                AddLog(computer.Name, "Выполняется...", string.Empty, AgentLogLevel.Info);
+                AddLog(computer.Name, LocalizationService.Get("Str.Install.Status.Running"), string.Empty, AgentLogLevel.Info);
                 try
                 {
                     RuntimeInstallOutcome? runtimeOutcome = null;
@@ -111,7 +111,7 @@ public partial class InstallProgressWindow : Window
                 }
                 catch (Exception ex)
                 {
-                    AddLog(computer.Name, "Ошибка", ex.Message, AgentLogLevel.Error);
+                    AddLog(computer.Name, LocalizationService.Get("Str.Install.Status.Error"), ex.Message, AgentLogLevel.Error);
                 }
             });
 

@@ -1,0 +1,233 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+
+    <!-- ── LLM tooltip / badge ── -->
+    <sys:String x:Key="Str.Llm.Analysing">LLM: analysing...</sys:String>
+    <sys:String x:Key="Str.Llm.Error">LLM: Error</sys:String>
+    <sys:String x:Key="Str.Llm.Match">LLM: Match</sys:String>
+    <sys:String x:Key="Str.Llm.Mismatch">LLM: Mismatch</sys:String>
+
+    <!-- ── MainWindow toolbar ── -->
+    <sys:String x:Key="Str.Toolbar.Computers">Computers</sys:String>
+    <sys:String x:Key="Str.Toolbar.Start">Start</sys:String>
+    <sys:String x:Key="Str.Toolbar.Stop">Stop</sys:String>
+    <sys:String x:Key="Str.Toolbar.RefreshNow">Refresh now</sys:String>
+    <sys:String x:Key="Str.Toolbar.LlmNow">LLM now</sys:String>
+    <sys:String x:Key="Str.Toolbar.Settings">Settings</sys:String>
+    <sys:String x:Key="Str.Toolbar.About">About</sys:String>
+
+    <!-- ── MainWindow tile context menu ── -->
+    <sys:String x:Key="Str.Menu.Open">Open</sys:String>
+    <sys:String x:Key="Str.Menu.Edit">Edit</sys:String>
+    <sys:String x:Key="Str.Menu.RunLlmNow">Run LLM now</sys:String>
+    <sys:String x:Key="Str.Menu.Ping">Ping</sys:String>
+    <sys:String x:Key="Str.Menu.Rdp">RDP</sys:String>
+    <sys:String x:Key="Str.Menu.OpenShare">Open folder</sys:String>
+    <sys:String x:Key="Str.Menu.Restart">Restart</sys:String>
+    <sys:String x:Key="Str.Menu.Shutdown">Shut down</sys:String>
+    <sys:String x:Key="Str.Menu.Delete">Delete</sys:String>
+
+    <!-- ── MainWindow tile display ── -->
+    <sys:String x:Key="Str.Tile.NoImage">No image</sys:String>
+    <sys:String x:Key="Str.Tile.Disabled">Off</sys:String>
+
+    <!-- ── SettingsWindow ── -->
+    <sys:String x:Key="Str.WindowTitle.Settings">Settings</sys:String>
+    <sys:String x:Key="Str.Settings.Title">Viewer Settings</sys:String>
+    <sys:String x:Key="Str.Settings.Subtitle">All persistent settings in one place. Changes apply immediately.</sys:String>
+    <sys:String x:Key="Str.Settings.Language">Language</sys:String>
+    <sys:String x:Key="Str.Settings.LanguageAuto">Automatic</sys:String>
+    <sys:String x:Key="Str.Settings.General">General</sys:String>
+    <sys:String x:Key="Str.Settings.General.Desc">Refresh list parameters and Viewer behaviour on Windows login.</sys:String>
+    <sys:String x:Key="Str.Settings.RefreshInterval">Refresh interval:</sys:String>
+    <sys:String x:Key="Str.Settings.RefreshIntervalFormat">{0} s</sys:String>
+    <sys:String x:Key="Str.Settings.Autostart">Launch at Windows startup</sys:String>
+    <sys:String x:Key="Str.Settings.Llm">Screen recognition</sys:String>
+    <sys:String x:Key="Str.Settings.Llm.Desc">LLM screenshot check settings and local llama-server backend.</sys:String>
+    <sys:String x:Key="Str.Settings.LlmEnable">Enable screen recognition</sys:String>
+    <sys:String x:Key="Str.Settings.LlmInterval">Check interval:</sys:String>
+    <sys:String x:Key="Str.Settings.LlmIntervalFormat">{0} min</sys:String>
+    <sys:String x:Key="Str.Settings.Model">Model:</sys:String>
+    <sys:String x:Key="Str.Settings.Download">Download</sys:String>
+    <sys:String x:Key="Str.Settings.Cancel">Cancel</sys:String>
+    <sys:String x:Key="Str.Settings.Backend">llama-server backend:</sys:String>
+    <sys:String x:Key="Str.Settings.DownloadBackend">Download backend</sys:String>
+    <sys:String x:Key="Str.Settings.Connections">Connection storage</sys:String>
+    <sys:String x:Key="Str.Settings.Connections.Desc">Choose where the computer list is stored: locally or in an external encrypted file.</sys:String>
+    <sys:String x:Key="Str.Settings.CurrentSource">Current source</sys:String>
+    <sys:String x:Key="Str.Settings.ConnectionsFile">Connections file...</sys:String>
+    <sys:String x:Key="Str.Settings.UseLocal">Use local file</sys:String>
+    <sys:String x:Key="Str.Settings.Close">Close</sys:String>
+
+    <!-- ── AboutWindow ── -->
+    <sys:String x:Key="Str.WindowTitle.About">About</sys:String>
+    <sys:String x:Key="Str.About.Support">Support the author</sys:String>
+    <sys:String x:Key="Str.About.CheckUpdate">Check for updates</sys:String>
+    <sys:String x:Key="Str.About.Close">Close</sys:String>
+
+    <!-- ── ComputersManagerWindow ── -->
+    <sys:String x:Key="Str.WindowTitle.Computers">Manage computers</sys:String>
+    <sys:String x:Key="Str.Computers.Add">Add</sys:String>
+    <sys:String x:Key="Str.Computers.AddMultiple">Add multiple</sys:String>
+    <sys:String x:Key="Str.Computers.Edit">Edit</sys:String>
+    <sys:String x:Key="Str.Computers.Delete">Delete</sys:String>
+    <sys:String x:Key="Str.Computers.InstallAgent">Install agent</sys:String>
+    <sys:String x:Key="Str.Computers.UninstallAgent">Uninstall agent</sys:String>
+    <sys:String x:Key="Str.Computers.InstallDotNet">Install .NET 8 runtimes</sys:String>
+    <sys:String x:Key="Str.Computers.UpdateAll">Update agents</sys:String>
+    <sys:String x:Key="Str.Computers.Source">Connection source</sys:String>
+    <sys:String x:Key="Str.Computers.Col.Enabled">Enabled</sys:String>
+    <sys:String x:Key="Str.Computers.Col.Name">Name</sys:String>
+    <sys:String x:Key="Str.Computers.Col.Host">Host / IP</sys:String>
+    <sys:String x:Key="Str.Computers.Col.Port">Port</sys:String>
+    <sys:String x:Key="Str.Computers.Col.Status">Status</sys:String>
+
+    <!-- ── AddEditComputerWindow ── -->
+    <sys:String x:Key="Str.AddEdit.TitleAdd">Add computer</sys:String>
+    <sys:String x:Key="Str.AddEdit.TitleEdit">Edit computer</sys:String>
+    <sys:String x:Key="Str.AddEdit.ComputerSection">Computer</sys:String>
+    <sys:String x:Key="Str.AddEdit.ComputerDesc">Specify how the computer will appear in the list and whether it needs monitoring.</sys:String>
+    <sys:String x:Key="Str.AddEdit.NameLabel">Computer name</sys:String>
+    <sys:String x:Key="Str.AddEdit.Enabled">Enabled</sys:String>
+    <sys:String x:Key="Str.AddEdit.ConnSection">Connection</sys:String>
+    <sys:String x:Key="Str.AddEdit.ConnDesc">Main connection parameters. Name and host are the primary identifiers in the form.</sys:String>
+    <sys:String x:Key="Str.AddEdit.HostLabel">Host / IP address</sys:String>
+    <sys:String x:Key="Str.AddEdit.PortLabel">Port</sys:String>
+    <sys:String x:Key="Str.AddEdit.ApiKeyLabel">API key</sys:String>
+    <sys:String x:Key="Str.AddEdit.Generate">Generate</sys:String>
+    <sys:String x:Key="Str.AddEdit.DescSection">Screen description</sys:String>
+    <sys:String x:Key="Str.AddEdit.DescHint">Optional field for comparing the current screenshot with the expected screen type. Describe the general layout: major blocks, columns, colour zones. Do not specify exact times, numbers, or names.</sys:String>
+    <sys:String x:Key="Str.AddEdit.BtnAdd">Add</sys:String>
+    <sys:String x:Key="Str.AddEdit.BtnSave">Save</sys:String>
+    <sys:String x:Key="Str.AddEdit.BtnCancel">Cancel</sys:String>
+
+    <!-- ── AddMultipleComputersWindow ── -->
+    <sys:String x:Key="Str.WindowTitle.AddMultiple">Add multiple computers</sys:String>
+    <sys:String x:Key="Str.AddMultiple.TabHosts">By hosts</sys:String>
+    <sys:String x:Key="Str.AddMultiple.TabRange">By IP range</sys:String>
+    <sys:String x:Key="Str.AddMultiple.HostsLabel">Hosts (one per line):</sys:String>
+    <sys:String x:Key="Str.AddMultiple.PortLabel">Port:</sys:String>
+    <sys:String x:Key="Str.AddMultiple.ApiKeyHint">API key is generated automatically for each</sys:String>
+    <sys:String x:Key="Str.AddMultiple.RangeFrom">From:</sys:String>
+    <sys:String x:Key="Str.AddMultiple.RangeTo">To:</sys:String>
+    <sys:String x:Key="Str.AddMultiple.BtnAdd">Add</sys:String>
+    <sys:String x:Key="Str.AddMultiple.BtnCancel">Cancel</sys:String>
+    <sys:String x:Key="Str.AddMultiple.CountFormat">{0} computer(s) will be added</sys:String>
+    <sys:String x:Key="Str.AddMultiple.BtnAddCount">Add ({0})</sys:String>
+
+    <!-- ── ConnectionsFilePasswordWindow ── -->
+    <sys:String x:Key="Str.Password.TitleCreate">Create encrypted connections file</sys:String>
+    <sys:String x:Key="Str.Password.TitleOpen">Open encrypted connections file</sys:String>
+    <sys:String x:Key="Str.Password.PasswordLabel">Password</sys:String>
+    <sys:String x:Key="Str.Password.ConfirmLabel">Confirm password</sys:String>
+    <sys:String x:Key="Str.Password.Remember">Remember password on this computer</sys:String>
+    <sys:String x:Key="Str.Password.HintCreate">Password is stored locally only for the current Windows user and only in encrypted form.</sys:String>
+    <sys:String x:Key="Str.Password.HintOpen">Password is stored locally only for the current Windows user.</sys:String>
+    <sys:String x:Key="Str.Password.BtnOk">OK</sys:String>
+    <sys:String x:Key="Str.Password.BtnCancel">Cancel</sys:String>
+
+    <!-- ── CredentialsDialog ── -->
+    <sys:String x:Key="Str.WindowTitle.Creds">Credentials</sys:String>
+    <sys:String x:Key="Str.Creds.Prompt">Enter administrator credentials for remote agent installation.</sys:String>
+    <sys:String x:Key="Str.Creds.UseCurrent">Use current account</sys:String>
+    <sys:String x:Key="Str.Creds.UsernameLabel">Username</sys:String>
+    <sys:String x:Key="Str.Creds.PasswordLabel">Password</sys:String>
+    <sys:String x:Key="Str.Creds.BtnOk">OK</sys:String>
+    <sys:String x:Key="Str.Creds.BtnCancel">Cancel</sys:String>
+
+    <!-- ── InstallProgressWindow ── -->
+    <sys:String x:Key="Str.Install.TitleInstall">Install agent</sys:String>
+    <sys:String x:Key="Str.Install.TitleUninstall">Uninstall agent</sys:String>
+    <sys:String x:Key="Str.Install.TitleUpdateAll">Update agents</sys:String>
+    <sys:String x:Key="Str.Install.TitleDotNet">Install .NET 8 runtimes</sys:String>
+    <sys:String x:Key="Str.Install.TitleOther">Operation</sys:String>
+    <sys:String x:Key="Str.Install.Col.Computer">Computer</sys:String>
+    <sys:String x:Key="Str.Install.Col.Status">Status</sys:String>
+    <sys:String x:Key="Str.Install.Col.Message">Message</sys:String>
+    <sys:String x:Key="Str.Install.BtnClose">Close</sys:String>
+    <sys:String x:Key="Str.Install.Status.Running">Running...</sys:String>
+    <sys:String x:Key="Str.Install.Status.Success">Success</sys:String>
+    <sys:String x:Key="Str.Install.Status.Warning">Warning</sys:String>
+    <sys:String x:Key="Str.Install.Status.Skip">Skipped</sys:String>
+    <sys:String x:Key="Str.Install.Status.Error">Error</sys:String>
+    <sys:String x:Key="Str.Install.Msg.Installed">Agent installed and started</sys:String>
+    <sys:String x:Key="Str.Install.Msg.Uninstalled">Agent uninstalled</sys:String>
+    <sys:String x:Key="Str.Install.Msg.Updated">Agent updated</sys:String>
+
+    <!-- ── MainViewModel computed strings ── -->
+    <sys:String x:Key="Str.Vm.ModelLoadError">Model load error</sys:String>
+    <sys:String x:Key="Str.Vm.ModelMissing">Recognition model not downloaded. Open Settings and click "Download".</sys:String>
+    <sys:String x:Key="Str.Vm.LlmDisabled">Screen recognition is disabled. Enable it in Settings.</sys:String>
+    <sys:String x:Key="Str.Vm.BackendError">Recognition backend</sys:String>
+    <sys:String x:Key="Str.Vm.ModelReady">Ready ✓</sys:String>
+    <sys:String x:Key="Str.Vm.ModelNotDownloaded">Not downloaded</sys:String>
+    <sys:String x:Key="Str.Vm.BinaryMissing">Not downloaded</sys:String>
+    <sys:String x:Key="Str.Vm.BinaryIncomplete">Partially downloaded</sys:String>
+    <sys:String x:Key="Str.Vm.BinaryReady">Ready ✓</sys:String>
+    <sys:String x:Key="Str.Vm.DisabledMessage">Computer is disabled in Manage Computers.</sys:String>
+
+    <!-- ── Message boxes — MainWindow ── -->
+    <sys:String x:Key="Str.Msg.Error">Error: {0}</sys:String>
+    <sys:String x:Key="Str.Msg.Ping">Ping</sys:String>
+    <sys:String x:Key="Str.Msg.PingOk">{0}: agent is reachable.</sys:String>
+    <sys:String x:Key="Str.Msg.PingFail">{0}: agent is unreachable.</sys:String>
+    <sys:String x:Key="Str.Msg.RestartConfirm">Restart "{0}"?</sys:String>
+    <sys:String x:Key="Str.Msg.RestartTitle">Restart</sys:String>
+    <sys:String x:Key="Str.Msg.RestartSent">{0}: restart command sent.</sys:String>
+    <sys:String x:Key="Str.Msg.ShutdownConfirm">Shut down "{0}"?</sys:String>
+    <sys:String x:Key="Str.Msg.ShutdownTitle">Shut down</sys:String>
+    <sys:String x:Key="Str.Msg.ShutdownSent">{0}: shutdown command sent.</sys:String>
+    <sys:String x:Key="Str.Msg.DeleteConfirm">Delete "{0}"?</sys:String>
+    <sys:String x:Key="Str.Msg.DeleteTitle">Delete</sys:String>
+
+    <!-- ── Message boxes — ComputersManagerWindow ── -->
+    <sys:String x:Key="Str.Msg.InstallPrompt">Install agent on {0} added computers?</sys:String>
+    <sys:String x:Key="Str.Msg.InstallTitle">Install agent</sys:String>
+    <sys:String x:Key="Str.Msg.UninstallConfirm1">Uninstall agent from '{0}'?</sys:String>
+    <sys:String x:Key="Str.Msg.UninstallConfirmN">Uninstall agent from computers: {0}?</sys:String>
+    <sys:String x:Key="Str.Msg.UninstallTitle">Confirm</sys:String>
+    <sys:String x:Key="Str.Msg.DeleteComputer1">Delete computer '{0}'?</sys:String>
+    <sys:String x:Key="Str.Msg.DeleteComputerN">Delete computers: {0}?</sys:String>
+    <sys:String x:Key="Str.Msg.DeleteComputerTitle">Confirm</sys:String>
+    <sys:String x:Key="Str.Msg.NoActiveComputers">No active computers to update.</sys:String>
+    <sys:String x:Key="Str.Msg.UpdateAgentsTitle">Update agents</sys:String>
+
+    <!-- ── Validation messages ── -->
+    <sys:String x:Key="Str.Val.Title">Error</sys:String>
+    <sys:String x:Key="Str.Val.EnterName">Enter a computer name.</sys:String>
+    <sys:String x:Key="Str.Val.EnterHost">Enter a host or IP address.</sys:String>
+    <sys:String x:Key="Str.Val.InvalidPort">Enter a valid port (1–65535).</sys:String>
+    <sys:String x:Key="Str.Val.EmptyApiKey">API key cannot be empty.</sys:String>
+    <sys:String x:Key="Str.Val.EnterHost2">Enter at least one host.</sys:String>
+    <sys:String x:Key="Str.Val.EnterPassword">Enter a password.</sys:String>
+    <sys:String x:Key="Str.Val.PasswordTitle">Password</sys:String>
+    <sys:String x:Key="Str.Val.PasswordMismatch">Password confirmation does not match.</sys:String>
+    <sys:String x:Key="Str.Val.EnterUsername">Enter a username.</sys:String>
+
+    <!-- ── ConnectionsSourceWorkflowService ── -->
+    <sys:String x:Key="Str.Connections.Title">Connections File</sys:String>
+    <sys:String x:Key="Str.Connections.LocalFile">Local file: %AppData%\ScreensView\computers.json</sys:String>
+    <sys:String x:Key="Str.Connections.SourceHint">Change source in the Settings window.</sys:String>
+    <sys:String x:Key="Str.Connections.TempHint">Source is used for this session only. After restart, Viewer will return to the saved source.</sys:String>
+    <sys:String x:Key="Str.Connections.ExternalFileWarning">The connections file will be accessible to anyone with the file and its password. Store it only in a restricted-access folder.</sys:String>
+    <sys:String x:Key="Str.Connections.PickFileTitle">Select Connections File</sys:String>
+    <sys:String x:Key="Str.Connections.OpenFailedPassword">Failed to open the connections file. Check the password and try again.</sys:String>
+    <sys:String x:Key="Str.Connections.OpenFailed">Failed to open the connections file.</sys:String>
+    <sys:String x:Key="Str.Connections.CreateFailed">Failed to create the external connections file.</sys:String>
+    <sys:String x:Key="Str.Connections.SwitchLocalFailed">Failed to switch to the local connections file.</sys:String>
+    <sys:String x:Key="Str.Connections.FallbackPrompt">External connections file could not be opened. Switch to the local connections file?</sys:String>
+    <sys:String x:Key="Str.Connections.InvalidParams">Invalid startup parameters.</sys:String>
+    <sys:String x:Key="Str.Connections.FileNotFound">Connections file '{0}' not found.</sys:String>
+    <sys:String x:Key="Str.Connections.OverrideNew">Viewer was opened with connections file:&#xA;{0}&#xA;&#xA;Make this file the primary connections source?</sys:String>
+    <sys:String x:Key="Str.Connections.OverrideExisting">Another connections file is already saved in settings:&#xA;{0}&#xA;&#xA;Use instead:&#xA;{1}&#xA;&#xA;Make the new file the primary connections source?</sys:String>
+    <sys:String x:Key="Str.Connections.OverrideSuffix">&#xA;&#xA;Yes — make primary.&#xA;No — use for this session only.&#xA;Cancel — close Viewer.</sys:String>
+
+    <!-- ── Autostart error messages (MainViewModel) ── -->
+    <sys:String x:Key="Str.Vm.AutostartTitle">Autostart</sys:String>
+    <sys:String x:Key="Str.Vm.AutostartChangeFail">Failed to change autostart: {0}</sys:String>
+    <sys:String x:Key="Str.Vm.AutostartReadFail">Failed to read autostart state: {0}</sys:String>
+    <sys:String x:Key="Str.Vm.ComputerStateTitle">Manage computers</sys:String>
+    <sys:String x:Key="Str.Vm.ComputerStateFail">Failed to change state of computer '{0}': {1}</sys:String>
+
+</ResourceDictionary>

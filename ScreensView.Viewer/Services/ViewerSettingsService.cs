@@ -70,4 +70,5 @@ public class ViewerSettings
     public string LlamaServerBackend { get; set; } = "cpu"; // "cpu" | "vulkan" | "cuda"
     public string ConnectionsFilePath { get; set; } = string.Empty;
     public string ConnectionsFilePasswordEncrypted { get; set; } = string.Empty;
+    public string Language { get; set; } = "auto"; // "auto" | "ru" | "en"
 }

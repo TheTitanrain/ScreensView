@@ -92,16 +92,40 @@
                                 <TextBlock x:Name="icon"
                                            FontFamily="Segoe MDL2 Assets" FontSize="14"
                                            Text="&#xE768;" Foreground="White" VerticalAlignment="Center"/>
-                                <TextBlock x:Name="label"
-                                           Text=" Запустить" Foreground="White"
-                                           FontWeight="SemiBold" VerticalAlignment="Center"/>
+                                <TextBlock x:Name="labelStart"
+                                           Foreground="White" FontWeight="SemiBold" VerticalAlignment="Center"
+                                           Text="{DynamicResource Str.Toolbar.Start}" Margin="4,0,0,0">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Visible"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=ToggleButton}, Path=IsChecked}" Value="True">
+                                                    <Setter Property="Visibility" Value="Collapsed"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
+                                <TextBlock x:Name="labelStop"
+                                           Foreground="White" FontWeight="SemiBold" VerticalAlignment="Center"
+                                           Text="{DynamicResource Str.Toolbar.Stop}" Margin="4,0,0,0">
+                                    <TextBlock.Style>
+                                        <Style TargetType="TextBlock">
+                                            <Setter Property="Visibility" Value="Collapsed"/>
+                                            <Style.Triggers>
+                                                <DataTrigger Binding="{Binding RelativeSource={RelativeSource AncestorType=ToggleButton}, Path=IsChecked}" Value="True">
+                                                    <Setter Property="Visibility" Value="Visible"/>
+                                                </DataTrigger>
+                                            </Style.Triggers>
+                                        </Style>
+                                    </TextBlock.Style>
+                                </TextBlock>
                             </StackPanel>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsChecked" Value="True">
                                 <Setter TargetName="border" Property="Background" Value="#C50500"/>
                                 <Setter TargetName="icon" Property="Text" Value="&#xE71A;"/>
-                                <Setter TargetName="label" Property="Text" Value=" Остановить"/>
                             </Trigger>
                             <!-- Opacity used for hover/press so it works in both checked and unchecked
                                  states without conflicting with the Background set by IsChecked trigger -->
@@ -138,7 +162,7 @@
                     <Button Style="{StaticResource ToolbarButton}" Click="ManageComputers_Click">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE7EF;" FontSize="14" VerticalAlignment="Center"/>
-                            <TextBlock Text=" Компьютеры" VerticalAlignment="Center"/>
+                            <TextBlock Text="{DynamicResource Str.Toolbar.Computers}" Margin="4,0,0,0" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
 
@@ -152,14 +176,14 @@
                     <Button Style="{StaticResource ToolbarButton}" Command="{Binding RefreshNowCommand}">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE72C;" FontSize="14" VerticalAlignment="Center"/>
-                            <TextBlock Text=" Обновить сейчас" VerticalAlignment="Center"/>
+                            <TextBlock Text="{DynamicResource Str.Toolbar.RefreshNow}" Margin="4,0,0,0" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
 
                     <Button Style="{StaticResource ToolbarButton}" Command="{Binding RunLlmNowCommand}">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE8A1;" FontSize="14" VerticalAlignment="Center"/>
-                            <TextBlock Text=" LLM сейчас" VerticalAlignment="Center"/>
+                            <TextBlock Text="{DynamicResource Str.Toolbar.LlmNow}" Margin="4,0,0,0" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
 
@@ -168,7 +192,7 @@
                     <Button Style="{StaticResource ToolbarButton}" Click="Settings_Click">
                         <StackPanel Orientation="Horizontal">
                             <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE713;" FontSize="14" VerticalAlignment="Center"/>
-                            <TextBlock Text=" Настройки" VerticalAlignment="Center"/>
+                            <TextBlock Text="{DynamicResource Str.Toolbar.Settings}" Margin="4,0,0,0" VerticalAlignment="Center"/>
                         </StackPanel>
                     </Button>
 
@@ -179,7 +203,7 @@
                         Click="About_Click" VerticalAlignment="Center">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE946;" FontSize="13" VerticalAlignment="Center"/>
-                        <TextBlock Text=" О программе" FontSize="12" VerticalAlignment="Center"/>
+                        <TextBlock Text="{DynamicResource Str.Toolbar.About}" Margin="4,0,0,0" FontSize="12" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
 
@@ -206,18 +230,7 @@
                                 CornerRadius="4">
                             <Border.ToolTip>
                                 <ToolTip>
-                                    <TextBlock>
-                                        <TextBlock.Style>
-                                            <Style TargetType="TextBlock">
-                                                <Setter Property="Text" Value="{Binding LastLlmCheck, Converter={StaticResource LlmTooltip}}"/>
-                                                <Style.Triggers>
-                                                    <DataTrigger Binding="{Binding IsLlmChecking}" Value="True">
-                                                        <Setter Property="Text" Value="LLM: analysing..."/>
-                                                    </DataTrigger>
-                                                </Style.Triggers>
-                                            </Style>
-                                        </TextBlock.Style>
-                                    </TextBlock>
+                                    <TextBlock Text="{Binding LlmTooltipText}"/>
                                 </ToolTip>
                             </Border.ToolTip>
                         <Border BorderBrush="#CCCCCC" BorderThickness="1"
@@ -235,19 +248,19 @@
                             </Border.Style>
                             <Border.ContextMenu>
                                 <ContextMenu>
-                                    <MenuItem Header="Открыть" Click="TileMenu_Open"/>
-                                    <MenuItem Header="Редактировать" Click="TileMenu_Edit"/>
+                                    <MenuItem Header="{DynamicResource Str.Menu.Open}" Click="TileMenu_Open"/>
+                                    <MenuItem Header="{DynamicResource Str.Menu.Edit}" Click="TileMenu_Edit"/>
                                     <Separator/>
-                                    <MenuItem Header="Запустить LLM сейчас" Click="TileMenu_RunLlmNow"/>
-                                    <MenuItem Header="Пинг" Click="TileMenu_Ping"/>
+                                    <MenuItem Header="{DynamicResource Str.Menu.RunLlmNow}" Click="TileMenu_RunLlmNow"/>
+                                    <MenuItem Header="{DynamicResource Str.Menu.Ping}" Click="TileMenu_Ping"/>
                                     <Separator/>
-                                    <MenuItem Header="RDP" Click="TileMenu_Rdp"/>
-                                    <MenuItem Header="Открыть папку" Click="TileMenu_OpenShare"/>
+                                    <MenuItem Header="{DynamicResource Str.Menu.Rdp}" Click="TileMenu_Rdp"/>
+                                    <MenuItem Header="{DynamicResource Str.Menu.OpenShare}" Click="TileMenu_OpenShare"/>
                                     <Separator/>
-                                    <MenuItem Header="Перезагрузить" Click="TileMenu_Restart"/>
-                                    <MenuItem Header="Выключить" Click="TileMenu_Shutdown"/>
+                                    <MenuItem Header="{DynamicResource Str.Menu.Restart}" Click="TileMenu_Restart"/>
+                                    <MenuItem Header="{DynamicResource Str.Menu.Shutdown}" Click="TileMenu_Shutdown"/>
                                     <Separator/>
-                                    <MenuItem Header="Удалить" Click="TileMenu_Delete"/>
+                                    <MenuItem Header="{DynamicResource Str.Menu.Delete}" Click="TileMenu_Delete"/>
                                 </ContextMenu>
                             </Border.ContextMenu>
                             <Grid>
@@ -261,7 +274,7 @@
                                        RenderOptions.BitmapScalingMode="LowQuality"/>
 
                                 <!-- Placeholder when no screenshot -->
-                                <TextBlock Grid.Row="0" Text="Нет изображения" Foreground="#666"
+                                <TextBlock Grid.Row="0" Text="{DynamicResource Str.Tile.NoImage}" Foreground="#666"
                                            HorizontalAlignment="Center" VerticalAlignment="Center">
                                     <TextBlock.Style>
                                         <Style TargetType="TextBlock">
@@ -349,15 +362,14 @@
 
                                         <!-- Last updated time -->
                                         <TextBlock Grid.Column="2" FontSize="10"
+                                                   Text="{Binding BottomBarTimeText}"
                                                    VerticalAlignment="Center" Margin="0,0,6,0">
                                             <TextBlock.Style>
                                                 <Style TargetType="TextBlock">
                                                     <Setter Property="Foreground" Value="#888"/>
-                                                    <Setter Property="Text" Value="{Binding LastUpdated, StringFormat='HH:mm:ss'}"/>
                                                     <Style.Triggers>
                                                         <DataTrigger Binding="{Binding Status}" Value="Disabled">
                                                             <Setter Property="Foreground" Value="#B5C0C9"/>
-                                                            <Setter Property="Text" Value="Откл."/>
                                                         </DataTrigger>
                                                     </Style.Triggers>
                                                 </Style>

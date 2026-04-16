@@ -45,7 +45,7 @@ public partial class AddEditComputerWindow : Window
         var buildResult = BuildResultOrValidationMessage();
         if (buildResult is string validationMessage)
         {
-            MessageBox.Show(validationMessage, "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(validationMessage, LocalizationService.Get("Str.Val.Title"), MessageBoxButton.OK, MessageBoxImage.Warning);
             return;
         }
 
@@ -56,24 +56,16 @@ public partial class AddEditComputerWindow : Window
     internal object BuildResultOrValidationMessage()
     {
         if (string.IsNullOrWhiteSpace(NameBox.Text))
-        {
-            return "Введите имя компьютера.";
-        }
+            return LocalizationService.Get("Str.Val.EnterName");
 
         if (string.IsNullOrWhiteSpace(HostBox.Text))
-        {
-            return "Введите хост или IP-адрес.";
-        }
+            return LocalizationService.Get("Str.Val.EnterHost");
 
         if (!int.TryParse(PortBox.Text, out var port) || port < 1 || port > 65535)
-        {
-            return "Введите корректный порт (1–65535).";
-        }
+            return LocalizationService.Get("Str.Val.InvalidPort");
 
         if (string.IsNullOrWhiteSpace(ApiKeyBox.Text))
-        {
-            return "API-ключ не может быть пустым.";
-        }
+            return LocalizationService.Get("Str.Val.EmptyApiKey");
 
         var newHost = HostBox.Text.Trim();
         var certThumbprint = (_existing is not null
@@ -101,14 +93,14 @@ public partial class AddEditComputerWindow : Window
     {
         if (_isEditMode)
         {
-            Title = "Редактировать компьютер";
-            PrimaryActionButton.Content = "Сохранить";
+            Title = LocalizationService.Get("Str.AddEdit.TitleEdit");
+            PrimaryActionButton.Content = LocalizationService.Get("Str.AddEdit.BtnSave");
             GenerateApiKeyButton.IsEnabled = false;
             return;
         }
 
-        Title = "Добавить компьютер";
-        PrimaryActionButton.Content = "Добавить";
+        Title = LocalizationService.Get("Str.AddEdit.TitleAdd");
+        PrimaryActionButton.Content = LocalizationService.Get("Str.AddEdit.BtnAdd");
         GenerateApiKeyButton.IsEnabled = true;
     }
 

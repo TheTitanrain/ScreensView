@@ -2,6 +2,7 @@ using System.Windows.Media.Imaging;
 using CommunityToolkit.Mvvm.ComponentModel;
 using ScreensView.Shared.Models;
 using ScreensView.Viewer.Models;
+using ScreensView.Viewer.Services;
 
 namespace ScreensView.Viewer.ViewModels;
 
@@ -20,7 +21,7 @@ public enum LlmTileStatus
 
 public partial class ComputerViewModel : ObservableObject
 {
-    private const string DisabledMessage = "Компьютер отключён в Управлении компьютерами.";
+    private static string DisabledMessage => LocalizationService.Get("Str.Vm.DisabledMessage");
 
     public Guid Id { get; }
 
@@ -39,6 +40,38 @@ public partial class ComputerViewModel : ObservableObject
     [ObservableProperty] private bool _isLlmChecking;
     [ObservableProperty] private bool _isLlmServiceActive;
     [ObservableProperty] private LlmTileStatus _llmStatus = LlmTileStatus.Inactive;
+
+    /// <summary>Bottom-bar time text: "HH:mm:ss" or localized "Off" when disabled.</summary>
+    public string BottomBarTimeText =>
+        Status == ComputerStatus.Disabled
+            ? LocalizationService.Get("Str.Tile.Disabled")
+            : LastUpdated?.ToString("HH:mm:ss") ?? string.Empty;
+
+    /// <summary>Tooltip text for the LLM badge.</summary>
+    public string? LlmTooltipText
+    {
+        get
+        {
+            if (IsLlmChecking) return LocalizationService.Get("Str.Llm.Analysing");
+            if (LastLlmCheck is LlmCheckResult r)
+            {
+                var prefix = r.IsError ? LocalizationService.Get("Str.Llm.Error") :
+                             r.IsMatch ? LocalizationService.Get("Str.Llm.Match")
+                                       : LocalizationService.Get("Str.Llm.Mismatch");
+                return $"{prefix} — {r.Explanation}";
+            }
+            return null;
+        }
+    }
+
+    /// <summary>Called by MainViewModel when the UI language is switched.</summary>
+    public void NotifyLanguageChanged()
+    {
+        if (Status == ComputerStatus.Disabled)
+            StatusMessage = LocalizationService.Get("Str.Vm.DisabledMessage");
+        OnPropertyChanged(nameof(BottomBarTimeText));
+        OnPropertyChanged(nameof(LlmTooltipText));
+    }
 
     public ComputerViewModel(ComputerConfig config)
     {
@@ -116,9 +149,11 @@ public partial class ComputerViewModel : ObservableObject
         UpdateLlmStatus();
     }
 
+    partial void OnStatusChanged(ComputerStatus value) => OnPropertyChanged(nameof(BottomBarTimeText));
+    partial void OnLastUpdatedChanged(DateTime? value) => OnPropertyChanged(nameof(BottomBarTimeText));
     partial void OnIsLlmServiceActiveChanged(bool value) => UpdateLlmStatus();
-    partial void OnIsLlmCheckingChanged(bool value) => UpdateLlmStatus();
-    partial void OnLastLlmCheckChanged(LlmCheckResult? value) => UpdateLlmStatus();
+    partial void OnIsLlmCheckingChanged(bool value) { UpdateLlmStatus(); OnPropertyChanged(nameof(LlmTooltipText)); }
+    partial void OnLastLlmCheckChanged(LlmCheckResult? value) { UpdateLlmStatus(); OnPropertyChanged(nameof(LlmTooltipText)); }
 
     private LlmTileStatus ComputeLlmStatus() => _isLlmServiceActive switch
     {

@@ -1,0 +1,233 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+
+    <!-- ── LLM tooltip / badge ── -->
+    <sys:String x:Key="Str.Llm.Analysing">LLM: идёт проверка...</sys:String>
+    <sys:String x:Key="Str.Llm.Error">LLM: Ошибка</sys:String>
+    <sys:String x:Key="Str.Llm.Match">LLM: Совпадение</sys:String>
+    <sys:String x:Key="Str.Llm.Mismatch">LLM: Несовпадение</sys:String>
+
+    <!-- ── MainWindow toolbar ── -->
+    <sys:String x:Key="Str.Toolbar.Computers">Компьютеры</sys:String>
+    <sys:String x:Key="Str.Toolbar.Start">Запустить</sys:String>
+    <sys:String x:Key="Str.Toolbar.Stop">Остановить</sys:String>
+    <sys:String x:Key="Str.Toolbar.RefreshNow">Обновить сейчас</sys:String>
+    <sys:String x:Key="Str.Toolbar.LlmNow">LLM сейчас</sys:String>
+    <sys:String x:Key="Str.Toolbar.Settings">Настройки</sys:String>
+    <sys:String x:Key="Str.Toolbar.About">О программе</sys:String>
+
+    <!-- ── MainWindow tile context menu ── -->
+    <sys:String x:Key="Str.Menu.Open">Открыть</sys:String>
+    <sys:String x:Key="Str.Menu.Edit">Редактировать</sys:String>
+    <sys:String x:Key="Str.Menu.RunLlmNow">Запустить LLM сейчас</sys:String>
+    <sys:String x:Key="Str.Menu.Ping">Пинг</sys:String>
+    <sys:String x:Key="Str.Menu.Rdp">RDP</sys:String>
+    <sys:String x:Key="Str.Menu.OpenShare">Открыть папку</sys:String>
+    <sys:String x:Key="Str.Menu.Restart">Перезагрузить</sys:String>
+    <sys:String x:Key="Str.Menu.Shutdown">Выключить</sys:String>
+    <sys:String x:Key="Str.Menu.Delete">Удалить</sys:String>
+
+    <!-- ── MainWindow tile display ── -->
+    <sys:String x:Key="Str.Tile.NoImage">Нет изображения</sys:String>
+    <sys:String x:Key="Str.Tile.Disabled">Откл.</sys:String>
+
+    <!-- ── SettingsWindow ── -->
+    <sys:String x:Key="Str.WindowTitle.Settings">Настройки</sys:String>
+    <sys:String x:Key="Str.Settings.Title">Настройки Viewer</sys:String>
+    <sys:String x:Key="Str.Settings.Subtitle">Все постоянные настройки собраны в одном окне. Изменения применяются сразу.</sys:String>
+    <sys:String x:Key="Str.Settings.Language">Язык / Language</sys:String>
+    <sys:String x:Key="Str.Settings.LanguageAuto">Автоматически</sys:String>
+    <sys:String x:Key="Str.Settings.General">Общие</sys:String>
+    <sys:String x:Key="Str.Settings.General.Desc">Параметры обновления списка и поведение Viewer при входе в Windows.</sys:String>
+    <sys:String x:Key="Str.Settings.RefreshInterval">Интервал обновления:</sys:String>
+    <sys:String x:Key="Str.Settings.RefreshIntervalFormat">{0} с</sys:String>
+    <sys:String x:Key="Str.Settings.Autostart">Автозапуск при входе в Windows</sys:String>
+    <sys:String x:Key="Str.Settings.Llm">Распознавание экрана</sys:String>
+    <sys:String x:Key="Str.Settings.Llm.Desc">Настройки LLM-проверки скриншотов и локального backend для llama-server.</sys:String>
+    <sys:String x:Key="Str.Settings.LlmEnable">Включить распознавание экрана</sys:String>
+    <sys:String x:Key="Str.Settings.LlmInterval">Интервал проверок:</sys:String>
+    <sys:String x:Key="Str.Settings.LlmIntervalFormat">{0} мин</sys:String>
+    <sys:String x:Key="Str.Settings.Model">Модель:</sys:String>
+    <sys:String x:Key="Str.Settings.Download">Скачать</sys:String>
+    <sys:String x:Key="Str.Settings.Cancel">Отмена</sys:String>
+    <sys:String x:Key="Str.Settings.Backend">Бэкенд llama-server:</sys:String>
+    <sys:String x:Key="Str.Settings.DownloadBackend">Скачать бэкенд</sys:String>
+    <sys:String x:Key="Str.Settings.Connections">Хранилище подключений</sys:String>
+    <sys:String x:Key="Str.Settings.Connections.Desc">Выберите, где хранится список компьютеров: локально или во внешнем зашифрованном файле.</sys:String>
+    <sys:String x:Key="Str.Settings.CurrentSource">Текущий источник</sys:String>
+    <sys:String x:Key="Str.Settings.ConnectionsFile">Файл подключений...</sys:String>
+    <sys:String x:Key="Str.Settings.UseLocal">Использовать локальный файл</sys:String>
+    <sys:String x:Key="Str.Settings.Close">Закрыть</sys:String>
+
+    <!-- ── AboutWindow ── -->
+    <sys:String x:Key="Str.WindowTitle.About">О программе</sys:String>
+    <sys:String x:Key="Str.About.Support">Поддержать автора</sys:String>
+    <sys:String x:Key="Str.About.CheckUpdate">Проверить обновления</sys:String>
+    <sys:String x:Key="Str.About.Close">Закрыть</sys:String>
+
+    <!-- ── ComputersManagerWindow ── -->
+    <sys:String x:Key="Str.WindowTitle.Computers">Управление компьютерами</sys:String>
+    <sys:String x:Key="Str.Computers.Add">Добавить</sys:String>
+    <sys:String x:Key="Str.Computers.AddMultiple">Добавить несколько</sys:String>
+    <sys:String x:Key="Str.Computers.Edit">Редактировать</sys:String>
+    <sys:String x:Key="Str.Computers.Delete">Удалить</sys:String>
+    <sys:String x:Key="Str.Computers.InstallAgent">Установить агент</sys:String>
+    <sys:String x:Key="Str.Computers.UninstallAgent">Удалить агент</sys:String>
+    <sys:String x:Key="Str.Computers.InstallDotNet">Установить .NET 8 runtimes</sys:String>
+    <sys:String x:Key="Str.Computers.UpdateAll">Обновить агентов</sys:String>
+    <sys:String x:Key="Str.Computers.Source">Источник подключений</sys:String>
+    <sys:String x:Key="Str.Computers.Col.Enabled">Включён</sys:String>
+    <sys:String x:Key="Str.Computers.Col.Name">Имя</sys:String>
+    <sys:String x:Key="Str.Computers.Col.Host">Хост / IP</sys:String>
+    <sys:String x:Key="Str.Computers.Col.Port">Порт</sys:String>
+    <sys:String x:Key="Str.Computers.Col.Status">Статус</sys:String>
+
+    <!-- ── AddEditComputerWindow ── -->
+    <sys:String x:Key="Str.AddEdit.TitleAdd">Добавить компьютер</sys:String>
+    <sys:String x:Key="Str.AddEdit.TitleEdit">Редактировать компьютер</sys:String>
+    <sys:String x:Key="Str.AddEdit.ComputerSection">Компьютер</sys:String>
+    <sys:String x:Key="Str.AddEdit.ComputerDesc">Укажите, как компьютер будет отображаться в списке и нужен ли он в мониторинге.</sys:String>
+    <sys:String x:Key="Str.AddEdit.NameLabel">Имя компьютера</sys:String>
+    <sys:String x:Key="Str.AddEdit.Enabled">Включён</sys:String>
+    <sys:String x:Key="Str.AddEdit.ConnSection">Подключение</sys:String>
+    <sys:String x:Key="Str.AddEdit.ConnDesc">Основные параметры подключения. Имя и хост остаются главными ориентирами в форме.</sys:String>
+    <sys:String x:Key="Str.AddEdit.HostLabel">Хост / IP-адрес</sys:String>
+    <sys:String x:Key="Str.AddEdit.PortLabel">Порт</sys:String>
+    <sys:String x:Key="Str.AddEdit.ApiKeyLabel">API-ключ</sys:String>
+    <sys:String x:Key="Str.AddEdit.Generate">Сгенерировать</sys:String>
+    <sys:String x:Key="Str.AddEdit.DescSection">Описание экрана</sys:String>
+    <sys:String x:Key="Str.AddEdit.DescHint">Поле необязательное и нужно для сравнения текущего скриншота с ожидаемым типом экрана. Опишите общий layout: крупные блоки, колонки, цветовые зоны. Не указывайте точные времена, номера и фамилии.</sys:String>
+    <sys:String x:Key="Str.AddEdit.BtnAdd">Добавить</sys:String>
+    <sys:String x:Key="Str.AddEdit.BtnSave">Сохранить</sys:String>
+    <sys:String x:Key="Str.AddEdit.BtnCancel">Отмена</sys:String>
+
+    <!-- ── AddMultipleComputersWindow ── -->
+    <sys:String x:Key="Str.WindowTitle.AddMultiple">Добавить несколько компьютеров</sys:String>
+    <sys:String x:Key="Str.AddMultiple.TabHosts">По хостам</sys:String>
+    <sys:String x:Key="Str.AddMultiple.TabRange">По диапазону IP</sys:String>
+    <sys:String x:Key="Str.AddMultiple.HostsLabel">Хосты (по одному на строку):</sys:String>
+    <sys:String x:Key="Str.AddMultiple.PortLabel">Порт:</sys:String>
+    <sys:String x:Key="Str.AddMultiple.ApiKeyHint">API-ключ генерируется автоматически для каждого</sys:String>
+    <sys:String x:Key="Str.AddMultiple.RangeFrom">С:</sys:String>
+    <sys:String x:Key="Str.AddMultiple.RangeTo">По:</sys:String>
+    <sys:String x:Key="Str.AddMultiple.BtnAdd">Добавить</sys:String>
+    <sys:String x:Key="Str.AddMultiple.BtnCancel">Отмена</sys:String>
+    <sys:String x:Key="Str.AddMultiple.CountFormat">{0} компьютер(а/ов) будет добавлено</sys:String>
+    <sys:String x:Key="Str.AddMultiple.BtnAddCount">Добавить ({0})</sys:String>
+
+    <!-- ── ConnectionsFilePasswordWindow ── -->
+    <sys:String x:Key="Str.Password.TitleCreate">Создание зашифрованного файла подключений</sys:String>
+    <sys:String x:Key="Str.Password.TitleOpen">Открытие зашифрованного файла подключений</sys:String>
+    <sys:String x:Key="Str.Password.PasswordLabel">Пароль</sys:String>
+    <sys:String x:Key="Str.Password.ConfirmLabel">Подтверждение пароля</sys:String>
+    <sys:String x:Key="Str.Password.Remember">Запомнить пароль на этом компьютере</sys:String>
+    <sys:String x:Key="Str.Password.HintCreate">Пароль сохраняется только локально для текущего пользователя Windows и только в зашифрованном виде.</sys:String>
+    <sys:String x:Key="Str.Password.HintOpen">Пароль сохраняется только локально для текущего пользователя Windows.</sys:String>
+    <sys:String x:Key="Str.Password.BtnOk">OK</sys:String>
+    <sys:String x:Key="Str.Password.BtnCancel">Отмена</sys:String>
+
+    <!-- ── CredentialsDialog ── -->
+    <sys:String x:Key="Str.WindowTitle.Creds">Учетные данные</sys:String>
+    <sys:String x:Key="Str.Creds.Prompt">Укажите учетные данные администратора для удаленной установки агента.</sys:String>
+    <sys:String x:Key="Str.Creds.UseCurrent">Использовать текущую учетную запись</sys:String>
+    <sys:String x:Key="Str.Creds.UsernameLabel">Имя пользователя</sys:String>
+    <sys:String x:Key="Str.Creds.PasswordLabel">Пароль</sys:String>
+    <sys:String x:Key="Str.Creds.BtnOk">OK</sys:String>
+    <sys:String x:Key="Str.Creds.BtnCancel">Отмена</sys:String>
+
+    <!-- ── InstallProgressWindow ── -->
+    <sys:String x:Key="Str.Install.TitleInstall">Установка агента</sys:String>
+    <sys:String x:Key="Str.Install.TitleUninstall">Удаление агента</sys:String>
+    <sys:String x:Key="Str.Install.TitleUpdateAll">Обновление агентов</sys:String>
+    <sys:String x:Key="Str.Install.TitleDotNet">Установка .NET 8 runtimes</sys:String>
+    <sys:String x:Key="Str.Install.TitleOther">Операция</sys:String>
+    <sys:String x:Key="Str.Install.Col.Computer">Компьютер</sys:String>
+    <sys:String x:Key="Str.Install.Col.Status">Статус</sys:String>
+    <sys:String x:Key="Str.Install.Col.Message">Сообщение</sys:String>
+    <sys:String x:Key="Str.Install.BtnClose">Закрыть</sys:String>
+    <sys:String x:Key="Str.Install.Status.Running">Выполняется...</sys:String>
+    <sys:String x:Key="Str.Install.Status.Success">Успешно</sys:String>
+    <sys:String x:Key="Str.Install.Status.Warning">Предупреждение</sys:String>
+    <sys:String x:Key="Str.Install.Status.Skip">Пропуск</sys:String>
+    <sys:String x:Key="Str.Install.Status.Error">Ошибка</sys:String>
+    <sys:String x:Key="Str.Install.Msg.Installed">Агент установлен и запущен</sys:String>
+    <sys:String x:Key="Str.Install.Msg.Uninstalled">Агент удалён</sys:String>
+    <sys:String x:Key="Str.Install.Msg.Updated">Агент обновлён</sys:String>
+
+    <!-- ── MainViewModel computed strings ── -->
+    <sys:String x:Key="Str.Vm.ModelLoadError">Ошибка загрузки модели</sys:String>
+    <sys:String x:Key="Str.Vm.ModelMissing">Модель для распознавания не скачана. Откройте настройки и нажмите "Скачать".</sys:String>
+    <sys:String x:Key="Str.Vm.LlmDisabled">Распознавание экрана выключено. Включите его в настройках.</sys:String>
+    <sys:String x:Key="Str.Vm.BackendError">Бэкенд распознавания</sys:String>
+    <sys:String x:Key="Str.Vm.ModelReady">Готово ✓</sys:String>
+    <sys:String x:Key="Str.Vm.ModelNotDownloaded">Не скачана</sys:String>
+    <sys:String x:Key="Str.Vm.BinaryMissing">Не скачан</sys:String>
+    <sys:String x:Key="Str.Vm.BinaryIncomplete">Скачан не полностью</sys:String>
+    <sys:String x:Key="Str.Vm.BinaryReady">Готово ✓</sys:String>
+    <sys:String x:Key="Str.Vm.DisabledMessage">Компьютер отключён в Управлении компьютерами.</sys:String>
+
+    <!-- ── Message boxes — MainWindow ── -->
+    <sys:String x:Key="Str.Msg.Error">Ошибка: {0}</sys:String>
+    <sys:String x:Key="Str.Msg.Ping">Пинг</sys:String>
+    <sys:String x:Key="Str.Msg.PingOk">{0}: агент доступен.</sys:String>
+    <sys:String x:Key="Str.Msg.PingFail">{0}: агент недоступен.</sys:String>
+    <sys:String x:Key="Str.Msg.RestartConfirm">Перезагрузить «{0}»?</sys:String>
+    <sys:String x:Key="Str.Msg.RestartTitle">Перезагрузка</sys:String>
+    <sys:String x:Key="Str.Msg.RestartSent">{0}: команда перезагрузки отправлена.</sys:String>
+    <sys:String x:Key="Str.Msg.ShutdownConfirm">Выключить «{0}»?</sys:String>
+    <sys:String x:Key="Str.Msg.ShutdownTitle">Выключение</sys:String>
+    <sys:String x:Key="Str.Msg.ShutdownSent">{0}: команда выключения отправлена.</sys:String>
+    <sys:String x:Key="Str.Msg.DeleteConfirm">Удалить «{0}»?</sys:String>
+    <sys:String x:Key="Str.Msg.DeleteTitle">Удаление</sys:String>
+
+    <!-- ── Message boxes — ComputersManagerWindow ── -->
+    <sys:String x:Key="Str.Msg.InstallPrompt">Установить агент на {0} добавленных компьютеров?</sys:String>
+    <sys:String x:Key="Str.Msg.InstallTitle">Установка агента</sys:String>
+    <sys:String x:Key="Str.Msg.UninstallConfirm1">Удалить агент с '{0}'?</sys:String>
+    <sys:String x:Key="Str.Msg.UninstallConfirmN">Удалить агент с компьютеров: {0}?</sys:String>
+    <sys:String x:Key="Str.Msg.UninstallTitle">Подтверждение</sys:String>
+    <sys:String x:Key="Str.Msg.DeleteComputer1">Удалить компьютер '{0}'?</sys:String>
+    <sys:String x:Key="Str.Msg.DeleteComputerN">Удалить компьютеры: {0}?</sys:String>
+    <sys:String x:Key="Str.Msg.DeleteComputerTitle">Подтверждение</sys:String>
+    <sys:String x:Key="Str.Msg.NoActiveComputers">Нет активных компьютеров для обновления.</sys:String>
+    <sys:String x:Key="Str.Msg.UpdateAgentsTitle">Обновление агентов</sys:String>
+
+    <!-- ── Validation messages ── -->
+    <sys:String x:Key="Str.Val.Title">Ошибка</sys:String>
+    <sys:String x:Key="Str.Val.EnterName">Введите имя компьютера.</sys:String>
+    <sys:String x:Key="Str.Val.EnterHost">Введите хост или IP-адрес.</sys:String>
+    <sys:String x:Key="Str.Val.InvalidPort">Введите корректный порт (1–65535).</sys:String>
+    <sys:String x:Key="Str.Val.EmptyApiKey">API-ключ не может быть пустым.</sys:String>
+    <sys:String x:Key="Str.Val.EnterHost2">Введите хотя бы один хост.</sys:String>
+    <sys:String x:Key="Str.Val.EnterPassword">Введите пароль.</sys:String>
+    <sys:String x:Key="Str.Val.PasswordTitle">Пароль</sys:String>
+    <sys:String x:Key="Str.Val.PasswordMismatch">Подтверждение пароля не совпадает.</sys:String>
+    <sys:String x:Key="Str.Val.EnterUsername">Введите имя пользователя.</sys:String>
+
+    <!-- ── ConnectionsSourceWorkflowService ── -->
+    <sys:String x:Key="Str.Connections.Title">Файл подключений</sys:String>
+    <sys:String x:Key="Str.Connections.LocalFile">Локальный файл: %AppData%\ScreensView\computers.json</sys:String>
+    <sys:String x:Key="Str.Connections.SourceHint">Источник меняется в окне «Настройки».</sys:String>
+    <sys:String x:Key="Str.Connections.TempHint">Источник используется только на этот запуск. После перезапуска Viewer вернётся к сохранённому источнику.</sys:String>
+    <sys:String x:Key="Str.Connections.ExternalFileWarning">Файл подключений будет доступен всем, у кого есть сам файл и пароль к нему. Храните его только в папке с ограниченным доступом.</sys:String>
+    <sys:String x:Key="Str.Connections.PickFileTitle">Выберите файл подключений</sys:String>
+    <sys:String x:Key="Str.Connections.OpenFailedPassword">Не удалось открыть файл подключений. Проверьте пароль и попробуйте снова.</sys:String>
+    <sys:String x:Key="Str.Connections.OpenFailed">Не удалось открыть файл подключений.</sys:String>
+    <sys:String x:Key="Str.Connections.CreateFailed">Не удалось создать внешний файл подключений.</sys:String>
+    <sys:String x:Key="Str.Connections.SwitchLocalFailed">Не удалось переключиться на локальный файл подключений.</sys:String>
+    <sys:String x:Key="Str.Connections.FallbackPrompt">Внешний файл подключений не открыт. Переключиться на локальный файл подключений?</sys:String>
+    <sys:String x:Key="Str.Connections.InvalidParams">Некорректные параметры запуска.</sys:String>
+    <sys:String x:Key="Str.Connections.FileNotFound">Файл подключений '{0}' не найден.</sys:String>
+    <sys:String x:Key="Str.Connections.OverrideNew">Открыт Viewer с файлом подключений:&#xA;{0}&#xA;&#xA;Сделать этот файл основным источником подключений?</sys:String>
+    <sys:String x:Key="Str.Connections.OverrideExisting">В настройках уже сохранён другой файл подключений:&#xA;{0}&#xA;&#xA;Использовать вместо него файл:&#xA;{1}&#xA;&#xA;Сделать новый файл основным источником подключений?</sys:String>
+    <sys:String x:Key="Str.Connections.OverrideSuffix">&#xA;&#xA;Да — сделать основным.&#xA;Нет — использовать только на этот запуск.&#xA;Отмена — закрыть Viewer.</sys:String>
+
+    <!-- ── Autostart error messages (MainViewModel) ── -->
+    <sys:String x:Key="Str.Vm.AutostartTitle">Автозапуск</sys:String>
+    <sys:String x:Key="Str.Vm.AutostartChangeFail">Не удалось изменить автозапуск: {0}</sys:String>
+    <sys:String x:Key="Str.Vm.AutostartReadFail">Не удалось прочитать автозапуск: {0}</sys:String>
+    <sys:String x:Key="Str.Vm.ComputerStateTitle">Управление компьютерами</sys:String>
+    <sys:String x:Key="Str.Vm.ComputerStateFail">Не удалось изменить состояние компьютера '{0}': {1}</sys:String>
+
+</ResourceDictionary>

@@ -1,7 +1,7 @@
 <Window x:Class="ScreensView.Viewer.Views.ComputersManagerWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="Управление компьютерами" Height="480" Width="900"
+        Title="{DynamicResource Str.WindowTitle.Computers}" Height="480" Width="900"
         WindowStartupLocation="CenterOwner" ResizeMode="CanResize">
 
     <Window.Resources>
@@ -53,28 +53,28 @@
                 <Button x:Name="BtnAdd" Style="{StaticResource ToolbarButton}" Click="Add_Click">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE710;" FontSize="14" VerticalAlignment="Center"/>
-                        <TextBlock Text=" Добавить" VerticalAlignment="Center"/>
+                        <TextBlock Text="{DynamicResource Str.Computers.Add}" Margin="4,0,0,0" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
 
                 <Button x:Name="BtnAddMultiple" Style="{StaticResource ToolbarButton}" Click="AddMultiple_Click">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE8FA;" FontSize="14" VerticalAlignment="Center"/>
-                        <TextBlock Text=" Добавить несколько" VerticalAlignment="Center"/>
+                        <TextBlock Text="{DynamicResource Str.Computers.AddMultiple}" Margin="4,0,0,0" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
 
                 <Button x:Name="BtnEdit" Style="{StaticResource ToolbarButton}" Click="Edit_Click" IsEnabled="False">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE70F;" FontSize="14" VerticalAlignment="Center"/>
-                        <TextBlock Text=" Редактировать" VerticalAlignment="Center"/>
+                        <TextBlock Text="{DynamicResource Str.Computers.Edit}" Margin="4,0,0,0" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
 
                 <Button x:Name="BtnDelete" Style="{StaticResource ToolbarButton}" Click="Delete_Click" IsEnabled="False">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE74D;" FontSize="14" VerticalAlignment="Center"/>
-                        <TextBlock Text=" Удалить" VerticalAlignment="Center"/>
+                        <TextBlock Text="{DynamicResource Str.Computers.Delete}" Margin="4,0,0,0" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
 
@@ -83,21 +83,21 @@
                 <Button x:Name="BtnInstall" Style="{StaticResource ToolbarButton}" Click="Install_Click" IsEnabled="False">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE896;" FontSize="14" VerticalAlignment="Center"/>
-                        <TextBlock Text=" Установить агент" VerticalAlignment="Center"/>
+                        <TextBlock Text="{DynamicResource Str.Computers.InstallAgent}" Margin="4,0,0,0" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
 
                 <Button x:Name="BtnUninstall" Style="{StaticResource ToolbarButton}" Click="Uninstall_Click" IsEnabled="False">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE8BB;" FontSize="14" VerticalAlignment="Center"/>
-                        <TextBlock Text=" Удалить агент" VerticalAlignment="Center"/>
+                        <TextBlock Text="{DynamicResource Str.Computers.UninstallAgent}" Margin="4,0,0,0" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
 
                 <Button x:Name="BtnInstallDotNetRuntimes" Style="{StaticResource ToolbarButton}" Click="InstallDotNetRuntimes_Click" IsEnabled="False">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE7FC;" FontSize="14" VerticalAlignment="Center"/>
-                        <TextBlock Text=" Установить .NET 8 runtimes" VerticalAlignment="Center"/>
+                        <TextBlock Text="{DynamicResource Str.Computers.InstallDotNet}" Margin="4,0,0,0" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
 
@@ -106,7 +106,7 @@
                 <Button x:Name="BtnUpdateAllAgents" Style="{StaticResource ToolbarButton}" Click="UpdateAllAgents_Click">
                     <StackPanel Orientation="Horizontal">
                         <TextBlock FontFamily="Segoe MDL2 Assets" Text="&#xE895;" FontSize="14" VerticalAlignment="Center"/>
-                        <TextBlock Text=" Обновить агентов" VerticalAlignment="Center"/>
+                        <TextBlock Text="{DynamicResource Str.Computers.UpdateAll}" Margin="4,0,0,0" VerticalAlignment="Center"/>
                     </StackPanel>
                 </Button>
 
@@ -116,7 +116,7 @@
         <Border x:Name="ConnectionsStatusPanel" DockPanel.Dock="Top" Margin="4,4,4,0" Padding="8" CornerRadius="6" Background="#F3F5F7" BorderBrush="#D7DCE2" BorderThickness="1">
             <DockPanel>
                 <StackPanel>
-                    <TextBlock Text="Источник подключений" FontWeight="SemiBold"/>
+                    <TextBlock Text="{DynamicResource Str.Computers.Source}" FontWeight="SemiBold"/>
                     <TextBlock x:Name="TxtConnectionsSource" Margin="0,4,0,0" TextWrapping="Wrap"/>
                     <TextBlock x:Name="TxtConnectionsHint" Margin="0,6,0,0" Foreground="#666666" TextWrapping="Wrap"/>
                 </StackPanel>
@@ -127,7 +127,10 @@
         <ListView x:Name="ComputersList" SelectionMode="Extended" SelectionChanged="ComputersList_SelectionChanged" Margin="4">
             <ListView.View>
                 <GridView>
-                    <GridViewColumn Header="Включён" Width="70">
+                    <GridViewColumn Width="70">
+                        <GridViewColumn.Header>
+                            <TextBlock Text="{DynamicResource Str.Computers.Col.Enabled}"/>
+                        </GridViewColumn.Header>
                         <GridViewColumn.CellTemplate>
                             <DataTemplate>
                                 <CheckBox IsChecked="{Binding IsEnabled, Mode=OneWay}"
@@ -136,10 +139,26 @@
                             </DataTemplate>
                         </GridViewColumn.CellTemplate>
                     </GridViewColumn>
-                    <GridViewColumn Header="Имя" Width="160" DisplayMemberBinding="{Binding Name}"/>
-                    <GridViewColumn Header="Хост / IP" Width="160" DisplayMemberBinding="{Binding Host}"/>
-                    <GridViewColumn Header="Порт" Width="60" DisplayMemberBinding="{Binding Port}"/>
-                    <GridViewColumn Header="Статус" Width="80" DisplayMemberBinding="{Binding Status}"/>
+                    <GridViewColumn Width="160" DisplayMemberBinding="{Binding Name}">
+                        <GridViewColumn.Header>
+                            <TextBlock Text="{DynamicResource Str.Computers.Col.Name}"/>
+                        </GridViewColumn.Header>
+                    </GridViewColumn>
+                    <GridViewColumn Width="160" DisplayMemberBinding="{Binding Host}">
+                        <GridViewColumn.Header>
+                            <TextBlock Text="{DynamicResource Str.Computers.Col.Host}"/>
+                        </GridViewColumn.Header>
+                    </GridViewColumn>
+                    <GridViewColumn Width="60" DisplayMemberBinding="{Binding Port}">
+                        <GridViewColumn.Header>
+                            <TextBlock Text="{DynamicResource Str.Computers.Col.Port}"/>
+                        </GridViewColumn.Header>
+                    </GridViewColumn>
+                    <GridViewColumn Width="80" DisplayMemberBinding="{Binding Status}">
+                        <GridViewColumn.Header>
+                            <TextBlock Text="{DynamicResource Str.Computers.Col.Status}"/>
+                        </GridViewColumn.Header>
+                    </GridViewColumn>
                 </GridView>
             </ListView.View>
         </ListView>

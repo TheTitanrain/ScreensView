@@ -13,10 +13,10 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private const int DefaultRefreshIntervalSeconds = 5;
     private const int MinRefreshIntervalSeconds = 1;
     private const int MaxRefreshIntervalSeconds = 60;
-    private const string ModelLoadErrorStatusText = "Ошибка загрузки модели";
-    private const string ModelMissingMessage = "Модель для распознавания не скачана. Откройте настройки и нажмите \"Скачать\".";
-    private const string LlmDisabledMessage = "Распознавание экрана выключено. Включите его в настройках.";
-    private const string BackendErrorTitle = "Бэкенд распознавания";
+    private static string ModelLoadErrorStatusText => LocalizationService.Get("Str.Vm.ModelLoadError");
+    private static string ModelMissingMessage      => LocalizationService.Get("Str.Vm.ModelMissing");
+    private static string LlmDisabledMessage       => LocalizationService.Get("Str.Vm.LlmDisabled");
+    private static string BackendErrorTitle        => LocalizationService.Get("Str.Vm.BackendError");
 
     private IComputerStorageService _storage;
     private readonly IScreenshotPollerService _poller;
@@ -47,6 +47,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private bool _isLlmEnabled;
     [ObservableProperty] private ModelDefinition _selectedModel = ModelDefinition.Default;
     [ObservableProperty] private string _selectedBackend = "cpu";
+    [ObservableProperty] private string _language = "ru";
 
     public CancellationToken AppToken => _appCts.Token;
 
@@ -81,6 +82,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _viewerSettings = _viewerSettingsService.Load();
         _refreshInterval = NormalizeRefreshInterval(_viewerSettings.RefreshIntervalSeconds);
         _viewerSettings.RefreshIntervalSeconds = _refreshInterval;
+        _language = _viewerSettings.Language ?? "ru";
         InitializeAutostartState();
 
         _poller.Start(Computers, _refreshInterval);
@@ -150,6 +152,19 @@ public partial class MainViewModel : ObservableObject, IDisposable
         await _llmCheckService.RunNowAsync(Computers, runToken);
     }
 
+    partial void OnLanguageChanged(string value)
+    {
+        _viewerSettings.Language = value;
+        _viewerSettingsService.Save(_viewerSettings);
+        LocalizationService.Switch(value);
+        OnPropertyChanged(nameof(ModelStatusText));
+        OnPropertyChanged(nameof(BinaryStatusText));
+        OnPropertyChanged(nameof(RefreshIntervalText));
+        OnPropertyChanged(nameof(LlmCheckIntervalText));
+        foreach (var c in Computers)
+            c.NotifyLanguageChanged();
+    }
+
     partial void OnRefreshIntervalChanged(int value)
     {
         var normalizedValue = NormalizeRefreshInterval(value);
@@ -161,6 +176,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         _viewerSettings.RefreshIntervalSeconds = value;
         _viewerSettingsService.Save(_viewerSettings);
+        OnPropertyChanged(nameof(RefreshIntervalText));
 
         if (IsPolling)
         {
@@ -180,6 +196,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         _viewerSettings.LlmCheckIntervalMinutes = value;
         _viewerSettingsService.Save(_viewerSettings);
+        OnPropertyChanged(nameof(LlmCheckIntervalText));
 
         _llmCheckService.UpdateInterval(value);
     }
@@ -189,7 +206,15 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     public string ModelStatusText =>
         !string.IsNullOrEmpty(_modelLoadErrorText) ? _modelLoadErrorText :
-        _downloadService.IsModelReady ? "Готово ✓" : "Не скачана";
+        _downloadService.IsModelReady
+            ? LocalizationService.Get("Str.Vm.ModelReady")
+            : LocalizationService.Get("Str.Vm.ModelNotDownloaded");
+
+    public string RefreshIntervalText =>
+        string.Format(LocalizationService.Get("Str.Settings.RefreshIntervalFormat"), _refreshInterval);
+
+    public string LlmCheckIntervalText =>
+        string.Format(LocalizationService.Get("Str.Settings.LlmIntervalFormat"), _llmCheckIntervalMinutes);
 
     public string BinaryStatusText
     {
@@ -332,7 +357,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             SetAutostartState(!value);
-            ReportError("Автозапуск", $"Не удалось изменить автозапуск: {ex.Message}");
+            ReportError(LocalizationService.Get("Str.Vm.AutostartTitle"),
+                        string.Format(LocalizationService.Get("Str.Vm.AutostartChangeFail"), ex.Message));
         }
     }
 
@@ -377,7 +403,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             vm.IsEnabled = previousValue;
-            ReportError("Управление компьютерами", $"Не удалось изменить состояние компьютера '{vm.Name}': {ex.Message}");
+            ReportError(LocalizationService.Get("Str.Vm.ComputerStateTitle"),
+                        string.Format(LocalizationService.Get("Str.Vm.ComputerStateFail"), vm.Name, ex.Message));
         }
     }
 
@@ -466,7 +493,8 @@ public partial class MainViewModel : ObservableObject, IDisposable
         catch (Exception ex)
         {
             SetAutostartState(_viewerSettings.LaunchAtStartup);
-            ReportError("Автозапуск", $"Не удалось прочитать автозапуск: {ex.Message}");
+            ReportError(LocalizationService.Get("Str.Vm.AutostartTitle"),
+                        string.Format(LocalizationService.Get("Str.Vm.AutostartReadFail"), ex.Message));
         }
     }
 
@@ -602,10 +630,11 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     private static string FormatBinaryStatusText(BackendCheckResult backendCheck) => backendCheck.State switch
     {
-        BackendInstallState.Missing => "Не скачан",
-        BackendInstallState.Incomplete => "Скачан не полностью",
-        _ when !string.IsNullOrWhiteSpace(backendCheck.InstalledVersion) => $"Готово ✓ ({backendCheck.InstalledVersion})",
-        _ => "Готово ✓"
+        BackendInstallState.Missing    => LocalizationService.Get("Str.Vm.BinaryMissing"),
+        BackendInstallState.Incomplete => LocalizationService.Get("Str.Vm.BinaryIncomplete"),
+        _ when !string.IsNullOrWhiteSpace(backendCheck.InstalledVersion)
+                                       => $"{LocalizationService.Get("Str.Vm.BinaryReady")} ({backendCheck.InstalledVersion})",
+        _                              => LocalizationService.Get("Str.Vm.BinaryReady")
     };
 
     private void RunOnUiThread(Action action)

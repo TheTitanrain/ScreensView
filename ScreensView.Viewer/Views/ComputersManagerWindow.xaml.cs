@@ -78,8 +78,10 @@ public partial class ComputersManagerWindow : Window
         var added = win.Results;
         _mainVm.AddComputers(added);
 
-        if (MessageBox.Show($"Установить агент на {added.Count} добавленных компьютеров?",
-                "Установка агента", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+        if (MessageBox.Show(
+                string.Format(LocalizationService.Get("Str.Msg.InstallPrompt"), added.Count),
+                LocalizationService.Get("Str.Msg.InstallTitle"),
+                MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
             LaunchInstall(added);
     }
 
@@ -97,10 +99,10 @@ public partial class ComputersManagerWindow : Window
         if (selected.Count == 0) return;
 
         var message = selected.Count == 1
-            ? $"Удалить компьютер '{selected[0].Name}'?"
-            : $"Удалить компьютеры: {ComputerListHelpers.FormatNames(selected.Select(vm => vm.Name))}?";
+            ? string.Format(LocalizationService.Get("Str.Msg.DeleteComputer1"), selected[0].Name)
+            : string.Format(LocalizationService.Get("Str.Msg.DeleteComputerN"), ComputerListHelpers.FormatNames(selected.Select(vm => vm.Name)));
 
-        if (MessageBox.Show(message, "Подтверждение",
+        if (MessageBox.Show(message, LocalizationService.Get("Str.Msg.DeleteComputerTitle"),
                 MessageBoxButton.YesNo, MessageBoxImage.Question) != MessageBoxResult.Yes) return;
 
         _mainVm.RemoveComputers(selected);
@@ -119,10 +121,10 @@ public partial class ComputersManagerWindow : Window
         if (configs.Count == 0) return;
 
         var message = configs.Count == 1
-            ? $"Удалить агент с '{configs[0].Name}'?"
-            : $"Удалить агент с компьютеров: {ComputerListHelpers.FormatNames(configs.Select(c => c.Name))}?";
+            ? string.Format(LocalizationService.Get("Str.Msg.UninstallConfirm1"), configs[0].Name)
+            : string.Format(LocalizationService.Get("Str.Msg.UninstallConfirmN"), ComputerListHelpers.FormatNames(configs.Select(c => c.Name)));
 
-        if (MessageBox.Show(message, "Подтверждение",
+        if (MessageBox.Show(message, LocalizationService.Get("Str.Msg.UninstallTitle"),
                 MessageBoxButton.YesNo, MessageBoxImage.Warning) != MessageBoxResult.Yes) return;
 
         LaunchOperation(InstallProgressWindow.Mode.Uninstall, configs);
@@ -152,8 +154,8 @@ public partial class ComputersManagerWindow : Window
         {
             MessageBox.Show(
                 this,
-                "Нет активных компьютеров для обновления.",
-                "Обновление агентов",
+                LocalizationService.Get("Str.Msg.NoActiveComputers"),
+                LocalizationService.Get("Str.Msg.UpdateAgentsTitle"),
                 MessageBoxButton.OK,
                 MessageBoxImage.Information);
             return;

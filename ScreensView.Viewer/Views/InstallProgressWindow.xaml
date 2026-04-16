@@ -5,7 +5,7 @@
         Title="Установка агента" Height="480" Width="660"
         WindowStartupLocation="CenterOwner" ResizeMode="CanResize">
     <DockPanel Margin="8">
-        <Button DockPanel.Dock="Bottom" Content="Закрыть" Width="80" HorizontalAlignment="Right"
+        <Button DockPanel.Dock="Bottom" Content="{DynamicResource Str.Install.BtnClose}" Width="80" HorizontalAlignment="Right"
                 Margin="0,8,0,0" Click="Close_Click" x:Name="CloseButton" IsEnabled="False"/>
 
         <ListView x:Name="LogList" SelectionMode="Single">
@@ -29,9 +29,21 @@
             </ListView.ItemContainerStyle>
             <ListView.View>
                 <GridView>
-                    <GridViewColumn Header="Компьютер" Width="130" DisplayMemberBinding="{Binding Computer}"/>
-                    <GridViewColumn Header="Статус"    Width="160" DisplayMemberBinding="{Binding Status}"/>
-                    <GridViewColumn Header="Сообщение" Width="320" DisplayMemberBinding="{Binding Message}"/>
+                    <GridViewColumn Width="130" DisplayMemberBinding="{Binding Computer}">
+                        <GridViewColumn.Header>
+                            <TextBlock Text="{DynamicResource Str.Install.Col.Computer}"/>
+                        </GridViewColumn.Header>
+                    </GridViewColumn>
+                    <GridViewColumn Width="160" DisplayMemberBinding="{Binding Status}">
+                        <GridViewColumn.Header>
+                            <TextBlock Text="{DynamicResource Str.Install.Col.Status}"/>
+                        </GridViewColumn.Header>
+                    </GridViewColumn>
+                    <GridViewColumn Width="320" DisplayMemberBinding="{Binding Message}">
+                        <GridViewColumn.Header>
+                            <TextBlock Text="{DynamicResource Str.Install.Col.Message}"/>
+                        </GridViewColumn.Header>
+                    </GridViewColumn>
                 </GridView>
             </ListView.View>
         </ListView>

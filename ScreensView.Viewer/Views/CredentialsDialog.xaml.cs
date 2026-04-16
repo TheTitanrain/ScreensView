@@ -1,4 +1,5 @@
 using System.Windows;
+using ScreensView.Viewer.Services;
 
 namespace ScreensView.Viewer.Views;
 
@@ -41,7 +42,7 @@ public partial class CredentialsDialog : Window
 
         if (string.IsNullOrWhiteSpace(UsernameBox.Text))
         {
-            MessageBox.Show("Введите имя пользователя.", "Ошибка", MessageBoxButton.OK, MessageBoxImage.Warning);
+            MessageBox.Show(LocalizationService.Get("Str.Val.EnterUsername"), LocalizationService.Get("Str.Val.Title"), MessageBoxButton.OK, MessageBoxImage.Warning);
             UsernameBox.Focus();
             return;
         }

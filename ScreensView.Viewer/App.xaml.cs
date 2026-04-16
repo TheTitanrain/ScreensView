@@ -17,6 +17,7 @@ public partial class App : Application
         await ViewerUpdateService.CheckAndUpdateAsync();
 
         var settingsService = new ViewerSettingsService();
+        LocalizationService.Apply(settingsService.Load().Language ?? "auto");
         var logService = new ViewerLogService();
         var controller = new ConnectionsStorageController(
             settingsService,
@@ -219,11 +220,12 @@ public class LlmTooltipConverter : IValueConverter
     public object? Convert(object? value, Type targetType, object parameter, CultureInfo culture)
     {
         if (value is bool isChecking && isChecking)
-            return "LLM: analysing...";
+            return LocalizationService.Get("Str.Llm.Analysing");
         if (value is LlmCheckResult result)
         {
-            var prefix = result.IsError ? "LLM: Error" :
-                         result.IsMatch ? "LLM: Match" : "LLM: Mismatch";
+            var prefix = result.IsError ? LocalizationService.Get("Str.Llm.Error") :
+                         result.IsMatch ? LocalizationService.Get("Str.Llm.Match")
+                                        : LocalizationService.Get("Str.Llm.Mismatch");
             return $"{prefix} — {result.Explanation}";
         }
         return null;
