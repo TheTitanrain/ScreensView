@@ -5,6 +5,8 @@
 - Публичный showcase: <https://titanrain.github.io/ScreensView/>
 - English guide: [README.md](README.md)
 
+![ScreensView главное окно](docs/image.png)
+
 ## Структура решения
 
 | Проект | Назначение |

@@ -5,6 +5,8 @@ Screen monitoring system for computers inside a local network. An agent on each 
 - Public showcase: <https://titanrain.github.io/ScreensView/>
 - Russian guide: [README.ru.md](README.ru.md)
 
+![ScreensView main window](docs/image.png)
+
 ## Solution Structure
 
 | Project | Purpose |
