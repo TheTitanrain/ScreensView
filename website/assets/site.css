@@ -154,6 +154,15 @@ a {
   margin: 0;
 }
 
+.screenshot-slot img {
+  display: block;
+  width: 100%;
+  height: auto;
+  border-radius: 18px;
+  border: 1px solid var(--border);
+  box-shadow: 0 4px 24px rgba(0,0,0,.10);
+}
+
 .screenshot-frame {
   display: grid;
   gap: 12px;
