@@ -10,7 +10,7 @@ internal static class Program
         var idx = Array.IndexOf(args, "--screenshot-helper");
         if (idx >= 0 && idx + 2 < args.Length)
         {
-            ScreenshotHelper.Run(args[idx + 1], int.TryParse(args[idx + 2], out var q) ? q : 75);
+            ScreenshotHelper.Run(args[idx + 1], ScreenshotQuality.ParseOrDefault(args[idx + 2]));
             return;
         }
 

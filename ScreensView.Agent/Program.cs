@@ -1,9 +1,10 @@
 using ScreensView.Agent;
+using ScreensView.Shared;
 using ScreensView.Shared.Models;
 
 if (args is ["--screenshot-helper", var pipe, var qualStr])
 {
-    ScreenshotHelper.Run(pipe, int.TryParse(qualStr, out var q) ? q : 75);
+    ScreenshotHelper.Run(pipe, ScreenshotQuality.ParseOrDefault(qualStr));
     return;
 }
 
@@ -50,6 +51,10 @@ app.MapGet("/screenshot", async (ScreenshotService screenshotService) =>
     catch (NoActiveSessionException ex)
     {
         return Results.Problem(ex.Message, statusCode: 503);
+    }
+    catch (ScreenshotBusyException ex)
+    {
+        return Results.Problem(ex.Message, statusCode: 429);
     }
 });
 
