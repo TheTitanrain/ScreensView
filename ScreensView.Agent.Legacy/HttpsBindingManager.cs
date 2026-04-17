@@ -43,6 +43,8 @@ internal sealed class HttpsBindingManager
             throw new TimeoutException($"netsh timed out: {arguments}");
         }
 
+        if (!System.Threading.Tasks.Task.WaitAll(new[] { stdOutTask, stdErrTask }, TimeSpan.FromSeconds(5)))
+            throw new TimeoutException($"netsh stdout/stderr readers timed out: {arguments}");
         var stdOut = stdOutTask.Result;
         var stdErr = stdErrTask.Result;
 

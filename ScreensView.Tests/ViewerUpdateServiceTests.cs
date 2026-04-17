@@ -125,9 +125,9 @@ public class ViewerUpdateServiceTests
                 shownMessages.Add(request);
                 return MessageBoxResult.No;
             },
-            launchUpdateAsync: url =>
+            launchUpdateAsync: release =>
             {
-                launchedUrls.Add(url);
+                launchedUrls.Add(release.DownloadUrl!);
                 return Task.CompletedTask;
             }));
 
@@ -147,9 +147,9 @@ public class ViewerUpdateServiceTests
                 new("v2.0.0", "https://example.invalid/ScreensView.exe")),
             currentVersion: () => new Version(1, 0, 0),
             showMessage: _ => MessageBoxResult.Yes,
-            launchUpdateAsync: url =>
+            launchUpdateAsync: release =>
             {
-                launchedUrls.Add(url);
+                launchedUrls.Add(release.DownloadUrl!);
                 return Task.CompletedTask;
             }));
 
@@ -190,7 +190,7 @@ public class ViewerUpdateServiceTests
         Func<Task<ViewerUpdateService.ReleaseMetadata?>> fetchReleaseAsync,
         Func<Version>? currentVersion = null,
         Func<ViewerUpdateService.MessageRequest, MessageBoxResult>? showMessage = null,
-        Func<string, Task>? launchUpdateAsync = null)
+        Func<ViewerUpdateService.ReleaseMetadata, Task>? launchUpdateAsync = null)
     {
         return new ViewerUpdateService.ManualCheckHooks
         {

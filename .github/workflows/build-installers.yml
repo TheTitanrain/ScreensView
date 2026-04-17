@@ -64,6 +64,19 @@ jobs:
       - name: Build Agent installer
         run: iscc installer\AgentSetup.iss
 
+      - name: Compute SHA-256 checksums
+        shell: pwsh
+        run: |
+          $viewer = Get-ChildItem "installer/Output/ScreensView.Viewer-Setup-*.exe" | Select-Object -First 1
+          $agent  = Get-Item "installer/Output/ScreensView.Agent-Setup.exe"
+          $lines = @(
+            "$(Get-FileHash $viewer.FullName -Algorithm SHA256 | Select-Object -ExpandProperty Hash)  $($viewer.Name)",
+            "$(Get-FileHash $agent.FullName  -Algorithm SHA256 | Select-Object -ExpandProperty Hash)  $($agent.Name)"
+          )
+          $lines | Set-Content "installer/Output/checksums.sha256.txt"
+          Write-Host "Checksums:"
+          $lines
+
       - name: Upload Viewer installer
         uses: actions/upload-artifact@v4
         with:
@@ -83,3 +96,4 @@ jobs:
           files: |
             installer/Output/ScreensView.Viewer-Setup-*.exe
             installer/Output/ScreensView.Agent-Setup.exe
+            installer/Output/checksums.sha256.txt

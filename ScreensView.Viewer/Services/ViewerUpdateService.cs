@@ -3,6 +3,7 @@ using System.IO;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Reflection;
+using System.Security.Cryptography;
 using System.Text;
 using System.Windows;
 
@@ -83,7 +84,7 @@ public class ViewerUpdateService
                 return;
             }
 
-            await DownloadAndLaunchUpdateAsync(http, release.DownloadUrl);
+            await DownloadAndLaunchUpdateAsync(http, release.DownloadUrl, release.ChecksumUrl);
         }
         catch
         {
@@ -133,7 +134,7 @@ public class ViewerUpdateService
                 return;
             }
 
-            await hooks.LaunchUpdateAsync(release.DownloadUrl);
+            await hooks.LaunchUpdateAsync(release);
         }
         catch
         {
@@ -153,10 +154,10 @@ public class ViewerUpdateService
             },
             GetCurrentVersion = GetCurrentVersion,
             ShowMessage = request => MessageBox.Show(owner, request.Text, request.Caption, request.Buttons, request.Image),
-            LaunchUpdateAsync = async downloadUrl =>
+            LaunchUpdateAsync = async release =>
             {
                 using var http = CreateHttpClient();
-                await DownloadAndLaunchUpdateAsync(http, downloadUrl);
+                await DownloadAndLaunchUpdateAsync(http, release.DownloadUrl!, release.ChecksumUrl);
             }
         };
     }
@@ -184,20 +185,49 @@ public class ViewerUpdateService
         var downloadUrl = release.Assets?.FirstOrDefault(a =>
             a.Name.EndsWith(".exe", StringComparison.OrdinalIgnoreCase))?.BrowserDownloadUrl;
 
-        return new ReleaseMetadata(release.TagName, downloadUrl);
+        var checksumUrl = release.Assets?.FirstOrDefault(a =>
+            a.Name.Equals("checksums.sha256.txt", StringComparison.OrdinalIgnoreCase))?.BrowserDownloadUrl;
+
+        return new ReleaseMetadata(release.TagName, downloadUrl, checksumUrl);
     }
 
-    private static async Task DownloadAndLaunchUpdateAsync(HttpClient http, string downloadUrl)
+    private static async Task DownloadAndLaunchUpdateAsync(HttpClient http, string downloadUrl, string? checksumUrl)
     {
         var originalPath = Environment.ProcessPath!;
         var tempPath = originalPath + ".download.exe";
 
+        // Download installer bytes
         var bytes = await http.GetByteArrayAsync(downloadUrl);
+
+        // Verify SHA-256 if release includes a checksums file (releases before this feature won't have it)
+        if (!string.IsNullOrEmpty(checksumUrl))
+        {
+            var checksumText = await http.GetStringAsync(checksumUrl);
+            var fileName = Uri.UnescapeDataString(downloadUrl.Split('/').Last());
+            var expectedHash = ParseExpectedHash(checksumText, fileName);
+            var actualHash = Convert.ToHexString(SHA256.HashData(bytes));
+            if (!string.Equals(actualHash, expectedHash, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException(
+                    $"Update installer hash mismatch. Expected {expectedHash}, got {actualHash}.");
+        }
+
         await File.WriteAllBytesAsync(tempPath, bytes);
 
         var launchArgs = BuildUpdaterLaunchArguments(tempPath, originalPath, Environment.GetCommandLineArgs().Skip(1));
         Process.Start(new ProcessStartInfo(tempPath, launchArgs) { UseShellExecute = true });
         Application.Current.Shutdown();
+    }
+
+    // Parses "HASH  filename" lines (sha256sum convention)
+    private static string ParseExpectedHash(string checksumText, string fileName)
+    {
+        foreach (var line in checksumText.Split('\n', StringSplitOptions.RemoveEmptyEntries))
+        {
+            var parts = line.Trim().Split(new[] { ' ', '\t' }, 2, StringSplitOptions.RemoveEmptyEntries);
+            if (parts.Length == 2 && string.Equals(parts[1].Trim(), fileName, StringComparison.OrdinalIgnoreCase))
+                return parts[0].Trim();
+        }
+        throw new InvalidDataException($"Checksum not found for '{fileName}' in checksums.sha256.txt.");
     }
 
     internal static IReadOnlyList<string> GetPostUpdateRelaunchArguments(IReadOnlyList<string> args)
@@ -289,7 +319,7 @@ public class ViewerUpdateService
         return Version.TryParse(clean, out var v) ? v : new Version(0, 0);
     }
 
-    internal sealed record ReleaseMetadata(string TagName, string? DownloadUrl);
+    internal sealed record ReleaseMetadata(string TagName, string? DownloadUrl, string? ChecksumUrl = null);
 
     internal sealed record MessageRequest(string Text, string Caption, MessageBoxButton Buttons, MessageBoxImage Image);
 
@@ -298,7 +328,7 @@ public class ViewerUpdateService
         public required Func<Task<ReleaseMetadata?>> FetchReleaseAsync { get; init; }
         public required Func<Version> GetCurrentVersion { get; init; }
         public required Func<MessageRequest, MessageBoxResult> ShowMessage { get; init; }
-        public required Func<string, Task> LaunchUpdateAsync { get; init; }
+        public required Func<ReleaseMetadata, Task> LaunchUpdateAsync { get; init; }
     }
 
     private class GitHubRelease

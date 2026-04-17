@@ -44,13 +44,15 @@ public class ScreenshotService
     [DllImport("kernel32.dll")]
     private static extern bool CloseHandle(IntPtr hObject);
 
-    private enum SECURITY_IMPERSONATION_LEVEL { SecurityImpersonation = 2 }
+    private enum SECURITY_IMPERSONATION_LEVEL { SecurityImpersonation = 2, SecurityDelegation = 3 }
     private enum TOKEN_TYPE { TokenPrimary = 1 }
 
-    private const uint TOKEN_ALL_ACCESS = 0x000F01FF;
-    private const uint CREATE_NO_WINDOW = 0x08000000;
+    private const uint TOKEN_ALL_ACCESS   = 0x000F01FF;
+    private const uint CREATE_NO_WINDOW   = 0x08000000;
     private const uint STARTF_USESHOWWINDOW = 0x00000001;
-    private const short SW_HIDE = 0;
+    private const short SW_HIDE           = 0;
+    private const uint WAIT_TIMEOUT_CODE  = 0x00000102;
+    private const uint WAIT_FAILED_CODE   = 0xFFFFFFFF;
 
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Unicode)]
     private struct STARTUPINFO
@@ -79,7 +81,7 @@ public class ScreenshotService
 
     public ScreenshotService(AgentOptions options) => _options = options;
 
-    public byte[] CaptureJpeg()
+    public async Task<byte[]> CaptureJpegAsync()
     {
         uint sessionId = WTSGetActiveConsoleSessionId();
         if (sessionId == 0xFFFFFFFF)
@@ -97,13 +99,13 @@ public class ScreenshotService
         try
         {
             if (!DuplicateTokenEx(hImpToken, TOKEN_ALL_ACCESS, IntPtr.Zero,
-                    SECURITY_IMPERSONATION_LEVEL.SecurityImpersonation,
+                    SECURITY_IMPERSONATION_LEVEL.SecurityDelegation,
                     TOKEN_TYPE.TokenPrimary, out var hPrimToken))
                 throw new InvalidOperationException(
                     $"DuplicateTokenEx failed: {Marshal.GetLastWin32Error()}");
             try
             {
-                return CaptureViaHelper(hPrimToken);
+                return await CaptureViaHelperAsync(hPrimToken);
             }
             finally
             {
@@ -116,7 +118,7 @@ public class ScreenshotService
         }
     }
 
-    private byte[] CaptureViaHelper(IntPtr hToken)
+    private async Task<byte[]> CaptureViaHelperAsync(IntPtr hToken)
     {
         var pipeName = "ScreensViewShot-" + Guid.NewGuid().ToString("N");
 
@@ -161,11 +163,11 @@ public class ScreenshotService
             using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(15));
             try
             {
-                pipeServer.WaitForConnectionAsync(cts.Token).Wait();
+                await pipeServer.WaitForConnectionAsync(cts.Token);
             }
-            catch (AggregateException ae) when (ae.InnerException is OperationCanceledException)
+            catch (OperationCanceledException)
             {
-                WaitForSingleObject(pi.hProcess, 0);
+                _ = WaitForSingleObject(pi.hProcess, 0);
                 throw new TimeoutException(
                     "Screenshot helper did not connect within 15 seconds.");
             }
@@ -181,7 +183,10 @@ public class ScreenshotService
         }
         finally
         {
-            WaitForSingleObject(pi.hProcess, 5_000);
+            var waitResult = WaitForSingleObject(pi.hProcess, 5_000);
+            if (waitResult == WAIT_TIMEOUT_CODE || waitResult == WAIT_FAILED_CODE)
+                System.Diagnostics.Debug.WriteLine(
+                    $"ScreenshotHelper did not exit cleanly (WaitForSingleObject=0x{waitResult:X})");
             CloseHandle(pi.hProcess);
             CloseHandle(pi.hThread);
         }

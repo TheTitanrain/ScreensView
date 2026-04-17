@@ -34,11 +34,11 @@ var app = builder.Build();
 
 app.UseMiddleware<ApiKeyMiddleware>();
 
-app.MapGet("/screenshot", (ScreenshotService screenshotService) =>
+app.MapGet("/screenshot", async (ScreenshotService screenshotService) =>
 {
     try
     {
-        var jpeg = screenshotService.CaptureJpeg();
+        var jpeg = await screenshotService.CaptureJpegAsync();
         var response = new ScreenshotResponse
         {
             ImageBase64 = Convert.ToBase64String(jpeg),
