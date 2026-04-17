@@ -12,7 +12,7 @@ namespace ScreensView.Viewer.Services;
 public class ViewerUpdateService
 {
     private const string GitHubReleasesUrl =
-        "https://api.github.com/repos/titanrain/ScreensView/releases/latest";
+        "https://api.github.com/repos/TheTitanrain/ScreensView/releases/latest";
     private const string UpdateDialogTitle = "Обновление ScreensView";
 
     public static async Task CheckAndUpdateAsync()
