@@ -311,9 +311,19 @@ public sealed class RemoteAgentInstallerTests : IDisposable
     [Fact]
     public void GetWindowTitle_InstallDotNetRuntimes_ReturnsExpectedTitle()
     {
-        var title = InstallProgressWindow.GetWindowTitle(InstallProgressWindow.Mode.InstallDotNetRuntimes);
+        var previousLanguage = LocalizationService.CurrentLanguage;
+        LocalizationService.Switch("ru");
 
-        Assert.Equal("Установка .NET 8 runtimes", title);
+        try
+        {
+            var title = InstallProgressWindow.GetWindowTitle(InstallProgressWindow.Mode.InstallDotNetRuntimes);
+
+            Assert.Equal("Установка .NET 8 runtimes", title);
+        }
+        finally
+        {
+            LocalizationService.Switch(previousLanguage);
+        }
     }
 
     [Fact]

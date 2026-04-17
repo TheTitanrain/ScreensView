@@ -13,10 +13,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private const int DefaultRefreshIntervalSeconds = 5;
     private const int MinRefreshIntervalSeconds = 1;
     private const int MaxRefreshIntervalSeconds = 60;
-    private static string ModelLoadErrorStatusText => LocalizationService.Get("Str.Vm.ModelLoadError");
-    private static string ModelMissingMessage      => LocalizationService.Get("Str.Vm.ModelMissing");
-    private static string LlmDisabledMessage       => LocalizationService.Get("Str.Vm.LlmDisabled");
-    private static string BackendErrorTitle        => LocalizationService.Get("Str.Vm.BackendError");
+    private const string ModelLoadErrorResourceKey = "Str.Vm.ModelLoadError";
 
     private IComputerStorageService _storage;
     private readonly IScreenshotPollerService _poller;
@@ -33,7 +30,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private readonly ILlmInferenceService _inferenceService;
     private readonly ILlamaServerBinaryService _binaryService;
     private readonly CancellationTokenSource _appCts = new();
-    private string? _modelLoadErrorText;
+    private string? _modelLoadErrorResourceKey;
     private int _llmValidationVersion;
 
     public ObservableCollection<ComputerViewModel> Computers { get; } = [];
@@ -205,7 +202,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _downloadService.IsModelReady && GetBackendCheck(_selectedBackend).IsReady;
 
     public string ModelStatusText =>
-        !string.IsNullOrEmpty(_modelLoadErrorText) ? _modelLoadErrorText :
+        _modelLoadErrorResourceKey is not null ? LocalizationService.Get(_modelLoadErrorResourceKey) :
         _downloadService.IsModelReady
             ? LocalizationService.Get("Str.Vm.ModelReady")
             : LocalizationService.Get("Str.Vm.ModelNotDownloaded");
@@ -595,11 +592,11 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 "MainViewModel.LlmStartRejected",
                 $"LLM backend validation failed during '{reason}'. {validationError.DiagnosticMessage}",
                 validationError);
-            ReportError(BackendErrorTitle, validationError.UserMessage);
+            ReportError(GetBackendErrorTitle(), validationError.UserMessage);
             return;
         }
 
-        SetModelLoadError(ModelLoadErrorStatusText);
+        SetModelLoadError(ModelLoadErrorResourceKey);
         _log.LogError(
             "MainViewModel.LlmStartRejected",
             $"LLM validation failed during '{reason}'. {validationError.DiagnosticMessage}",
@@ -625,7 +622,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
             $"Backend '{backendCheck.Backend}' is {backendCheck.State} during '{reason}'. Missing: {string.Join(", ", backendCheck.MissingArtifacts)}");
 
         if (showDialog)
-            ReportError(BackendErrorTitle, backendCheck.UserMessage);
+            ReportError(GetBackendErrorTitle(), backendCheck.UserMessage);
     }
 
     private static string FormatBinaryStatusText(BackendCheckResult backendCheck) => backendCheck.State switch
@@ -647,19 +644,19 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     private void SetModelLoadError(string value)
     {
-        if (_modelLoadErrorText == value)
+        if (_modelLoadErrorResourceKey == value)
             return;
 
-        _modelLoadErrorText = value;
+        _modelLoadErrorResourceKey = value;
         OnPropertyChanged(nameof(ModelStatusText));
     }
 
     private void ClearModelLoadError()
     {
-        if (string.IsNullOrEmpty(_modelLoadErrorText))
+        if (string.IsNullOrEmpty(_modelLoadErrorResourceKey))
             return;
 
-        _modelLoadErrorText = null;
+        _modelLoadErrorResourceKey = null;
         OnPropertyChanged(nameof(ModelStatusText));
     }
 
@@ -679,14 +676,14 @@ public partial class MainViewModel : ObservableObject, IDisposable
     {
         if (!_isLlmEnabled)
         {
-            ReportError("LLM", LlmDisabledMessage);
+            ReportError("LLM", LocalizationService.Get("Str.Vm.LlmDisabled"));
             return false;
         }
 
         if (!_downloadService.IsModelReady)
         {
-            SetModelLoadError(ModelLoadErrorStatusText);
-            ReportError("Model load", ModelMissingMessage);
+            SetModelLoadError(ModelLoadErrorResourceKey);
+            ReportError("Model load", LocalizationService.Get("Str.Vm.ModelMissing"));
             NotifyLlmManualRunAvailabilityChanged();
             return false;
         }
@@ -713,11 +710,11 @@ public partial class MainViewModel : ObservableObject, IDisposable
                 "MainViewModel.LlmRunNowRejected",
                 $"LLM backend validation failed during '{reason}'. {validationError.DiagnosticMessage}",
                 validationError);
-            ReportError(BackendErrorTitle, validationError.UserMessage);
+            ReportError(GetBackendErrorTitle(), validationError.UserMessage);
             return false;
         }
 
-        SetModelLoadError(ModelLoadErrorStatusText);
+        SetModelLoadError(ModelLoadErrorResourceKey);
         _log.LogError(
             "MainViewModel.LlmRunNowRejected",
             $"LLM validation failed during '{reason}'. {validationError.DiagnosticMessage}",
@@ -752,4 +749,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
     internal void ReportDownloadError(string message) =>
         ReportError("Model download", message);
+
+    private static string GetBackendErrorTitle() =>
+        LocalizationService.Get("Str.Vm.BackendError");
 }

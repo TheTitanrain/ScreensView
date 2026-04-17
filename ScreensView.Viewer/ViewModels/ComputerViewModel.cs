@@ -21,8 +21,6 @@ public enum LlmTileStatus
 
 public partial class ComputerViewModel : ObservableObject
 {
-    private static string DisabledMessage => LocalizationService.Get("Str.Vm.DisabledMessage");
-
     public Guid Id { get; }
 
     [ObservableProperty] private string _name;
@@ -173,7 +171,7 @@ public partial class ComputerViewModel : ObservableObject
         if (!isEnabled)
         {
             Status = ComputerStatus.Disabled;
-            StatusMessage = DisabledMessage;
+            StatusMessage = LocalizationService.Get("Str.Vm.DisabledMessage");
             return;
         }
 

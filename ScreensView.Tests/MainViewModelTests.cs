@@ -833,6 +833,43 @@ public class MainViewModelTests : IDisposable
     }
 
     [Fact]
+    public void ModelStatusText_WhenLanguageChanges_RecomputesLocalizedErrorText()
+    {
+        var previousLanguage = LocalizationService.CurrentLanguage;
+        LocalizationService.Switch("ru");
+
+        try
+        {
+            var settings = new FakeViewerSettingsService(false, llmEnabled: true);
+            var download = new FakeModelDownloadService { IsModelReady = true };
+            var inference = new FakeLlmInferenceService
+            {
+                ValidateModelResult = new LlmRuntimeLoadException(
+                    LlmRuntimeLoadStage.ModelLoad,
+                    "Ошибка загрузки модели",
+                    "Failed to load model",
+                    @"C:\models\model.gguf",
+                    @"C:\models\mmproj.gguf")
+            };
+
+            using var vm = CreateVmWithLlm(
+                settingsService: settings,
+                downloadService: download,
+                inferenceService: inference);
+
+            Assert.Equal("Ошибка загрузки модели", vm.ModelStatusText);
+
+            vm.Language = "en";
+
+            Assert.Equal("Model load error", vm.ModelStatusText);
+        }
+        finally
+        {
+            LocalizationService.Switch(previousLanguage);
+        }
+    }
+
+    [Fact]
     public async Task Constructor_WhenValidationIsSlow_DoesNotBlockStartup()
     {
         var settings = new FakeViewerSettingsService(false, llmEnabled: true);

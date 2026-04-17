@@ -16,6 +16,11 @@ public interface ILlmCheckService
 public class LlmCheckService : ILlmCheckService
 {
     private const int MaxCachedChecksPerComputer = 16;
+    private const int DefaultPerComputerTimeoutSeconds = 120;
+    private static readonly TimeSpan DefaultPerComputerTimeout =
+        TimeSpan.FromSeconds(DefaultPerComputerTimeoutSeconds);
+    private const string TimeoutMessageTemplate =
+        "Распознавание превысило лимит {0} секунд. Повторим в следующем цикле.";
 
     private readonly ILlmInferenceService _inference;
     private readonly IViewerLogService _log;
@@ -39,7 +44,7 @@ public class LlmCheckService : ILlmCheckService
     {
         _inference = inference;
         _log = log ?? new NullViewerLogService();
-        _perComputerTimeout = perComputerTimeout ?? TimeSpan.FromSeconds(120);
+        _perComputerTimeout = perComputerTimeout ?? DefaultPerComputerTimeout;
     }
 
     public void Start(IReadOnlyList<ComputerViewModel> computers, int intervalMinutes)
@@ -212,7 +217,9 @@ public class LlmCheckService : ILlmCheckService
             catch (OperationCanceledException) when (timeoutCts.IsCancellationRequested && !ct.IsCancellationRequested)
             {
                 stopwatch.Stop();
-                const string timeoutMessage = "Распознавание превысило лимит 120 секунд. Повторим в следующем цикле.";
+                var timeoutMessage = string.Format(
+                    TimeoutMessageTemplate,
+                    DefaultPerComputerTimeoutSeconds);
                 SetOnDispatcher(() =>
                 {
                     if (vm.Description == descriptionAtStart)
