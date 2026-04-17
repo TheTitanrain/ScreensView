@@ -28,6 +28,7 @@ internal static class RemotePowerService
 
             using var searcher = new ManagementObjectSearcher(scope, new SelectQuery("Win32_OperatingSystem"));
             foreach (ManagementObject os in searcher.Get())
+            using (os)
                 os.InvokeMethod("Win32Shutdown", new object[] { flags, 0 });
         });
 }
