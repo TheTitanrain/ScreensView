@@ -1,5 +1,7 @@
 #define AppName "ScreensView Agent"
-#define AppVersion "1.0.0"
+#ifndef AppVersion
+  #define AppVersion "1.0.0"
+#endif
 #define ServiceName "ScreensViewAgent"
 #define SourceDir "..\ScreensView.Viewer\bin\Release\net8.0-windows"
 
@@ -11,7 +13,7 @@ AppPublisher=ScreensView
 DefaultDirName={win}\ScreensViewAgent
 DisableDirPage=yes
 DisableProgramGroupPage=yes
-OutputBaseFilename=ScreensView.Agent-Setup
+OutputBaseFilename=ScreensView.Agent-Setup-{#AppVersion}
 OutputDir=Output
 Compression=lzma2
 SolidCompression=yes

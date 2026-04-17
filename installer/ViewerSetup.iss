@@ -1,5 +1,7 @@
 #define AppName "ScreensView Viewer"
-#define AppVersion "1.0.0"
+#ifndef AppVersion
+  #define AppVersion "1.0.0"
+#endif
 #define AppExeName "ScreensView.Viewer.exe"
 #define SourceDir "..\ScreensView.Viewer\bin\Release\net8.0-windows"
 
