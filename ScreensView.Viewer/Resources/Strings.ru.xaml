@@ -23,6 +23,7 @@
     <sys:String x:Key="Str.Menu.RunLlmNow">Запустить LLM сейчас</sys:String>
     <sys:String x:Key="Str.Menu.Ping">Пинг</sys:String>
     <sys:String x:Key="Str.Menu.Rdp">RDP</sys:String>
+    <sys:String x:Key="Str.Menu.DameWare">DameWare</sys:String>
     <sys:String x:Key="Str.Menu.OpenShare">Открыть папку</sys:String>
     <sys:String x:Key="Str.Menu.Restart">Перезагрузить</sys:String>
     <sys:String x:Key="Str.Menu.Shutdown">Выключить</sys:String>

@@ -255,6 +255,7 @@
                                     <MenuItem Header="{DynamicResource Str.Menu.Ping}" Click="TileMenu_Ping"/>
                                     <Separator/>
                                     <MenuItem Header="{DynamicResource Str.Menu.Rdp}" Click="TileMenu_Rdp"/>
+                                    <MenuItem Header="{DynamicResource Str.Menu.DameWare}" Click="TileMenu_DameWare"/>
                                     <MenuItem Header="{DynamicResource Str.Menu.OpenShare}" Click="TileMenu_OpenShare"/>
                                     <Separator/>
                                     <MenuItem Header="{DynamicResource Str.Menu.Restart}" Click="TileMenu_Restart"/>

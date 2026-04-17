@@ -23,6 +23,7 @@
     <sys:String x:Key="Str.Menu.RunLlmNow">Run LLM now</sys:String>
     <sys:String x:Key="Str.Menu.Ping">Ping</sys:String>
     <sys:String x:Key="Str.Menu.Rdp">RDP</sys:String>
+    <sys:String x:Key="Str.Menu.DameWare">DameWare</sys:String>
     <sys:String x:Key="Str.Menu.OpenShare">Open folder</sys:String>
     <sys:String x:Key="Str.Menu.Restart">Restart</sys:String>
     <sys:String x:Key="Str.Menu.Shutdown">Shut down</sys:String>

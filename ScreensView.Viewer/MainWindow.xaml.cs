@@ -124,6 +124,18 @@ public partial class MainWindow : Window
         System.Diagnostics.Process.Start("mstsc.exe", $"/v:{vm.Host}");
     }
 
+    private void TileMenu_DameWare(object sender, RoutedEventArgs e)
+    {
+        var vm = GetMenuVm(sender);
+        if (vm == null) return;
+        var psi = new System.Diagnostics.ProcessStartInfo
+        {
+            FileName = @"C:\Program Files (x86)\SolarWinds\Dameware Remote Support\DWRCC.exe",
+            Arguments = $"-c: -h: -m:{vm.Host} -a:1"
+        };
+        System.Diagnostics.Process.Start(psi);
+    }
+
     private void TileMenu_OpenShare(object sender, RoutedEventArgs e)
     {
         var vm = GetMenuVm(sender);
