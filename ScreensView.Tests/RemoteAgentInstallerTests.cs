@@ -1,5 +1,6 @@
 using ScreensView.Viewer.Services;
 using ScreensView.Viewer.Views;
+using ScreensView.Shared;
 
 namespace ScreensView.Tests;
 
@@ -295,6 +296,16 @@ public sealed class RemoteAgentInstallerTests : IDisposable
         var command = RemoteAgentInstaller.BuildServiceCommand(AgentDeploymentPlan.Legacy);
 
         Assert.Equal("\"C:\\Windows\\ScreensViewAgent\\ScreensView.Agent.Legacy.exe\"", command);
+    }
+
+    [Fact]
+    public void BuildServiceLookupQuery_UsesConstantServiceName()
+    {
+        var query = RemoteAgentInstaller.BuildServiceLookupQuery();
+
+        Assert.Equal(
+            $"SELECT * FROM Win32_Service WHERE Name='{Constants.ServiceName}'",
+            query.QueryString);
     }
 
     [Fact]

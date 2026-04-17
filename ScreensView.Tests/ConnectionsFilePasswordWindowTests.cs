@@ -89,8 +89,8 @@ public sealed class ConnectionsFilePasswordWindowTests
                 window.UpdateLayout();
 
                 var root = Assert.IsType<Grid>(window.Content);
-                var okButton = FindButtonByContent(window, "OK");
-                var cancelButton = FindButtonByContent(window, "Отмена");
+                var okButton = FindDefaultButton(window);
+                var cancelButton = FindSecondaryActionButton(window);
                 var handle = new WindowInteropHelper(window).Handle;
                 Assert.NotEqual(IntPtr.Zero, handle);
                 Assert.True(GetClientRect(handle, out var clientRect));
@@ -116,10 +116,18 @@ public sealed class ConnectionsFilePasswordWindowTests
     private static T GetElement<T>(FrameworkElement root, string name) where T : FrameworkElement =>
         Assert.IsType<T>(root.FindName(name));
 
-    private static Button FindButtonByContent(DependencyObject root, string content)
+    private static Button FindDefaultButton(DependencyObject root)
     {
         var button = FindVisualDescendant<Button>(root, candidate =>
-            string.Equals(candidate.Content?.ToString(), content, StringComparison.Ordinal));
+            candidate.IsDefault);
+
+        return Assert.IsType<Button>(button);
+    }
+
+    private static Button FindSecondaryActionButton(DependencyObject root)
+    {
+        var button = FindVisualDescendant<Button>(root, candidate =>
+            !candidate.IsDefault);
 
         return Assert.IsType<Button>(button);
     }

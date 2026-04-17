@@ -1,4 +1,6 @@
 using System.Reflection;
+using System.Net;
+using System.Net.Sockets;
 using ScreensView.Viewer.Services;
 
 namespace ScreensView.Tests;
@@ -40,6 +42,17 @@ public class LlamaServerProcessServiceTests
         Assert.DoesNotContain("--image-max-tokens", args);
     }
 
+    [Fact]
+    public void FindFreePort_ReturnedPortCanBeReboundImmediately()
+    {
+        var port = InvokeFindFreePort();
+        using var listener = new TcpListener(IPAddress.Loopback, port);
+
+        listener.Start();
+
+        Assert.Equal(port, ((IPEndPoint)listener.LocalEndpoint).Port);
+    }
+
     private static string InvokeBuildArgs(string modelPath, string projectorPath, int port)
     {
         var method = typeof(LlamaServerProcessService).GetMethod(
@@ -49,5 +62,16 @@ public class LlamaServerProcessServiceTests
         Assert.NotNull(method);
 
         return (string)method!.Invoke(null, [modelPath, projectorPath, port])!;
+    }
+
+    private static int InvokeFindFreePort()
+    {
+        var method = typeof(LlamaServerProcessService).GetMethod(
+            "FindFreePort",
+            BindingFlags.Static | BindingFlags.NonPublic);
+
+        Assert.NotNull(method);
+
+        return (int)method!.Invoke(null, [])!;
     }
 }

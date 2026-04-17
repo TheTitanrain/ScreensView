@@ -1,5 +1,6 @@
 using System.Runtime.ExceptionServices;
 using ScreensView.Shared.Models;
+using ScreensView.Viewer.Services;
 using ScreensView.Viewer.Models;
 using ScreensView.Viewer.ViewModels;
 
@@ -128,6 +129,27 @@ public class ComputerViewModelTests
 
         Assert.Equal(ComputerStatus.Disabled, vm.Status);
         Assert.Equal("Компьютер отключён в Управлении компьютерами.", vm.StatusMessage);
+    }
+
+    [Fact]
+    public void NotifyLanguageChanged_WhenComputerDisabled_ReappliesLocalizedMessage()
+    {
+        var previousLanguage = LocalizationService.CurrentLanguage;
+        LocalizationService.Switch("ru");
+
+        try
+        {
+            var vm = new ComputerViewModel(MakeConfig(config => config.IsEnabled = false));
+
+            LocalizationService.Switch("en");
+            vm.NotifyLanguageChanged();
+
+            Assert.Equal("Computer is disabled in Manage Computers.", vm.StatusMessage);
+        }
+        finally
+        {
+            LocalizationService.Switch(previousLanguage);
+        }
     }
 
     [Fact]

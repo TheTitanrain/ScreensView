@@ -111,8 +111,8 @@ public class WebsiteShowcaseTests
     [Fact]
     public void Readmes_ContainTheRequiredDetailedGuideSections()
     {
-        var russian = File.ReadAllText(GetRepoPath("README.md"));
-        var english = File.ReadAllText(GetRepoPath("README.en.md"));
+        var russian = File.ReadAllText(GetRepoPath("README.ru.md"));
+        var english = File.ReadAllText(GetRepoPath("README.md"));
 
         var requiredRussianHeadings = new[]
         {
