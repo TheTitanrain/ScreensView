@@ -46,8 +46,8 @@ public class LlamaServerProcessServiceTests
     public void FindFreePort_ReturnedPortCanBeReboundImmediately()
     {
         var port = InvokeFindFreePort();
-        using var listener = new TcpListener(IPAddress.Loopback, port);
 
+        using var listener = new TcpListener(IPAddress.Loopback, port);
         listener.Start();
 
         Assert.Equal(port, ((IPEndPoint)listener.LocalEndpoint).Port);
@@ -72,6 +72,6 @@ public class LlamaServerProcessServiceTests
 
         Assert.NotNull(method);
 
-        return (int)method!.Invoke(null, [])!;
+        return (int)method!.Invoke(null, null)!;
     }
 }

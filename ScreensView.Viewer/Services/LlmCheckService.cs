@@ -16,7 +16,7 @@ public interface ILlmCheckService
 public class LlmCheckService : ILlmCheckService
 {
     private const int MaxCachedChecksPerComputer = 16;
-    internal const int DefaultPerComputerTimeoutSeconds = 120;
+    private const int DefaultPerComputerTimeoutSeconds = 120;
     private static readonly TimeSpan DefaultPerComputerTimeout =
         TimeSpan.FromSeconds(DefaultPerComputerTimeoutSeconds);
     private const string TimeoutMessageTemplate =
@@ -46,9 +46,6 @@ public class LlmCheckService : ILlmCheckService
         _log = log ?? new NullViewerLogService();
         _perComputerTimeout = perComputerTimeout ?? DefaultPerComputerTimeout;
     }
-
-    internal static string BuildTimeoutMessage() =>
-        string.Format(TimeoutMessageTemplate, DefaultPerComputerTimeoutSeconds);
 
     public void Start(IReadOnlyList<ComputerViewModel> computers, int intervalMinutes)
     {
@@ -331,6 +328,9 @@ public class LlmCheckService : ILlmCheckService
         lock (_recentChecks)
             _recentChecks.Clear();
     }
+
+    internal static string BuildTimeoutMessage() =>
+        string.Format(TimeoutMessageTemplate, DefaultPerComputerTimeoutSeconds);
 
     private sealed record CachedLlmCheckEntry(
         string Description,

@@ -1,17 +1,20 @@
+using System.IO;
 using System.Windows;
+using System.Windows.Markup;
+using System.Xml;
 
 namespace ScreensView.Viewer.Services;
 
 /// <summary>
 /// Hot-swaps the active language ResourceDictionary in Application.Resources.
 /// Provides typed string access for C# code (message boxes, validation, etc.).
+/// Also supports test and headless paths where no WPF Application exists.
 /// </summary>
 public static class LocalizationService
 {
-    private const string RuUri = "/ScreensView.Viewer;component/Resources/Strings.ru.xaml";
-    private const string EnUri = "/ScreensView.Viewer;component/Resources/Strings.en.xaml";
-    private static readonly object Sync = new();
-    private static ResourceDictionary? _fallbackDictionary;
+    private const string RuUri = "pack://application:,,,/Resources/Strings.ru.xaml";
+    private const string EnUri = "pack://application:,,,/Resources/Strings.en.xaml";
+    private static readonly Dictionary<string, ResourceDictionary> CachedDictionaries = [];
 
     public static string CurrentLanguage { get; private set; } = "ru";
 
@@ -19,21 +22,13 @@ public static class LocalizationService
     public static void Apply(string languageCode)
     {
         CurrentLanguage = ResolveLanguage(languageCode);
-        lock (Sync)
-            _fallbackDictionary = LoadDictionaryForCurrentLanguage();
-
-        var app = Application.Current;
-        if (app is null)
-            return;
-
-        SwapDictionary(app, GetDictionaryUri(CurrentLanguage));
+        SwapDictionary(CurrentLanguage == "en" ? EnUri : RuUri);
     }
 
     private static string ResolveLanguage(string code)
     {
         if (code == "en") return "en";
         if (code == "ru") return "ru";
-        // "auto": detect from OS locale
         return System.Globalization.CultureInfo.InstalledUICulture.TwoLetterISOLanguageName == "ru"
             ? "ru" : "en";
     }
@@ -44,35 +39,77 @@ public static class LocalizationService
     /// <summary>Returns the localized string for a resource key. Falls back to the key itself.</summary>
     public static string Get(string key)
     {
-        if (Application.Current?.TryFindResource(key) is string value)
+        if (GetFallbackDictionary()[key] is string fallbackValue)
+            return fallbackValue;
+
+        var application = Application.Current;
+        if (application?.TryFindResource(key) is string value)
             return value;
 
-        lock (Sync)
-        {
-            _fallbackDictionary ??= LoadDictionaryForCurrentLanguage();
-            return _fallbackDictionary.Contains(key)
-                ? _fallbackDictionary[key] as string ?? key
-                : key;
-        }
+        return key;
     }
 
-    private static void SwapDictionary(Application application, Uri newUri)
+    private static void SwapDictionary(string newUri)
     {
+        var application = Application.Current;
+        if (application is null)
+            return;
+
         var merged = application.Resources.MergedDictionaries;
         var existing = merged.FirstOrDefault(IsLanguageDictionary);
         if (existing != null)
             merged.Remove(existing);
-        merged.Add(new ResourceDictionary { Source = newUri });
+        merged.Add(new ResourceDictionary { Source = new Uri(newUri, UriKind.Absolute) });
     }
 
-    private static ResourceDictionary LoadDictionaryForCurrentLanguage() =>
-        new()
+    private static ResourceDictionary GetFallbackDictionary()
+    {
+        var languageCode = CurrentLanguage == "en" ? "en" : "ru";
+        if (!CachedDictionaries.TryGetValue(languageCode, out var dictionary))
         {
-            Source = GetDictionaryUri(CurrentLanguage)
-        };
+            dictionary = LoadFallbackDictionary(languageCode);
+            CachedDictionaries[languageCode] = dictionary;
+        }
 
-    private static Uri GetDictionaryUri(string languageCode) =>
-        new(languageCode == "en" ? EnUri : RuUri, UriKind.Relative);
+        return dictionary;
+    }
+
+    private static ResourceDictionary LoadFallbackDictionary(string languageCode)
+    {
+        var sourcePath = FindFallbackDictionaryPath(languageCode);
+        if (sourcePath is not null)
+        {
+            using var stream = File.OpenRead(sourcePath);
+            using var reader = XmlReader.Create(stream);
+            return (ResourceDictionary)XamlReader.Load(reader);
+        }
+
+        return new ResourceDictionary
+        {
+            Source = new Uri(
+                $"/ScreensView.Viewer;component/Resources/Strings.{languageCode}.xaml",
+                UriKind.Relative)
+        };
+    }
+
+    private static string? FindFallbackDictionaryPath(string languageCode)
+    {
+        for (var directory = new DirectoryInfo(AppContext.BaseDirectory);
+             directory is not null;
+             directory = directory.Parent)
+        {
+            var candidate = Path.Combine(
+                directory.FullName,
+                "ScreensView.Viewer",
+                "Resources",
+                $"Strings.{languageCode}.xaml");
+
+            if (File.Exists(candidate))
+                return candidate;
+        }
+
+        return null;
+    }
 
     private static bool IsLanguageDictionary(ResourceDictionary d)
     {

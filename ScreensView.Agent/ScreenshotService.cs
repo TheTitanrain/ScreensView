@@ -50,7 +50,8 @@ public class ScreenshotService
     private const uint TOKEN_ASSIGN_PRIMARY = 0x0001;
     private const uint TOKEN_DUPLICATE = 0x0002;
     private const uint TOKEN_QUERY = 0x0008;
-    private const uint REQUIRED_PRIMARY_TOKEN_ACCESS = TOKEN_ASSIGN_PRIMARY | TOKEN_DUPLICATE | TOKEN_QUERY;
+    private const uint REQUIRED_PRIMARY_TOKEN_ACCESS =
+        TOKEN_ASSIGN_PRIMARY | TOKEN_DUPLICATE | TOKEN_QUERY;
     private const uint CREATE_NO_WINDOW   = 0x08000000;
     private const uint STARTF_USESHOWWINDOW = 0x00000001;
     private const short SW_HIDE           = 0;

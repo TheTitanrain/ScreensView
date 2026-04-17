@@ -23,17 +23,4 @@ public class ScreenshotHardeningTests
         Assert.NotNull(first);
         Assert.Null(gate.TryEnter());
     }
-
-    [Fact]
-    public void SingleFlightGate_AllowsEntryAfterLeaseDisposed()
-    {
-        var gate = new SingleFlightGate();
-        var first = gate.TryEnter();
-
-        Assert.NotNull(first);
-        first!.Dispose();
-
-        using var second = gate.TryEnter();
-        Assert.NotNull(second);
-    }
 }

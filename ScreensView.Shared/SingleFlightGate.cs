@@ -19,10 +19,7 @@ public sealed class SingleFlightGate
         private readonly SingleFlightGate _owner;
         private int _disposed;
 
-        internal Lease(SingleFlightGate owner)
-        {
-            _owner = owner;
-        }
+        internal Lease(SingleFlightGate owner) => _owner = owner;
 
         public void Dispose()
         {

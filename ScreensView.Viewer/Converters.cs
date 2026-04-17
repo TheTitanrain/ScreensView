@@ -1,7 +1,6 @@
 using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
-using System.Windows.Media;
 using ScreensView.Viewer.Models;
 using ScreensView.Viewer.Services;
 using ScreensView.Viewer.ViewModels;
@@ -24,10 +23,12 @@ public class LlmBorderBrushConverter : IValueConverter
     public object Convert(object? value, Type targetType, object parameter, CultureInfo culture)
     {
         if (value is LlmCheckResult { IsError: false, IsMatch: true })
-            return new SolidColorBrush(Color.FromRgb(0x44, 0xCC, 0x44));
+            return new System.Windows.Media.SolidColorBrush(
+                System.Windows.Media.Color.FromRgb(0x44, 0xCC, 0x44));
         if (value is LlmCheckResult { IsError: false, IsMatch: false })
-            return new SolidColorBrush(Color.FromRgb(0xFF, 0x88, 0x00));
-        return Brushes.Transparent;
+            return new System.Windows.Media.SolidColorBrush(
+                System.Windows.Media.Color.FromRgb(0xFF, 0x88, 0x00));
+        return System.Windows.Media.Brushes.Transparent;
     }
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
@@ -76,19 +77,19 @@ public class LlmStatusToBackgroundConverter : IValueConverter
         var color = value is LlmTileStatus status ? status switch
         {
             LlmTileStatus.Inactive or LlmTileStatus.NoDescription or LlmTileStatus.Waiting
-                => Color.FromArgb(0x80, 0x88, 0x88, 0x88),
+                => System.Windows.Media.Color.FromArgb(0x80, 0x88, 0x88, 0x88),
             LlmTileStatus.Checking
-                => Color.FromArgb(0x99, 0x44, 0x99, 0xDD),
+                => System.Windows.Media.Color.FromArgb(0x99, 0x44, 0x99, 0xDD),
             LlmTileStatus.Match
-                => Color.FromArgb(0x99, 0x44, 0xCC, 0x44),
+                => System.Windows.Media.Color.FromArgb(0x99, 0x44, 0xCC, 0x44),
             LlmTileStatus.Mismatch
-                => Color.FromArgb(0x99, 0xFF, 0x88, 0x00),
+                => System.Windows.Media.Color.FromArgb(0x99, 0xFF, 0x88, 0x00),
             LlmTileStatus.Error
-                => Color.FromArgb(0x99, 0xCC, 0x44, 0x44),
-            _ => Colors.Transparent
-        } : Colors.Transparent;
+                => System.Windows.Media.Color.FromArgb(0x99, 0xCC, 0x44, 0x44),
+            _ => System.Windows.Media.Colors.Transparent
+        } : System.Windows.Media.Colors.Transparent;
 
-        return new SolidColorBrush(color);
+        return new System.Windows.Media.SolidColorBrush(color);
     }
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)

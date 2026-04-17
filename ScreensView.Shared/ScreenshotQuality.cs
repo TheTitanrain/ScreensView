@@ -3,17 +3,15 @@ namespace ScreensView.Shared;
 public static class ScreenshotQuality
 {
     public const int Default = 75;
-    public const int Min = 0;
-    public const int Max = 100;
 
     public static int ParseOrDefault(string? raw)
     {
         if (!int.TryParse(raw, out var parsed))
             return Default;
 
-        if (parsed < Min)
-            return Min;
+        if (parsed < 0)
+            return 0;
 
-        return parsed > Max ? Max : parsed;
+        return parsed > 100 ? 100 : parsed;
     }
 }

@@ -842,7 +842,6 @@ public class MainViewModelTests : IDisposable
         {
             var settings = new FakeViewerSettingsService(false, llmEnabled: true);
             var download = new FakeModelDownloadService { IsModelReady = true };
-            var llm = new FakeLlmCheckService();
             var inference = new FakeLlmInferenceService
             {
                 ValidateModelResult = new LlmRuntimeLoadException(
@@ -855,7 +854,6 @@ public class MainViewModelTests : IDisposable
 
             using var vm = CreateVmWithLlm(
                 settingsService: settings,
-                llmCheckService: llm,
                 downloadService: download,
                 inferenceService: inference);
 
