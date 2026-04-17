@@ -13,6 +13,7 @@ internal sealed class LegacyAgentHost : IDisposable
     private readonly AgentOptions _options;
     private readonly ScreenshotService _screenshotService;
     private readonly HttpListener _listener = new HttpListener();
+    private readonly System.Collections.Concurrent.ConcurrentBag<Task> _requestTasks = new();
     private CancellationTokenSource? _cancellation;
     private Task? _listenLoop;
 
@@ -54,6 +55,8 @@ internal sealed class LegacyAgentHost : IDisposable
         {
         }
 
+        Task.WaitAll(_requestTasks.ToArray(), TimeSpan.FromSeconds(10));
+
         _listener.Close();
     }
 
@@ -75,7 +78,8 @@ internal sealed class LegacyAgentHost : IDisposable
                 break;
             }
 
-            _ = Task.Run(() => HandleRequest(context), cancellationToken);
+            // Don't pass cancellationToken — don't cancel in-flight requests mid-handling
+            _requestTasks.Add(Task.Run(() => HandleRequest(context)));
         }
     }
 
@@ -137,7 +141,21 @@ internal sealed class LegacyAgentHost : IDisposable
     private bool IsAuthorized(HttpListenerRequest request)
     {
         var header = request.Headers[Constants.ApiKeyHeader];
-        return string.Equals(header, _options.ApiKey, StringComparison.Ordinal);
+        return FixedTimeEquals(header, _options.ApiKey);
+    }
+
+    // Constant-time comparison to prevent timing attacks.
+    // .NET Framework 4.8 does not have CryptographicOperations.FixedTimeEquals.
+    private static bool FixedTimeEquals(string? a, string b)
+    {
+        if (a == null) return false;
+        var aBytes = Encoding.UTF8.GetBytes(a);
+        var bBytes = Encoding.UTF8.GetBytes(b);
+        if (aBytes.Length != bBytes.Length) return false;
+        int diff = 0;
+        for (int i = 0; i < aBytes.Length; i++)
+            diff |= aBytes[i] ^ bBytes[i];
+        return diff == 0;
     }
 
     private static void WriteJson(HttpListenerResponse response, int statusCode, string json)

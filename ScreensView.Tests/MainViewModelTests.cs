@@ -22,7 +22,7 @@ public class MainViewModelTests : IDisposable
     private MainViewModel CreateVm()
     {
         var storage = new ComputerStorageService(_tempFile);
-        var poller = new ScreenshotPollerService(new AgentHttpClient());
+        var poller = new ScreenshotPollerService(new AgentHttpClient(), new DirectDispatcher());
         return new MainViewModel(storage, poller);
     }
 
@@ -32,7 +32,7 @@ public class MainViewModelTests : IDisposable
         Action<string, string>? reportError = null)
     {
         var storage = new ComputerStorageService(_tempFile);
-        var poller = new ScreenshotPollerService(new AgentHttpClient());
+        var poller = new ScreenshotPollerService(new AgentHttpClient(), new DirectDispatcher());
         return new MainViewModel(storage, poller, settingsService, autostartService, reportError);
     }
 
@@ -363,10 +363,10 @@ public class MainViewModelTests : IDisposable
             new ComputerConfig { Name = "PC-2", Host = "10.0.0.2", Port = 5443, ApiKey = "k2" },
         };
 
-        using (var vm = new MainViewModel(storage, new ScreenshotPollerService(new AgentHttpClient())))
+        using (var vm = new MainViewModel(storage, new ScreenshotPollerService(new AgentHttpClient(), new DirectDispatcher())))
             vm.AddComputers(configs);
 
-        using var vm2 = new MainViewModel(storage, new ScreenshotPollerService(new AgentHttpClient()));
+        using var vm2 = new MainViewModel(storage, new ScreenshotPollerService(new AgentHttpClient(), new DirectDispatcher()));
         Assert.Equal(2, vm2.Computers.Count);
     }
 
@@ -416,13 +416,13 @@ public class MainViewModelTests : IDisposable
     public void UpdateComputer_PersistsAfterReload()
     {
         var storage = new ComputerStorageService(_tempFile);
-        using (var vm = new MainViewModel(storage, new ScreenshotPollerService(new AgentHttpClient())))
+        using (var vm = new MainViewModel(storage, new ScreenshotPollerService(new AgentHttpClient(), new DirectDispatcher())))
         {
             vm.AddComputer(new ComputerConfig { Name = "Old", Host = "10.0.0.1", Port = 5443, ApiKey = "k1", CertThumbprint = "THUMB1" });
             vm.UpdateComputer(vm.Computers[0], new ComputerConfig { Name = "Updated", Host = "10.0.0.9", Port = 5443, ApiKey = "k1", CertThumbprint = "THUMB2" });
         }
 
-        using var vm2 = new MainViewModel(storage, new ScreenshotPollerService(new AgentHttpClient()));
+        using var vm2 = new MainViewModel(storage, new ScreenshotPollerService(new AgentHttpClient(), new DirectDispatcher()));
         Assert.Single(vm2.Computers);
         Assert.Equal("Updated", vm2.Computers[0].Name);
         Assert.Equal("10.0.0.9", vm2.Computers[0].Host);
@@ -449,7 +449,7 @@ public class MainViewModelTests : IDisposable
     public void RemoveComputer_PersistsAfterReload()
     {
         var storage = new ComputerStorageService(_tempFile);
-        using (var vm = new MainViewModel(storage, new ScreenshotPollerService(new AgentHttpClient())))
+        using (var vm = new MainViewModel(storage, new ScreenshotPollerService(new AgentHttpClient(), new DirectDispatcher())))
         {
             vm.AddComputers([
                 new ComputerConfig { Name = "A", Host = "10.0.0.1", Port = 5443, ApiKey = "k1" },
@@ -458,7 +458,7 @@ public class MainViewModelTests : IDisposable
             vm.RemoveComputer(vm.Computers[0]);
         }
 
-        using var vm2 = new MainViewModel(storage, new ScreenshotPollerService(new AgentHttpClient()));
+        using var vm2 = new MainViewModel(storage, new ScreenshotPollerService(new AgentHttpClient(), new DirectDispatcher()));
         Assert.Single(vm2.Computers);
         Assert.Equal("B", vm2.Computers[0].Name);
     }
@@ -483,7 +483,7 @@ public class MainViewModelTests : IDisposable
     public void RemoveComputers_PersistsAfterReload()
     {
         var storage = new ComputerStorageService(_tempFile);
-        using (var vm = new MainViewModel(storage, new ScreenshotPollerService(new AgentHttpClient())))
+        using (var vm = new MainViewModel(storage, new ScreenshotPollerService(new AgentHttpClient(), new DirectDispatcher())))
         {
             vm.AddComputers([
                 new ComputerConfig { Name = "A", Host = "10.0.0.1", Port = 5443, ApiKey = "k1" },
@@ -493,7 +493,7 @@ public class MainViewModelTests : IDisposable
             vm.RemoveComputers(vm.Computers.Take(2).ToList());
         }
 
-        using var vm2 = new MainViewModel(storage, new ScreenshotPollerService(new AgentHttpClient()));
+        using var vm2 = new MainViewModel(storage, new ScreenshotPollerService(new AgentHttpClient(), new DirectDispatcher()));
         Assert.Single(vm2.Computers);
     }
 
@@ -501,7 +501,7 @@ public class MainViewModelTests : IDisposable
     public void RemoveComputers_SavesOnce()
     {
         var storage = new ComputerStorageService(_tempFile);
-        var vm = new CountingSaveViewModel(storage, new ScreenshotPollerService(new AgentHttpClient()));
+        var vm = new CountingSaveViewModel(storage, new ScreenshotPollerService(new AgentHttpClient(), new DirectDispatcher()));
         var configs = new[]
         {
             new ComputerConfig { Name = "A", Host = "10.0.0.1", Port = 5443, ApiKey = "k1" },
@@ -740,7 +740,7 @@ public class MainViewModelTests : IDisposable
         ILlamaServerBinaryService? binaryService = null)
     {
         var storage = new ComputerStorageService(_tempFile);
-        var poller = new ScreenshotPollerService(new AgentHttpClient());
+        var poller = new ScreenshotPollerService(new AgentHttpClient(), new DirectDispatcher());
         return new MainViewModel(
             storage, poller,
             settingsService ?? new ViewerSettingsService(_settingsFile),
@@ -1478,5 +1478,11 @@ public class MainViewModelTests : IDisposable
         public string GetExePath(string variant) => @"C:\fake\llama-server.exe";
         public Task DownloadAsync(string variant, IProgress<double> progress, CancellationToken ct)
             => Task.CompletedTask;
+    }
+
+    private sealed class DirectDispatcher : IUiDispatcher
+    {
+        public T Invoke<T>(Func<T> func) => func();
+        public void Invoke(Action action) => action();
     }
 }

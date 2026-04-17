@@ -140,7 +140,7 @@ internal sealed class ScreenshotService
             maxNumberOfServerInstances: 1,
             PipeTransmissionMode.Byte,
             PipeOptions.Asynchronous,
-            inBufferSize: 0,
+            inBufferSize: 65536,
             outBufferSize: 0,
             ps);
 

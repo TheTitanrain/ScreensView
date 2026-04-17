@@ -580,9 +580,8 @@ public class RemoteAgentInstaller
     private void CreateService(ComputerConfig computer, AgentDeploymentPlan plan)
     {
         var scope = WmiScope(computer.Host);
-        var mc = new ManagementClass(scope, new ManagementPath("Win32_Service"), null);
-
-        var inParams = mc.GetMethodParameters("Create");
+        using var mc = new ManagementClass(scope, new ManagementPath("Win32_Service"), null);
+        using var inParams = mc.GetMethodParameters("Create");
         inParams["Name"] = Constants.ServiceName;
         inParams["DisplayName"] = Constants.ServiceDisplayName;
         inParams["PathName"] = BuildServiceCommand(plan);
@@ -592,8 +591,9 @@ public class RemoteAgentInstaller
         inParams["DesktopInteract"] = false;
         inParams["StartName"] = "LocalSystem";
 
-        var result = mc.InvokeMethod("Create", inParams, null);
-        var returnVal = Convert.ToInt32(result["ReturnValue"]);
+        int returnVal;
+        using (var result = (ManagementBaseObject)mc.InvokeMethod("Create", inParams, null))
+            returnVal = Convert.ToInt32(result["ReturnValue"]);
 
         if (returnVal == 23)
         {
@@ -607,8 +607,8 @@ public class RemoteAgentInstaller
                 if (check == null) break;
             }
 
-            result = mc.InvokeMethod("Create", inParams, null);
-            returnVal = Convert.ToInt32(result["ReturnValue"]);
+            using (var result2 = (ManagementBaseObject)mc.InvokeMethod("Create", inParams, null))
+                returnVal = Convert.ToInt32(result2["ReturnValue"]);
         }
 
         if (returnVal != 0)

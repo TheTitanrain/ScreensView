@@ -38,7 +38,8 @@ public partial class App : Application
 
         MainWindow? mainWindow = null;
         MainViewModel? viewModel = null;
-        var http = new AgentHttpClient((computer, thumbprint) =>
+        AgentHttpClient? http = null;
+        http = new AgentHttpClient((computer, thumbprint) =>
         {
             var vm = viewModel?.Computers.FirstOrDefault(item => item.Id == computer.Id);
             if (vm is null || viewModel is null)
@@ -46,9 +47,12 @@ public partial class App : Application
 
             vm.CertThumbprint = thumbprint;
             viewModel.SaveComputers();
+            // Invalidate cached HttpClient so the next request uses a handler
+            // that validates against the newly pinned thumbprint.
+            http!.InvalidateClient(computer.Id);
         });
 
-        var poller = new ScreenshotPollerService(http);
+        var poller = new ScreenshotPollerService(http, new WpfUiDispatcher());
         viewModel = new MainViewModel(
             startup.Storage!,
             poller,

@@ -1,4 +1,3 @@
-using System.Collections.ObjectModel;
 using ScreensView.Viewer.ViewModels;
 
 namespace ScreensView.Viewer.Services;
@@ -13,13 +12,15 @@ public interface IScreenshotPollerService : IDisposable
 public class ScreenshotPollerService : IScreenshotPollerService
 {
     private readonly AgentHttpClient _http;
+    private readonly IUiDispatcher _dispatcher;
     private readonly SemaphoreSlim _pollGate = new(1, 1);
     private CancellationTokenSource? _cts;
     private Task? _pollingTask;
 
-    public ScreenshotPollerService(AgentHttpClient http)
+    public ScreenshotPollerService(AgentHttpClient http, IUiDispatcher dispatcher)
     {
         _http = http;
+        _dispatcher = dispatcher;
     }
 
     public void Start(IEnumerable<ComputerViewModel> computers, int intervalSeconds)
@@ -57,7 +58,7 @@ public class ScreenshotPollerService : IScreenshotPollerService
         await _pollGate.WaitAsync(ct);
         try
         {
-            var snapshot = System.Windows.Application.Current.Dispatcher.Invoke(() => computers.ToList());
+            var snapshot = _dispatcher.Invoke(() => computers.ToList());
             var tasks = snapshot
                 .Where(c => c.IsEnabled)
                 .Select(c => PollComputerAsync(c, ct))
@@ -77,15 +78,17 @@ public class ScreenshotPollerService : IScreenshotPollerService
         {
             var response = await _http.GetScreenshotAsync(vm.ToConfig(), ct);
             if (response != null)
-                System.Windows.Application.Current.Dispatcher.Invoke(() => vm.UpdateScreenshot(response));
+                _dispatcher.Invoke(() => vm.UpdateScreenshot(response));
         }
         catch (SessionLockedException ex)
         {
-            System.Windows.Application.Current.Dispatcher.Invoke(() => vm.SetLocked(ex.Message));
+            _dispatcher.Invoke(() => vm.SetLocked(ex.Message));
         }
         catch (Exception ex)
         {
-            System.Windows.Application.Current.Dispatcher.Invoke(() => vm.SetError(ex.Message));
+            System.Diagnostics.Debug.WriteLine(
+                $"[ScreenshotPollerService] PollComputerAsync {vm.Name} — {ex.GetType().Name}: {ex}");
+            _dispatcher.Invoke(() => vm.SetError(ex.Message));
         }
     }
 

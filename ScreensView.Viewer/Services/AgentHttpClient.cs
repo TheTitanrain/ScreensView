@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Security.Cryptography.X509Certificates;
@@ -10,6 +11,7 @@ namespace ScreensView.Viewer.Services;
 public class AgentHttpClient : IDisposable
 {
     private readonly Action<ComputerConfig, string>? _onThumbprintPinned;
+    private readonly ConcurrentDictionary<Guid, HttpClient> _clients = new();
 
     public AgentHttpClient(Action<ComputerConfig, string>? onThumbprintPinned = null)
     {
@@ -18,8 +20,7 @@ public class AgentHttpClient : IDisposable
 
     public async Task<ScreenshotResponse?> GetScreenshotAsync(ComputerConfig computer, CancellationToken ct = default)
     {
-        using var handler = BuildHandler(computer);
-        using var client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(10) };
+        var client = GetOrCreateClient(computer);
         var url = $"https://{computer.Host}:{computer.Port}/screenshot";
         using var request = new HttpRequestMessage(HttpMethod.Get, url);
         request.Headers.Add(Constants.ApiKeyHeader, computer.ApiKey);
@@ -37,15 +38,46 @@ public class AgentHttpClient : IDisposable
     {
         try
         {
-            using var handler = BuildHandler(computer);
-            using var client = new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(10) };
+            var client = GetOrCreateClient(computer);
             var url = $"https://{computer.Host}:{computer.Port}/health";
             using var request = new HttpRequestMessage(HttpMethod.Get, url);
             request.Headers.Add(Constants.ApiKeyHeader, computer.ApiKey);
             var response = await client.SendAsync(request, ct);
             return response.IsSuccessStatusCode;
         }
-        catch { return false; }
+        catch (Exception ex)
+        {
+            System.Diagnostics.Debug.WriteLine(
+                $"[AgentHttpClient] CheckHealthAsync {computer.Host}:{computer.Port} — {ex.GetType().Name}: {ex.Message}");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Drops the cached HttpClient for a computer (call after thumbprint is pinned so the
+    /// next request creates a handler that enforces the pinned cert).
+    /// </summary>
+    public void InvalidateClient(Guid computerId)
+    {
+        if (_clients.TryRemove(computerId, out var old))
+            old.Dispose();
+    }
+
+    private HttpClient GetOrCreateClient(ComputerConfig computer)
+    {
+        // First connection has no pinned thumbprint — don't cache; the callback will pin the
+        // thumbprint and the caller must call InvalidateClient so the next request uses a
+        // handler that validates against the pinned cert.
+        if (string.IsNullOrEmpty(computer.CertThumbprint))
+            return CreateClient(computer);
+
+        return _clients.GetOrAdd(computer.Id, _ => CreateClient(computer));
+    }
+
+    private HttpClient CreateClient(ComputerConfig computer)
+    {
+        var handler = BuildHandler(computer);
+        return new HttpClient(handler) { Timeout = TimeSpan.FromSeconds(10) };
     }
 
     private HttpClientHandler BuildHandler(ComputerConfig computer)
@@ -91,5 +123,10 @@ public class AgentHttpClient : IDisposable
         return body;
     }
 
-    public void Dispose() { }
+    public void Dispose()
+    {
+        foreach (var client in _clients.Values)
+            client.Dispose();
+        _clients.Clear();
+    }
 }

@@ -48,13 +48,29 @@ end;
 
 function GenerateApiKey: String;
 var
+  TempFile: String;
+  ResultCode: Integer;
+  Lines: TArrayOfString;
   i: Integer;
   chars: String;
 begin
-  chars := '0123456789abcdef';
-  Result := '';
-  for i := 1 to 32 do
-    Result := Result + chars[Random(16) + 1];
+  TempFile := ExpandConstant('{tmp}\apikey.txt');
+  Exec(ExpandConstant('{sys}\WindowsPowerShell\v1.0\powershell.exe'),
+    '-NoProfile -NonInteractive -Command ' +
+    '"[Convert]::ToHexString([System.Security.Cryptography.RandomNumberGenerator]::GetBytes(16)).ToLower()' +
+    ' | Out-File -Encoding ascii -NoNewline ''' + TempFile + '''"',
+    '', SW_HIDE, ewWaitUntilTerminated, ResultCode);
+  if (ResultCode = 0) and LoadStringsFromFile(TempFile, Lines) and (GetArrayLength(Lines) > 0) then
+    Result := Trim(Lines[0])
+  else
+  begin
+    // Fallback to PRNG — only reached on Win7 without PowerShell
+    chars := '0123456789abcdef';
+    Result := '';
+    for i := 1 to 32 do
+      Result := Result + chars[Random(16) + 1];
+  end;
+  DeleteFile(TempFile);
 end;
 
 // ── .NET 8 detection and install ─────────────────────────────────────────────
