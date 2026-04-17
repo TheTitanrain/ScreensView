@@ -120,6 +120,10 @@ internal sealed class LegacyAgentHost : IDisposable
                     {
                         WriteText(context.Response, 503, ex.Message);
                     }
+                    catch (ScreenshotBusyException ex)
+                    {
+                        WriteText(context.Response, 429, ex.Message);
+                    }
                     return;
                 default:
                     WriteText(context.Response, 404, "Not Found");

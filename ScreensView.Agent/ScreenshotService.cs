@@ -47,7 +47,11 @@ public class ScreenshotService
     private enum SECURITY_IMPERSONATION_LEVEL { SecurityImpersonation = 2, SecurityDelegation = 3 }
     private enum TOKEN_TYPE { TokenPrimary = 1 }
 
-    private const uint TOKEN_ALL_ACCESS   = 0x000F01FF;
+    private const uint TOKEN_ASSIGN_PRIMARY = 0x0001;
+    private const uint TOKEN_DUPLICATE = 0x0002;
+    private const uint TOKEN_QUERY = 0x0008;
+    private const uint REQUIRED_PRIMARY_TOKEN_ACCESS =
+        TOKEN_ASSIGN_PRIMARY | TOKEN_DUPLICATE | TOKEN_QUERY;
     private const uint CREATE_NO_WINDOW   = 0x08000000;
     private const uint STARTF_USESHOWWINDOW = 0x00000001;
     private const short SW_HIDE           = 0;
@@ -78,11 +82,15 @@ public class ScreenshotService
     }
 
     private readonly AgentOptions _options;
+    private readonly SingleFlightGate _captureGate = new();
 
     public ScreenshotService(AgentOptions options) => _options = options;
 
     public async Task<byte[]> CaptureJpegAsync()
     {
+        using var captureLease = _captureGate.TryEnter()
+            ?? throw new ScreenshotBusyException();
+
         uint sessionId = WTSGetActiveConsoleSessionId();
         if (sessionId == 0xFFFFFFFF)
             throw new NoActiveSessionException();
@@ -98,7 +106,7 @@ public class ScreenshotService
 
         try
         {
-            if (!DuplicateTokenEx(hImpToken, TOKEN_ALL_ACCESS, IntPtr.Zero,
+            if (!DuplicateTokenEx(hImpToken, REQUIRED_PRIMARY_TOKEN_ACCESS, IntPtr.Zero,
                     SECURITY_IMPERSONATION_LEVEL.SecurityDelegation,
                     TOKEN_TYPE.TokenPrimary, out var hPrimToken))
                 throw new InvalidOperationException(
