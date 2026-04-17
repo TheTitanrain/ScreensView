@@ -8,8 +8,10 @@ namespace ScreensView.Viewer.Services;
 /// </summary>
 public static class LocalizationService
 {
-    private const string RuUri = "pack://application:,,,/Resources/Strings.ru.xaml";
-    private const string EnUri = "pack://application:,,,/Resources/Strings.en.xaml";
+    private const string RuUri = "/ScreensView.Viewer;component/Resources/Strings.ru.xaml";
+    private const string EnUri = "/ScreensView.Viewer;component/Resources/Strings.en.xaml";
+    private static readonly object Sync = new();
+    private static ResourceDictionary? _fallbackDictionary;
 
     public static string CurrentLanguage { get; private set; } = "ru";
 
@@ -17,7 +19,14 @@ public static class LocalizationService
     public static void Apply(string languageCode)
     {
         CurrentLanguage = ResolveLanguage(languageCode);
-        SwapDictionary(CurrentLanguage == "en" ? EnUri : RuUri);
+        lock (Sync)
+            _fallbackDictionary = LoadDictionaryForCurrentLanguage();
+
+        var app = Application.Current;
+        if (app is null)
+            return;
+
+        SwapDictionary(app, GetDictionaryUri(CurrentLanguage));
     }
 
     private static string ResolveLanguage(string code)
@@ -34,16 +43,36 @@ public static class LocalizationService
 
     /// <summary>Returns the localized string for a resource key. Falls back to the key itself.</summary>
     public static string Get(string key)
-        => Application.Current.TryFindResource(key) as string ?? key;
-
-    private static void SwapDictionary(string newUri)
     {
-        var merged = Application.Current.Resources.MergedDictionaries;
+        if (Application.Current?.TryFindResource(key) is string value)
+            return value;
+
+        lock (Sync)
+        {
+            _fallbackDictionary ??= LoadDictionaryForCurrentLanguage();
+            return _fallbackDictionary.Contains(key)
+                ? _fallbackDictionary[key] as string ?? key
+                : key;
+        }
+    }
+
+    private static void SwapDictionary(Application application, Uri newUri)
+    {
+        var merged = application.Resources.MergedDictionaries;
         var existing = merged.FirstOrDefault(IsLanguageDictionary);
         if (existing != null)
             merged.Remove(existing);
-        merged.Add(new ResourceDictionary { Source = new Uri(newUri, UriKind.Absolute) });
+        merged.Add(new ResourceDictionary { Source = newUri });
     }
+
+    private static ResourceDictionary LoadDictionaryForCurrentLanguage() =>
+        new()
+        {
+            Source = GetDictionaryUri(CurrentLanguage)
+        };
+
+    private static Uri GetDictionaryUri(string languageCode) =>
+        new(languageCode == "en" ? EnUri : RuUri, UriKind.Relative);
 
     private static bool IsLanguageDictionary(ResourceDictionary d)
     {

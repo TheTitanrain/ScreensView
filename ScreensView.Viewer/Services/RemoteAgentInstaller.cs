@@ -697,10 +697,13 @@ public class RemoteAgentInstaller
         service?.InvokeMethod("Delete", null);
     }
 
+    internal static ObjectQuery BuildServiceLookupQuery() =>
+        new($"SELECT * FROM Win32_Service WHERE Name='{Constants.ServiceName}'");
+
     private ManagementObject? GetServiceObject(string host)
     {
         var scope = WmiScope(host);
-        var query = new ObjectQuery($"SELECT * FROM Win32_Service WHERE Name='{Constants.ServiceName}'");
+        var query = BuildServiceLookupQuery();
         using var searcher = new ManagementObjectSearcher(scope, query);
         return searcher.Get().Cast<ManagementObject>().FirstOrDefault();
     }

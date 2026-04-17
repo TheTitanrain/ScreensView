@@ -331,7 +331,7 @@ public class LlmCheckServiceTests
 
         Assert.NotNull(first.LastLlmCheck);
         Assert.True(first.LastLlmCheck!.IsError);
-        Assert.Contains("120 секунд", first.LastLlmCheck.Explanation);
+        Assert.Equal(LlmCheckService.BuildTimeoutMessage(), first.LastLlmCheck.Explanation);
         Assert.NotNull(second.LastLlmCheck);
         Assert.Equal("next-ok", second.LastLlmCheck!.Explanation);
     }
