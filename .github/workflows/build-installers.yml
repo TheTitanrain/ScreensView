@@ -56,7 +56,7 @@ jobs:
           Invoke-WebRequest $aspnet.url -OutFile "ScreensView.Viewer\Prerequisites\$aspnetFile"
 
       - name: Build Viewer (+ agent payloads)
-        run: dotnet build ScreensView.Viewer/ScreensView.Viewer.csproj -c Release
+        run: dotnet build ScreensView.Viewer/ScreensView.Viewer.csproj -c Release -p:Version=${{ steps.version.outputs.version }}
 
       - name: Build Viewer installer
         run: iscc /DAppVersion=${{ steps.version.outputs.version }} installer\ViewerSetup.iss
