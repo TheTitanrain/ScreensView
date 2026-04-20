@@ -75,15 +75,7 @@ This is the **only** place `MinimizeToTrayOnClose` controls behavior. When `_rea
 
 `ShutdownMode` is **not changed**. Canceling `OnClosing` keeps `MainWindow` alive, so `OnLastWindowClose` (the default) never fires while the user is hiding-to-tray. No global ShutdownMode change needed.
 
-`MainWindow` constructor adds `TrayIconService` via **setter injection** after construction, to avoid the circular dependency (App creates MainWindow, then creates TrayIconService with mainWindow reference):
-
-```csharp
-// In App.OnStartup, after mainWindow and trayService are both created:
-// trayService is disposable; App.Exit disposes it.
-// MainWindow needs no reference to TrayIconService directly.
-```
-
-`MainWindow` does not receive `TrayIconService` in its constructor. The only coupling is that `TrayIconService` calls `mainWindow.RequestRealClose()` before `Shutdown()`.
+`MainWindow` has no reference to `TrayIconService` — no constructor parameter, no setter, no property. The only coupling runs the other way: `TrayIconService` holds a reference to `mainWindow` and calls `mainWindow.RequestRealClose()` before `Shutdown()`. `App.OnStartup` creates `MainWindow` first, then creates `TrayIconService` with that reference — no circular dependency.
 
 ### 3. `LocalizationService` — add `LanguageChanged` event (modified)
 
