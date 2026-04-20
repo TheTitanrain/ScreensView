@@ -1,7 +1,7 @@
 # System Tray: Minimize to Tray on Close
 
 **Date:** 2026-04-20  
-**Status:** Approved
+**Status:** Approved (rev 2)
 
 ## Goal
 
@@ -15,52 +15,95 @@ Add `H.NotifyIcon.Wpf` to `ScreensView.Viewer.csproj`. This package provides a W
 
 ### 1. `TrayIconService` (new — `Services/TrayIconService.cs`)
 
-Owns and manages the `TaskbarIcon` instance. Created once at app startup, disposed on real shutdown.
+Owns and manages the `TaskbarIcon` instance. Created in `App.OnStartup` **after** `MainWindow` is constructed. Disposed when the app exits.
+
+Constructor signature:
+
+```csharp
+internal TrayIconService(MainWindow mainWindow, MainViewModel vm, Action onOpenSettings)
+```
+
+- `mainWindow` — for `Show()` / `Hide()` / `Activate()`
+- `vm` — for reading `MinimizeToTrayOnClose` from settings (via existing property on `MainViewModel`)
+- `onOpenSettings` — callback set up in `App.OnStartup`; decouples `TrayIconService` from `SettingsWindow` and its dependencies
 
 Responsibilities:
-- Initialize `TaskbarIcon` with `screensview.ico` and tooltip "ScreensView"
-- Build WPF `ContextMenu` programmatically (to support dynamic label and localization)
-- Handle double-click → show + activate `MainWindow`
-- Subscribe to `mainWindow.IsVisibleChanged` to auto-update Show/Hide label — no callback needed from `MainWindow`
-- Accept `Action onOpenSettings` callback (set in `App.xaml.cs`) for the Open Settings menu item — keeps `TrayIconService` decoupled from `SettingsWindow` and its dependencies
-- Handle Exit menu item → `Application.Current.Shutdown()`
-- `Dispose()` → `TaskbarIcon.Dispose()`
+
+- Initialize `TaskbarIcon` with `screensview.ico` and tooltip `"ScreensView"`
+- Build WPF `ContextMenu` programmatically using `LocalizationService.Get(key)` at construction time
+- Subscribe to `mainWindow.IsVisibleChanged` → call `RefreshMenuLabels()` to update Show/Hide item text
+- Subscribe to `LocalizationService.LanguageChanged` static event → call `RefreshMenuLabels()` to re-read localized strings after language switch
+- Double-click → `mainWindow.Show(); mainWindow.Activate();`
+- `Dispose()` → `TaskbarIcon.Dispose()`; unsubscribe events
 
 Context menu items (in order):
-1. **Show / Hide** — dynamic: "Show" when `MainWindow` is not visible, "Hide" when visible. Clicking Show: `window.Show(); window.Activate();`. Clicking Hide: `window.Hide()`.
-2. **Open Settings** — opens `SettingsWindow` as a dialog
+
+1. **Show / Hide** — dynamic label: `Str.Tray.Show` when window not visible, `Str.Tray.Hide` when visible. Clicking Show → `mainWindow.Show(); mainWindow.Activate()`. Clicking Hide → `mainWindow.Hide()`.
+2. **Open Settings** — invokes `onOpenSettings` callback
 3. `Separator`
-4. **Exit** — `Application.Current.Shutdown()`
+4. **Exit** — calls `mainWindow.RequestRealClose()`, then `Application.Current.Shutdown()`
 
-### 2. `App.xaml.cs` (modified)
+### 2. `MainWindow` — changes to `OnClosing` and exit bypass
 
-- Set `ShutdownMode = ShutdownMode.OnExplicitShutdown` on startup, before creating `MainWindow`. This prevents the process from exiting when `MainWindow` is hidden.
-- Create `TrayIconService` after `MainWindow` is created (service needs window reference).
-- On `Exit` event: `trayIconService.Dispose()`.
+Add a `bool _realClose` field. Add internal method:
 
-### 3. `MainWindow` — `OnClosing` override (modified)
+```csharp
+internal void RequestRealClose()
+{
+    _realClose = true;
+}
+```
+
+Override `OnClosing`:
 
 ```csharp
 protected override void OnClosing(CancelEventArgs e)
 {
-    if (_settings.MinimizeToTrayOnClose)
+    if (!_realClose && _vm.MinimizeToTrayOnClose)
     {
         e.Cancel = true;
         Hide();
-        _trayIconService.UpdateMenuLabels();
+        return;
     }
-    else
-    {
-        base.OnClosing(e);
-    }
+    base.OnClosing(e);
 }
 ```
 
-`MainWindow` receives `ViewerSettings` (or reads it fresh from `ViewerSettingsService`) and `TrayIconService` via constructor injection, consistent with existing pattern.
+This is the **only** place `MinimizeToTrayOnClose` controls behavior. When `_realClose` is true (set by `TrayIconService.Exit`), the close proceeds normally and `Application.Current.Shutdown()` terminates the process. When `MinimizeToTrayOnClose` is false, the close button behaves as before.
 
-### 4. `ViewerSettings` (modified — `Services/ViewerSettingsService.cs`)
+`Application.Current.Shutdown()` fires the `Application.Exit` event and calls `Close()` on open windows; `_realClose = true` ensures `OnClosing` does not re-cancel. Existing shutdown calls in `ViewerUpdateService` (lines 59, 218) fire before `MainWindow` is created, so they are unaffected.
 
-Add one property:
+`ShutdownMode` is **not changed**. Canceling `OnClosing` keeps `MainWindow` alive, so `OnLastWindowClose` (the default) never fires while the user is hiding-to-tray. No global ShutdownMode change needed.
+
+`MainWindow` constructor adds `TrayIconService` via **setter injection** after construction, to avoid the circular dependency (App creates MainWindow, then creates TrayIconService with mainWindow reference):
+
+```csharp
+// In App.OnStartup, after mainWindow and trayService are both created:
+// trayService is disposable; App.Exit disposes it.
+// MainWindow needs no reference to TrayIconService directly.
+```
+
+`MainWindow` does not receive `TrayIconService` in its constructor. The only coupling is that `TrayIconService` calls `mainWindow.RequestRealClose()` before `Shutdown()`.
+
+### 3. `LocalizationService` — add `LanguageChanged` event (modified)
+
+Add one static event fired at the end of `Apply()`:
+
+```csharp
+public static event Action? LanguageChanged;
+```
+
+Fire in `Apply()` after `SwapDictionary()`:
+
+```csharp
+LanguageChanged?.Invoke();
+```
+
+`TrayIconService` subscribes on construction, unsubscribes on dispose.
+
+### 4. `ViewerSettings` + `MainViewModel` (modified)
+
+**`ViewerSettings`** — add property:
 
 ```csharp
 public bool MinimizeToTrayOnClose { get; set; } = true;
@@ -68,67 +111,98 @@ public bool MinimizeToTrayOnClose { get; set; } = true;
 
 Default `true`: first-run users get tray behavior without extra configuration.
 
-### 5. `SettingsWindow` + `SettingsViewModel` (modified)
+**`MainViewModel`** — add observable property (same pattern as `IsAutostartEnabled`, `Language`):
 
-Add checkbox in the **General** section (after the Autostart checkbox):
+```csharp
+[ObservableProperty] private bool _minimizeToTrayOnClose;
+```
+
+Load from settings in the existing settings-loading block. Save when changed (same pattern as `OnIsAutostartEnabledChanged`).
+
+### 5. `SettingsWindow.xaml` (modified)
+
+Add checkbox in the **General** section, after the Autostart checkbox (line 62 in current file). Binds to `MainViewModel.MinimizeToTrayOnClose` via `DataContext = _vm` (already set):
 
 ```xml
 <CheckBox IsChecked="{Binding MinimizeToTrayOnClose}"
-          Content="{DynamicResource Str.Settings.MinimizeToTray}"/>
+          Content="{DynamicResource Str.Settings.MinimizeToTray}"
+          Margin="0,8,0,0"/>
 ```
 
-`SettingsViewModel` gets a `MinimizeToTrayOnClose` bool property, read from and saved to `ViewerSettings`.
+No new ViewModel needed. `SettingsWindow.DataContext` is already `MainViewModel`.
 
-### 6. Localization strings (new keys)
+### 6. `App.OnStartup` (modified)
+
+After `mainWindow = new MainWindow(...)` and `mainWindow.Show()`:
+
+```csharp
+var trayService = new TrayIconService(
+    mainWindow,
+    viewModel,
+    onOpenSettings: () => new SettingsWindow(viewModel, workflow) { Owner = mainWindow }.ShowDialog());
+
+Application.Current.Exit += (_, _) => trayService.Dispose();
+```
+
+No change to `ShutdownMode`. `StartupShutdownScope` remains unchanged — it is `using`-scoped around `CheckAndUpdateAsync()` only, and disposes before `MainWindow` is shown.
+
+### 7. Localization strings (new keys)
 
 **`Strings.en.xaml`:**
+
 ```xml
 <sys:String x:Key="Str.Settings.MinimizeToTray">Minimize to tray on close</sys:String>
 <sys:String x:Key="Str.Tray.Show">Show</sys:String>
 <sys:String x:Key="Str.Tray.Hide">Hide</sys:String>
 <sys:String x:Key="Str.Tray.OpenSettings">Open Settings</sys:String>
 <sys:String x:Key="Str.Tray.Exit">Exit</sys:String>
-<sys:String x:Key="Str.Tray.Tooltip">ScreensView</sys:String>
 ```
 
 **`Strings.ru.xaml`:**
+
 ```xml
 <sys:String x:Key="Str.Settings.MinimizeToTray">Сворачивать в трей при закрытии</sys:String>
 <sys:String x:Key="Str.Tray.Show">Показать</sys:String>
 <sys:String x:Key="Str.Tray.Hide">Скрыть</sys:String>
 <sys:String x:Key="Str.Tray.OpenSettings">Настройки</sys:String>
 <sys:String x:Key="Str.Tray.Exit">Выход</sys:String>
-<sys:String x:Key="Str.Tray.Tooltip">ScreensView</sys:String>
 ```
 
-Localization read via existing `LocalizationService.Get(key)` pattern.
+Tooltip text (`"ScreensView"`) is hardcoded — it does not change with language.
 
 ## Data Flow
 
 ```
-App startup
-  → ShutdownMode = OnExplicitShutdown
-  → new MainWindow(...)
-  → new TrayIconService(mainWindow, settingsService)
-    → TaskbarIcon created, icon = screensview.ico
+App.OnStartup
+  → StartupShutdownScope (temporary, disposes before Show)
+  → MainWindow created and shown (ShutdownMode stays OnLastWindowClose)
+  → TrayIconService created: TaskbarIcon visible, subscribes IsVisibleChanged + LanguageChanged
 
 User clicks X on MainWindow
-  → MainWindow.OnClosing
-  → MinimizeToTrayOnClose == true → e.Cancel = true, window.Hide()
-  → TrayIconService.UpdateMenuLabels() → menu item text = "Show"
+  → OnClosing: _realClose=false, MinimizeToTrayOnClose=true → e.Cancel=true, Hide()
+  → IsVisibleChanged fires → TrayIconService.RefreshMenuLabels() → item = "Show"
 
 User double-clicks tray icon
-  → TrayIconService → window.Show(), window.Activate()
-  → TrayIconService.UpdateMenuLabels() → menu item text = "Hide"
+  → mainWindow.Show(); mainWindow.Activate()
+  → IsVisibleChanged fires → item = "Hide"
 
 User right-clicks tray → "Exit"
+  → mainWindow.RequestRealClose() → _realClose=true
   → Application.Current.Shutdown()
-  → App.Exit event → TrayIconService.Dispose()
+  → OnClosing fires: _realClose=true → normal close, no cancel
+  → App.Exit event → trayService.Dispose()
+
+User switches language in Settings
+  → MainViewModel.Language changes → LocalizationService.Switch()
+  → LocalizationService.LanguageChanged fires
+  → TrayIconService.RefreshMenuLabels() → re-reads strings via LocalizationService.Get()
 ```
 
 ## What Is Not Changing
 
 - No "start minimized" option (not requested)
 - No balloon notification on first minimize (not requested)
-- Polling service continues running when window is hidden (existing behavior, no change needed)
-- `ShutdownMode` change is the only App-level change; all other startup logic stays as-is
+- Polling continues when window is hidden (no change)
+- `ShutdownMode` stays default `OnLastWindowClose`
+- `StartupShutdownScope` in `App.xaml.cs` is untouched
+- `ViewerUpdateService` shutdown paths (lines 59, 218) unaffected — they run before `MainWindow` exists
