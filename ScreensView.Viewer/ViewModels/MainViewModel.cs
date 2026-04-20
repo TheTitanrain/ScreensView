@@ -45,6 +45,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private ModelDefinition _selectedModel = ModelDefinition.Default;
     [ObservableProperty] private string _selectedBackend = "cpu";
     [ObservableProperty] private string _language = "ru";
+    [ObservableProperty] private bool _minimizeToTrayOnClose = true;
 
     public CancellationToken AppToken => _appCts.Token;
 
@@ -80,6 +81,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _refreshInterval = NormalizeRefreshInterval(_viewerSettings.RefreshIntervalSeconds);
         _viewerSettings.RefreshIntervalSeconds = _refreshInterval;
         _language = _viewerSettings.Language ?? "ru";
+        _minimizeToTrayOnClose = _viewerSettings.MinimizeToTrayOnClose;
         InitializeAutostartState();
 
         _poller.Start(Computers, _refreshInterval);
@@ -147,6 +149,12 @@ public partial class MainViewModel : ObservableObject, IDisposable
             return;
 
         await _llmCheckService.RunNowAsync(Computers, runToken);
+    }
+
+    partial void OnMinimizeToTrayOnCloseChanged(bool value)
+    {
+        _viewerSettings.MinimizeToTrayOnClose = value;
+        _viewerSettingsService.Save(_viewerSettings);
     }
 
     partial void OnLanguageChanged(string value)

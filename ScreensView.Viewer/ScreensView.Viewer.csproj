@@ -16,6 +16,7 @@
 
   <ItemGroup>
     <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageReference Include="H.NotifyIcon.Wpf" Version="2.4.1" />
     <PackageReference Include="System.Management" Version="8.0.0" />
     <PackageReference Include="System.IO.Hashing" Version="8.0.0" />
   </ItemGroup>
@@ -36,15 +37,9 @@
     <!-- Clean the agent publish directory so stale ClickOnce artifacts from previous runs don't survive -->
     <RemoveDir Directories="$(MSBuildThisFileDirectory)..\ScreensView.Agent\bin\$(Configuration)\net8.0-windows\publish" />
     <!-- Modern agent: publish to get all NuGet dependencies in the output directory -->
-    <MSBuild Projects="$(MSBuildThisFileDirectory)..\ScreensView.Agent\ScreensView.Agent.csproj"
-             Targets="Restore;Publish"
-             RemoveProperties="TargetFramework;PublishProfile;PublishUrl;InstallUrl;IsWebBootstrapper;BootstrapperEnabled;ApplicationVersion;ApplicationRevision;IsRevisionIncremented;CreateWebPageOnPublish;WebPageFilename;PublishProtocol;UpdateEnabled;UpdateMode;BootstrapperComponentsLocation;PublishReadyToRun"
-             Properties="Configuration=$(Configuration);TargetFramework=net8.0-windows;PublishDir=$(MSBuildThisFileDirectory)..\ScreensView.Agent\bin\$(Configuration)\net8.0-windows\publish\" />
+    <MSBuild Projects="$(MSBuildThisFileDirectory)..\ScreensView.Agent\ScreensView.Agent.csproj" Targets="Restore;Publish" RemoveProperties="TargetFramework;PublishProfile;PublishUrl;InstallUrl;IsWebBootstrapper;BootstrapperEnabled;ApplicationVersion;ApplicationRevision;IsRevisionIncremented;CreateWebPageOnPublish;WebPageFilename;PublishProtocol;UpdateEnabled;UpdateMode;BootstrapperComponentsLocation;PublishReadyToRun" Properties="Configuration=$(Configuration);TargetFramework=net8.0-windows;PublishDir=$(MSBuildThisFileDirectory)..\ScreensView.Agent\bin\$(Configuration)\net8.0-windows\publish\" />
     <!-- Legacy agent: plain build is sufficient (.NET Framework resolves via GAC/local) -->
-    <MSBuild Projects="$(MSBuildThisFileDirectory)..\ScreensView.Agent.Legacy\ScreensView.Agent.Legacy.csproj"
-             Targets="Restore;Build"
-             RemoveProperties="TargetFramework;PublishProfile;PublishUrl;InstallUrl;IsWebBootstrapper;BootstrapperEnabled;ApplicationVersion;ApplicationRevision;IsRevisionIncremented;CreateWebPageOnPublish;WebPageFilename;PublishProtocol;UpdateEnabled;UpdateMode;BootstrapperComponentsLocation;PublishReadyToRun"
-             Properties="Configuration=$(Configuration);TargetFramework=net48" />
+    <MSBuild Projects="$(MSBuildThisFileDirectory)..\ScreensView.Agent.Legacy\ScreensView.Agent.Legacy.csproj" Targets="Restore;Build" RemoveProperties="TargetFramework;PublishProfile;PublishUrl;InstallUrl;IsWebBootstrapper;BootstrapperEnabled;ApplicationVersion;ApplicationRevision;IsRevisionIncremented;CreateWebPageOnPublish;WebPageFilename;PublishProtocol;UpdateEnabled;UpdateMode;BootstrapperComponentsLocation;PublishReadyToRun" Properties="Configuration=$(Configuration);TargetFramework=net48" />
   </Target>
 
   <Target Name="CopyAgentPayloads" AfterTargets="Build">
@@ -54,18 +49,13 @@
 
     <ItemGroup>
       <!-- Use **\*.* to recursively include runtimes/ subdirectory; exclude pdb, artifacts/, and any ClickOnce deployment artifacts -->
-      <ModernAgentFiles Include="$(MSBuildThisFileDirectory)..\ScreensView.Agent\bin\$(Configuration)\net8.0-windows\publish\**\*.*"
-                        Exclude="**\*.pdb;**\artifacts\**;**\*.application;**/setup.exe;**\Application Files\**" />
-      <LegacyAgentFiles Include="$(MSBuildThisFileDirectory)..\ScreensView.Agent.Legacy\bin\$(Configuration)\net48\*.*"
-                        Exclude="**\*.pdb" />
+      <ModernAgentFiles Include="$(MSBuildThisFileDirectory)..\ScreensView.Agent\bin\$(Configuration)\net8.0-windows\publish\**\*.*" Exclude="**\*.pdb;**\artifacts\**;**\*.application;**/setup.exe;**\Application Files\**" />
+      <LegacyAgentFiles Include="$(MSBuildThisFileDirectory)..\ScreensView.Agent.Legacy\bin\$(Configuration)\net48\*.*" Exclude="**\*.pdb" />
     </ItemGroup>
 
     <!-- DestinationFiles preserves subdirectory structure relative to the publish root -->
-    <Copy SourceFiles="@(ModernAgentFiles)"
-          DestinationFiles="@(ModernAgentFiles->'$(OutputPath)AgentPayloads\Modern\%(RecursiveDir)%(Filename)%(Extension)')" />
-    <Copy SourceFiles="@(LegacyAgentFiles)"
-          DestinationFolder="$(OutputPath)AgentPayloads\Legacy"
-          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(ModernAgentFiles)" DestinationFiles="@(ModernAgentFiles->'$(OutputPath)AgentPayloads\Modern\%(RecursiveDir)%(Filename)%(Extension)')" />
+    <Copy SourceFiles="@(LegacyAgentFiles)" DestinationFolder="$(OutputPath)AgentPayloads\Legacy" SkipUnchangedFiles="true" />
   </Target>
 
   <Target Name="ValidateAgentPayloads" AfterTargets="CopyAgentPayloads">
@@ -73,20 +63,15 @@
       <_ModernExe Include="$(OutputPath)AgentPayloads\Modern\*.exe" />
       <_LegacyExe Include="$(OutputPath)AgentPayloads\Legacy\*.exe" />
     </ItemGroup>
-    <Error Text="Modern agent payload is missing in $(OutputPath)AgentPayloads\Modern"
-           Condition="'@(_ModernExe)' == ''" />
-    <Error Text="Legacy agent payload is missing in $(OutputPath)AgentPayloads\Legacy"
-           Condition="'@(_LegacyExe)' == ''" />
+    <Error Text="Modern agent payload is missing in $(OutputPath)AgentPayloads\Modern" Condition="'@(_ModernExe)' == ''" />
+    <Error Text="Legacy agent payload is missing in $(OutputPath)AgentPayloads\Legacy" Condition="'@(_LegacyExe)' == ''" />
   </Target>
 
   <Target Name="CopyPrerequisites" AfterTargets="Build">
     <ItemGroup>
       <PrerequisiteFiles Include="$(MSBuildThisFileDirectory)Prerequisites\*.*" />
     </ItemGroup>
-    <Copy SourceFiles="@(PrerequisiteFiles)"
-          DestinationFolder="$(OutputPath)Prerequisites"
-          SkipUnchangedFiles="true"
-          Condition="'@(PrerequisiteFiles)' != ''" />
+    <Copy SourceFiles="@(PrerequisiteFiles)" DestinationFolder="$(OutputPath)Prerequisites" SkipUnchangedFiles="true" Condition="'@(PrerequisiteFiles)' != ''" />
   </Target>
 
   <Target Name="WarnIfPrerequisitesMissing" AfterTargets="CopyPrerequisites">
@@ -94,8 +79,7 @@
       <_DotNetRuntimeInstaller Include="$(OutputPath)Prerequisites\dotnet-runtime-8.*-win-x64.exe" />
       <_AspNetCoreInstaller Include="$(OutputPath)Prerequisites\aspnetcore-runtime-8.*-win-x64.exe" />
     </ItemGroup>
-    <Warning Text="Missing required .NET 8 runtime installers in Prerequisites\. Download both dotnet-runtime-8.*-win-x64.exe and aspnetcore-runtime-8.*-win-x64.exe from https://dotnet.microsoft.com/download/dotnet/8.0 and place them in ScreensView.Viewer\Prerequisites\."
-             Condition="'@(_DotNetRuntimeInstaller)' == '' or '@(_AspNetCoreInstaller)' == ''" />
+    <Warning Text="Missing required .NET 8 runtime installers in Prerequisites\. Download both dotnet-runtime-8.*-win-x64.exe and aspnetcore-runtime-8.*-win-x64.exe from https://dotnet.microsoft.com/download/dotnet/8.0 and place them in ScreensView.Viewer\Prerequisites\." Condition="'@(_DotNetRuntimeInstaller)' == '' or '@(_AspNetCoreInstaller)' == ''" />
   </Target>
 
 </Project>

@@ -71,4 +71,5 @@ public class ViewerSettings
     public string ConnectionsFilePath { get; set; } = string.Empty;
     public string ConnectionsFilePasswordEncrypted { get; set; } = string.Empty;
     public string Language { get; set; } = "auto"; // "auto" | "ru" | "en"
+    public bool MinimizeToTrayOnClose { get; set; } = true;
 }

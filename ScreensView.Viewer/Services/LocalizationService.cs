@@ -18,11 +18,14 @@ public static class LocalizationService
 
     public static string CurrentLanguage { get; private set; } = "ru";
 
+    public static event Action? LanguageChanged;
+
     /// <summary>Applies language once at startup before any window opens.</summary>
     public static void Apply(string languageCode)
     {
         CurrentLanguage = ResolveLanguage(languageCode);
         SwapDictionary(CurrentLanguage == "en" ? EnUri : RuUri);
+        LanguageChanged?.Invoke();
     }
 
     private static string ResolveLanguage(string code)

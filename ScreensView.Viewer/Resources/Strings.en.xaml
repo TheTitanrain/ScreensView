@@ -44,6 +44,11 @@
     <sys:String x:Key="Str.Settings.RefreshInterval">Refresh interval:</sys:String>
     <sys:String x:Key="Str.Settings.RefreshIntervalFormat">{0} s</sys:String>
     <sys:String x:Key="Str.Settings.Autostart">Launch at Windows startup</sys:String>
+    <sys:String x:Key="Str.Settings.MinimizeToTray">Minimize to tray on close</sys:String>
+    <sys:String x:Key="Str.Tray.Show">Show</sys:String>
+    <sys:String x:Key="Str.Tray.Hide">Hide</sys:String>
+    <sys:String x:Key="Str.Tray.OpenSettings">Open Settings</sys:String>
+    <sys:String x:Key="Str.Tray.Exit">Exit</sys:String>
     <sys:String x:Key="Str.Settings.Llm">Screen recognition</sys:String>
     <sys:String x:Key="Str.Settings.Llm.Desc">LLM screenshot check settings and local llama-server backend.</sys:String>
     <sys:String x:Key="Str.Settings.LlmEnable">Enable screen recognition</sys:String>
@@ -171,8 +176,8 @@
     <!-- ── Message boxes — MainWindow ── -->
     <sys:String x:Key="Str.Msg.Error">Error: {0}</sys:String>
     <sys:String x:Key="Str.Msg.Ping">Ping</sys:String>
-    <sys:String x:Key="Str.Msg.PingOk">{0}: agent is reachable.</sys:String>
-    <sys:String x:Key="Str.Msg.PingFail">{0}: agent is unreachable.</sys:String>
+    <sys:String x:Key="Str.Msg.PingOk">{0}: host is reachable.</sys:String>
+    <sys:String x:Key="Str.Msg.PingFail">{0}: host is unreachable.</sys:String>
     <sys:String x:Key="Str.Msg.RestartConfirm">Restart "{0}"?</sys:String>
     <sys:String x:Key="Str.Msg.RestartTitle">Restart</sys:String>
     <sys:String x:Key="Str.Msg.RestartSent">{0}: restart command sent.</sys:String>

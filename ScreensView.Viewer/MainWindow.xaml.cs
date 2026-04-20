@@ -1,3 +1,4 @@
+using System.ComponentModel;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -11,6 +12,7 @@ public partial class MainWindow : Window
 {
     private readonly MainViewModel _vm;
     private readonly ConnectionsSourceWorkflowService _workflow;
+    private bool _realClose;
 
     private const double MinTileWidth = 240.0;
     private const double TileMargin = 12.0;
@@ -98,12 +100,9 @@ public partial class MainWindow : Window
         if (vm == null) return;
         try
         {
-            using var http = new Services.AgentHttpClient((_, thumbprint) =>
-            {
-                vm.CertThumbprint = thumbprint;
-                _vm.SaveComputers();
-            });
-            bool ok = await http.CheckHealthAsync(vm.ToConfig());
+            using var ping = new System.Net.NetworkInformation.Ping();
+            var reply = await ping.SendPingAsync(vm.Host, 3000);
+            bool ok = reply.Status == System.Net.NetworkInformation.IPStatus.Success;
             MessageBox.Show(
                 ok ? string.Format(LocalizationService.Get("Str.Msg.PingOk"), vm.Name)
                    : string.Format(LocalizationService.Get("Str.Msg.PingFail"), vm.Name),
@@ -211,6 +210,22 @@ public partial class MainWindow : Window
     {
         var win = new Views.SettingsWindow(_vm, _workflow) { Owner = this };
         win.ShowDialog();
+    }
+
+    internal void RequestRealClose() => _realClose = true;
+
+    protected override void OnClosing(CancelEventArgs e)
+    {
+        if (!_realClose && _vm.MinimizeToTrayOnClose)
+        {
+            e.Cancel = true;
+            Hide();
+            return;
+            // Intentionally NOT calling base.OnClosing(e):
+            // base raises the Closing event, which invokes Window_Closing
+            // and calls _vm.Dispose() — must not happen during hide-to-tray.
+        }
+        base.OnClosing(e); // real close: raises Closing → Window_Closing → _vm.Dispose()
     }
 
     private void Window_Closing(object sender, System.ComponentModel.CancelEventArgs e)

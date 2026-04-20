@@ -256,6 +256,7 @@ Viewer stores its local settings in `%AppData%\ScreensView\viewer-settings.json`
 - **Refresh now** in the toolbar requests fresh screenshots from all enabled computers without changing the background polling state.
 - **LLM now** in the toolbar runs an out-of-band LLM check against the current screenshots for all machines that have screen analysis enabled and a ready model.
 - **Autostart when I sign in to Windows** in `General` enables or disables Viewer startup at user logon.
+- **Minimize to tray on close** in `General` hides Viewer to the system tray when the window is closed instead of exiting. The tray icon provides a right-click menu to show/hide the window, open settings, or exit.
 - On Windows, this corresponds to the `ScreensView` value in `HKCU\Software\Microsoft\Windows\CurrentVersion\Run`.
 - Viewer also stores connections-source metadata: the path to the external file and the locally remembered password for that file if the user chose `Remember password on this computer`.
 - The top toolbar contains only **Computers**, **Start/Stop**, **Refresh now**, **LLM now**, **Settings**, and **About**.

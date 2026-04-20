@@ -67,6 +67,11 @@ public partial class App : Application
         mainWindow = new MainWindow(viewModel, workflow);
         MainWindow = mainWindow;
         mainWindow.Show();
+
+        var trayService = new TrayIconService(
+            mainWindow,
+            onOpenSettings: () => new Views.SettingsWindow(viewModel, workflow) { Owner = mainWindow }.ShowDialog());
+        Application.Current.Exit += (_, _) => trayService.Dispose();
     }
 }
 

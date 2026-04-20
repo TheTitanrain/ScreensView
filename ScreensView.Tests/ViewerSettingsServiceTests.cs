@@ -178,4 +178,35 @@ public class ViewerSettingsServiceTests : IDisposable
 
         Assert.Equal(ModelDefinition.Default.Id, settings.SelectedModelId);
     }
+
+    [Fact]
+    public void ViewerSettings_MinimizeToTrayOnClose_DefaultsToTrue()
+    {
+        var settings = new ViewerSettings();
+
+        Assert.True(settings.MinimizeToTrayOnClose);
+    }
+
+    [Fact]
+    public void ViewerSettingsService_Persists_MinimizeToTrayOnClose()
+    {
+        var service = new ViewerSettingsService(_settingsFile);
+        var settings = new ViewerSettings { MinimizeToTrayOnClose = false };
+
+        service.Save(settings);
+        var loaded = service.Load();
+
+        Assert.False(loaded.MinimizeToTrayOnClose);
+    }
+
+    [Fact]
+    public void Load_WhenMinimizeToTrayOnCloseFieldIsMissing_ReturnsTrue()
+    {
+        File.WriteAllText(_settingsFile, """{"LaunchAtStartup":false,"RefreshIntervalSeconds":5}""");
+
+        var service = new ViewerSettingsService(_settingsFile);
+        var settings = service.Load();
+
+        Assert.True(settings.MinimizeToTrayOnClose);
+    }
 }

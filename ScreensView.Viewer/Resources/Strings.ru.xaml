@@ -44,6 +44,11 @@
     <sys:String x:Key="Str.Settings.RefreshInterval">Интервал обновления:</sys:String>
     <sys:String x:Key="Str.Settings.RefreshIntervalFormat">{0} с</sys:String>
     <sys:String x:Key="Str.Settings.Autostart">Автозапуск при входе в Windows</sys:String>
+    <sys:String x:Key="Str.Settings.MinimizeToTray">Сворачивать в трей при закрытии</sys:String>
+    <sys:String x:Key="Str.Tray.Show">Показать</sys:String>
+    <sys:String x:Key="Str.Tray.Hide">Скрыть</sys:String>
+    <sys:String x:Key="Str.Tray.OpenSettings">Настройки</sys:String>
+    <sys:String x:Key="Str.Tray.Exit">Выход</sys:String>
     <sys:String x:Key="Str.Settings.Llm">Распознавание экрана</sys:String>
     <sys:String x:Key="Str.Settings.Llm.Desc">Настройки LLM-проверки скриншотов и локального backend для llama-server.</sys:String>
     <sys:String x:Key="Str.Settings.LlmEnable">Включить распознавание экрана</sys:String>
@@ -171,8 +176,8 @@
     <!-- ── Message boxes — MainWindow ── -->
     <sys:String x:Key="Str.Msg.Error">Ошибка: {0}</sys:String>
     <sys:String x:Key="Str.Msg.Ping">Пинг</sys:String>
-    <sys:String x:Key="Str.Msg.PingOk">{0}: агент доступен.</sys:String>
-    <sys:String x:Key="Str.Msg.PingFail">{0}: агент недоступен.</sys:String>
+    <sys:String x:Key="Str.Msg.PingOk">{0}: хост доступен.</sys:String>
+    <sys:String x:Key="Str.Msg.PingFail">{0}: хост недоступен.</sys:String>
     <sys:String x:Key="Str.Msg.RestartConfirm">Перезагрузить «{0}»?</sys:String>
     <sys:String x:Key="Str.Msg.RestartTitle">Перезагрузка</sys:String>
     <sys:String x:Key="Str.Msg.RestartSent">{0}: команда перезагрузки отправлена.</sys:String>

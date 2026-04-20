@@ -92,6 +92,31 @@ public class MainViewModelTests : IDisposable
     }
 
     [Fact]
+    public void MainViewModel_LoadsMinimizeToTrayOnCloseFromSettings()
+    {
+        var settings = new FakeViewerSettingsService(initialValue: false, minimizeToTrayOnClose: false);
+        var autostart = new FakeAutostartService(initialValue: false);
+
+        using var vm = CreateVm(settings, autostart);
+
+        Assert.False(vm.MinimizeToTrayOnClose);
+    }
+
+    [Fact]
+    public void MainViewModel_SavesMinimizeToTrayOnCloseOnChange()
+    {
+        var settings = new FakeViewerSettingsService(initialValue: false, minimizeToTrayOnClose: true);
+        var autostart = new FakeAutostartService(initialValue: false);
+        using var vm = CreateVm(settings, autostart);
+        int savesBefore = settings.SaveCalls;
+
+        vm.MinimizeToTrayOnClose = false;
+
+        Assert.False(settings.Current.MinimizeToTrayOnClose);
+        Assert.Equal(savesBefore + 1, settings.SaveCalls);
+    }
+
+    [Fact]
     public void Constructor_LoadsRefreshIntervalFromViewerSettings()
     {
         File.WriteAllText(_settingsFile, "{\"LaunchAtStartup\":false,\"RefreshIntervalSeconds\":12}");
@@ -1314,14 +1339,16 @@ public class MainViewModelTests : IDisposable
     }
 
     private class FakeViewerSettingsService(bool initialValue, int refreshIntervalSeconds = 5,
-        int llmCheckIntervalMinutes = 5, bool llmEnabled = false) : IViewerSettingsService
+        int llmCheckIntervalMinutes = 5, bool llmEnabled = false,
+        bool minimizeToTrayOnClose = true) : IViewerSettingsService
     {
         public ViewerSettings Current { get; private set; } = new()
         {
             LaunchAtStartup = initialValue,
             RefreshIntervalSeconds = refreshIntervalSeconds,
             LlmCheckIntervalMinutes = llmCheckIntervalMinutes,
-            LlmEnabled = llmEnabled
+            LlmEnabled = llmEnabled,
+            MinimizeToTrayOnClose = minimizeToTrayOnClose
         };
         public int SaveCalls { get; private set; }
 
@@ -1331,7 +1358,8 @@ public class MainViewModelTests : IDisposable
             RefreshIntervalSeconds = Current.RefreshIntervalSeconds,
             LlmCheckIntervalMinutes = Current.LlmCheckIntervalMinutes,
             LlmEnabled = Current.LlmEnabled,
-            SelectedModelId = Current.SelectedModelId
+            SelectedModelId = Current.SelectedModelId,
+            MinimizeToTrayOnClose = Current.MinimizeToTrayOnClose
         };
 
         public void Save(ViewerSettings settings)
@@ -1343,7 +1371,8 @@ public class MainViewModelTests : IDisposable
                 RefreshIntervalSeconds = settings.RefreshIntervalSeconds,
                 LlmCheckIntervalMinutes = settings.LlmCheckIntervalMinutes,
                 LlmEnabled = settings.LlmEnabled,
-                SelectedModelId = settings.SelectedModelId
+                SelectedModelId = settings.SelectedModelId,
+                MinimizeToTrayOnClose = settings.MinimizeToTrayOnClose
             };
         }
     }

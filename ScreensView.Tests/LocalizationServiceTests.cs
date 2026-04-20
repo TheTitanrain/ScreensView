@@ -21,4 +21,25 @@ public class LocalizationServiceTests
             LocalizationService.Switch(previousLanguage);
         }
     }
+
+    [Fact]
+    public void Switch_FiresLanguageChangedEvent()
+    {
+        var previousLanguage = LocalizationService.CurrentLanguage;
+        int callCount = 0;
+        Action handler = () => callCount++;
+        LocalizationService.LanguageChanged += handler;
+
+        try
+        {
+            LocalizationService.Switch("en");
+
+            Assert.Equal(1, callCount);
+        }
+        finally
+        {
+            LocalizationService.LanguageChanged -= handler;
+            LocalizationService.Switch(previousLanguage);
+        }
+    }
 }

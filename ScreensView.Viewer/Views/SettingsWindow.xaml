@@ -61,6 +61,9 @@
 
                         <CheckBox IsChecked="{Binding IsAutostartEnabled}"
                                   Content="{DynamicResource Str.Settings.Autostart}"/>
+                        <CheckBox IsChecked="{Binding MinimizeToTrayOnClose}"
+                                  Content="{DynamicResource Str.Settings.MinimizeToTray}"
+                                  Margin="0,8,0,0"/>
                     </StackPanel>
                 </Border>
 
