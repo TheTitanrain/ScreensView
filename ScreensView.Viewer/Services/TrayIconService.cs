@@ -56,6 +56,7 @@ internal sealed class TrayIconService : IDisposable
             ToolTipText = "ScreensView",
             ContextMenu = contextMenu
         };
+        _taskbarIcon.ForceCreate();
 
         _onIsVisibleChanged = (_, _e) => RefreshMenuLabels();
         _mainWindow.IsVisibleChanged += _onIsVisibleChanged;
