@@ -116,6 +116,26 @@ public class ComputerSelectionHelperTests
     }
 
     [Fact]
+    public void SelectAll_SelectsEveryComputerAndReturnsFirstAsAnchor()
+    {
+        var computers = MakeComputers("PC-1", "PC-2", "PC-3");
+        computers[1].IsSelected = true;
+
+        var anchor = ComputerSelectionHelper.SelectAll(computers);
+
+        Assert.Equal(computers[0], anchor);
+        Assert.Equal([true, true, true], computers.Select(c => c.IsSelected).ToArray());
+    }
+
+    [Fact]
+    public void SelectAll_WhenListIsEmpty_ReturnsNull()
+    {
+        var anchor = ComputerSelectionHelper.SelectAll([]);
+
+        Assert.Null(anchor);
+    }
+
+    [Fact]
     public void GetContextMenuTargets_WhenClickedComputerIsSelected_ReturnsAllSelectedComputers()
     {
         var computers = MakeComputers("PC-1", "PC-2", "PC-3");

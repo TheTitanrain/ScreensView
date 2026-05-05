@@ -6,6 +6,7 @@
         MinWidth="880"
         WindowState="Maximized"
         Icon="/screensview.ico"
+        PreviewKeyDown="Window_PreviewKeyDown"
         Closing="Window_Closing">
 
     <Window.Resources>

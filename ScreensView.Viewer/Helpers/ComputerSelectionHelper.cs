@@ -51,6 +51,14 @@ internal static class ComputerSelectionHelper
             : [clicked];
     }
 
+    public static ComputerViewModel? SelectAll(IReadOnlyList<ComputerViewModel> computers)
+    {
+        foreach (var computer in computers)
+            computer.IsSelected = true;
+
+        return computers.Count > 0 ? computers[0] : null;
+    }
+
     private static void SelectOnly(IReadOnlyList<ComputerViewModel> computers, ComputerViewModel selected)
     {
         foreach (var computer in computers)

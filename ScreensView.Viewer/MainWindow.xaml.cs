@@ -68,6 +68,15 @@ public partial class MainWindow : Window
         _selectionAnchor = ComputerSelectionHelper.ApplyRightClick(_vm.Computers, vm, _selectionAnchor);
     }
 
+    private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key != Key.A || !Keyboard.Modifiers.HasFlag(ModifierKeys.Control))
+            return;
+
+        _selectionAnchor = ComputerSelectionHelper.SelectAll(_vm.Computers);
+        e.Handled = true;
+    }
+
     private void OpenZoomWindow(ComputerViewModel vm)
     {
         if (vm.Status != ComputerStatus.Locked)
