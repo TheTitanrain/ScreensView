@@ -38,6 +38,7 @@ public partial class ComputerViewModel : ObservableObject
     [ObservableProperty] private bool _isLlmChecking;
     [ObservableProperty] private bool _isLlmServiceActive;
     [ObservableProperty] private LlmTileStatus _llmStatus = LlmTileStatus.Inactive;
+    [ObservableProperty] private bool _isSelected;
 
     /// <summary>Bottom-bar time text: "HH:mm:ss" or localized "Off" when disabled.</summary>
     public string BottomBarTimeText =>

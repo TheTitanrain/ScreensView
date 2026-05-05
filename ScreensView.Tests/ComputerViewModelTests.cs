@@ -49,6 +49,14 @@ public class ComputerViewModelTests
     }
 
     [Fact]
+    public void Constructor_InitialSelection_IsFalse()
+    {
+        var vm = new ComputerViewModel(MakeConfig());
+
+        Assert.False(vm.IsSelected);
+    }
+
+    [Fact]
     public void Constructor_WhenComputerDisabled_SetsDisabledStatusAndMessage()
     {
         var vm = new ComputerViewModel(MakeConfig(config => config.IsEnabled = false));

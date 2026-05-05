@@ -178,13 +178,22 @@
     <sys:String x:Key="Str.Msg.Ping">Ping</sys:String>
     <sys:String x:Key="Str.Msg.PingOk">{0}: host is reachable.</sys:String>
     <sys:String x:Key="Str.Msg.PingFail">{0}: host is unreachable.</sys:String>
+    <sys:String x:Key="Str.Msg.PingReachable">Reachable: {0}</sys:String>
+    <sys:String x:Key="Str.Msg.PingUnreachable">Unreachable: {0}</sys:String>
+    <sys:String x:Key="Str.Msg.OperationErrors">Errors:
+{0}</sys:String>
     <sys:String x:Key="Str.Msg.RestartConfirm">Restart "{0}"?</sys:String>
+    <sys:String x:Key="Str.Msg.RestartConfirmN">Restart computers: {0}?</sys:String>
     <sys:String x:Key="Str.Msg.RestartTitle">Restart</sys:String>
     <sys:String x:Key="Str.Msg.RestartSent">{0}: restart command sent.</sys:String>
+    <sys:String x:Key="Str.Msg.RestartSentN">Restart commands sent: {0}.</sys:String>
     <sys:String x:Key="Str.Msg.ShutdownConfirm">Shut down "{0}"?</sys:String>
+    <sys:String x:Key="Str.Msg.ShutdownConfirmN">Shut down computers: {0}?</sys:String>
     <sys:String x:Key="Str.Msg.ShutdownTitle">Shut down</sys:String>
     <sys:String x:Key="Str.Msg.ShutdownSent">{0}: shutdown command sent.</sys:String>
+    <sys:String x:Key="Str.Msg.ShutdownSentN">Shutdown commands sent: {0}.</sys:String>
     <sys:String x:Key="Str.Msg.DeleteConfirm">Delete "{0}"?</sys:String>
+    <sys:String x:Key="Str.Msg.DeleteConfirmN">Delete computers: {0}?</sys:String>
     <sys:String x:Key="Str.Msg.DeleteTitle">Delete</sys:String>
 
     <!-- ── Message boxes — ComputersManagerWindow ── -->

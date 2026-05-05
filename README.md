@@ -152,7 +152,7 @@ dotnet run --project ScreensView.Viewer -- --connections-file "C:\Shared\connect
 6. The **Enabled** column can be toggled directly in the table. Disabled machines are not polled by Viewer, do not participate in bulk agent updates, and display an explicit disabled mark on the card.
 7. Click **Start** to begin polling screenshots.
 8. Double-click a card or use **Open** from the context menu to open a dedicated zoom window with the live screenshot. Locked machines do not open in zoom; the card remains in the grid with the lock overlay.
-9. Right-clicking a tile opens a context menu with **Open**, **Edit**, **Run LLM now**, **Ping**, and **Delete**.
+9. Click cards to select computers in the main grid. Use **Ctrl+click** to add or remove cards and **Shift+click** to select a range. Right-clicking a selected card opens the context menu for the selected computers; **Open** and **Edit** still target the card that opened the menu, while applicable actions such as **Run LLM now**, **Ping**, remote access, power actions, and **Delete** apply to the selection.
 10. If needed, open **Settings** and enable **Autostart** so Viewer launches with Windows.
 
 ### LLM Screen Analysis

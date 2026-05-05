@@ -253,6 +253,37 @@ public class MainViewModelTests : IDisposable
     }
 
     [Fact]
+    public async Task RunLlmNowForComputersAsync_WhenLlmReady_RunsOneShotCheckForSelectedComputers()
+    {
+        var storage = new FakeComputerStorageService
+        {
+            LoadResult =
+            [
+                new ComputerConfig { Name = "PC-1", Host = "10.0.0.1", ApiKey = "key-1", IsEnabled = true },
+                new ComputerConfig { Name = "PC-2", Host = "10.0.0.2", ApiKey = "key-2", IsEnabled = true },
+                new ComputerConfig { Name = "PC-3", Host = "10.0.0.3", ApiKey = "key-3", IsEnabled = true }
+            ]
+        };
+        var llm = new FakeLlmCheckService();
+        var download = new FakeModelDownloadService { IsModelReady = true };
+
+        using var vm = new MainViewModel(
+            storage,
+            new FakeScreenshotPollerService(),
+            new FakeViewerSettingsService(initialValue: false),
+            new FakeAutostartService(initialValue: false),
+            llmCheckService: llm,
+            downloadService: download,
+            inferenceService: new FakeLlmInferenceService());
+        vm.IsLlmEnabled = true;
+
+        await vm.RunLlmNowForComputersAsync([vm.Computers[0], vm.Computers[2]]);
+
+        Assert.Single(llm.RunNowAllCalls);
+        Assert.Equal(["PC-1", "PC-3"], llm.RunNowAllCalls[0]);
+    }
+
+    [Fact]
     public void EnsureManualLlmRunReadyAsync_WhenValidationCompletesOffUiThread_DoesNotThrow()
     {
         RunOnSta(async () =>

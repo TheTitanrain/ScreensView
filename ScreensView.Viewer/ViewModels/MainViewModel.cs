@@ -482,6 +482,19 @@ public partial class MainViewModel : ObservableObject, IDisposable
         await _llmCheckService.RunNowAsync(computer, runToken);
     }
 
+    internal async Task RunLlmNowForComputersAsync(IEnumerable<ComputerViewModel> computers, CancellationToken ct = default)
+    {
+        var selected = computers.ToList();
+        if (selected.Count == 0)
+            return;
+
+        var runToken = GetRunToken(ct);
+        if (!await EnsureManualLlmRunReadyAsync($"manual run selected ({selected.Count})", runToken))
+            return;
+
+        await _llmCheckService.RunNowAsync(selected, runToken);
+    }
+
     private void InitializeAutostartState()
     {
         try

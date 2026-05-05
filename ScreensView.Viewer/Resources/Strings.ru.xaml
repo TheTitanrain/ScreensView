@@ -178,13 +178,22 @@
     <sys:String x:Key="Str.Msg.Ping">Пинг</sys:String>
     <sys:String x:Key="Str.Msg.PingOk">{0}: хост доступен.</sys:String>
     <sys:String x:Key="Str.Msg.PingFail">{0}: хост недоступен.</sys:String>
+    <sys:String x:Key="Str.Msg.PingReachable">Доступны: {0}</sys:String>
+    <sys:String x:Key="Str.Msg.PingUnreachable">Недоступны: {0}</sys:String>
+    <sys:String x:Key="Str.Msg.OperationErrors">Ошибки:
+{0}</sys:String>
     <sys:String x:Key="Str.Msg.RestartConfirm">Перезагрузить «{0}»?</sys:String>
+    <sys:String x:Key="Str.Msg.RestartConfirmN">Перезагрузить компьютеры: {0}?</sys:String>
     <sys:String x:Key="Str.Msg.RestartTitle">Перезагрузка</sys:String>
     <sys:String x:Key="Str.Msg.RestartSent">{0}: команда перезагрузки отправлена.</sys:String>
+    <sys:String x:Key="Str.Msg.RestartSentN">Команды перезагрузки отправлены: {0}.</sys:String>
     <sys:String x:Key="Str.Msg.ShutdownConfirm">Выключить «{0}»?</sys:String>
+    <sys:String x:Key="Str.Msg.ShutdownConfirmN">Выключить компьютеры: {0}?</sys:String>
     <sys:String x:Key="Str.Msg.ShutdownTitle">Выключение</sys:String>
     <sys:String x:Key="Str.Msg.ShutdownSent">{0}: команда выключения отправлена.</sys:String>
+    <sys:String x:Key="Str.Msg.ShutdownSentN">Команды выключения отправлены: {0}.</sys:String>
     <sys:String x:Key="Str.Msg.DeleteConfirm">Удалить «{0}»?</sys:String>
+    <sys:String x:Key="Str.Msg.DeleteConfirmN">Удалить компьютеры: {0}?</sys:String>
     <sys:String x:Key="Str.Msg.DeleteTitle">Удаление</sys:String>
 
     <!-- ── Message boxes — ComputersManagerWindow ── -->
