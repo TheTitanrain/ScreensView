@@ -18,10 +18,10 @@ jobs:
       contents: write
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6.0.2
 
       - name: Setup .NET 8
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v5.2.0
         with:
           dotnet-version: '8.0.x'
 
@@ -78,20 +78,20 @@ jobs:
           $lines
 
       - name: Upload Viewer installer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: ScreensView.Viewer-Setup-${{ steps.version.outputs.version }}
           path: installer/Output/ScreensView.Viewer-Setup-*.exe
 
       - name: Upload Agent installer
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: ScreensView.Agent-Setup-${{ steps.version.outputs.version }}
           path: installer/Output/ScreensView.Agent-Setup-*.exe
 
       - name: Create GitHub Release
         if: startsWith(github.ref, 'refs/tags/')
-        uses: softprops/action-gh-release@v2
+        uses: softprops/action-gh-release@v3.0.0
         with:
           files: |
             installer/Output/ScreensView.Viewer-Setup-*.exe

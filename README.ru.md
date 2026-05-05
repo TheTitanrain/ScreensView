@@ -56,6 +56,8 @@ dotnet test ScreensView.Tests/ScreensView.Tests.csproj
 installer\build.cmd
 ```
 
+Release workflow для сборки установщиков в `.github/workflows/build-installers.yml` использует версии GitHub Actions, совместимые с Node 24.
+
 Команда собирает Viewer через `dotnet build -c Release`, после чего генерирует два установщика в `installer\Output\`:
 
 | Файл | Назначение |

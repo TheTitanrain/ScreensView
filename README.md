@@ -56,6 +56,8 @@ To deploy without Visual Studio, use the Inno Setup scripts in the `installer/` 
 installer\build.cmd
 ```
 
+The release installer workflow in `.github/workflows/build-installers.yml` uses Node 24-compatible GitHub Actions versions.
+
 This builds the Viewer via `dotnet build -c Release` and produces two installers in `installer\Output\`:
 
 | File | Purpose |
