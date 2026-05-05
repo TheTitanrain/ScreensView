@@ -233,11 +233,11 @@ Viewer копирует выбранный payload в `C:\Windows\ScreensViewAge
 
 ### Viewer (авто-обновление)
 
-При запуске Viewer проверяет GitHub Releases. Если есть новая версия — предлагает обновиться. Та же проверка доступна вручную в окне «О программе» по кнопке «Проверить обновления». В проекте используется такой репозиторий в `ScreensView.Viewer/Services/ViewerUpdateService.cs`:
+При запуске Viewer проверяет GitHub Releases. Если есть новая версия — предлагает обновиться. Та же проверка доступна вручную в окне «О программе» по кнопке «Проверить обновления». Ссылка на репозиторий в окне «О программе» открывает <https://github.com/TheTitanrain/ScreensView>. В проекте используется такой репозиторий в `ScreensView.Viewer/Services/ViewerUpdateService.cs`:
 
 ```csharp
 private const string GitHubReleasesUrl =
-    "https://api.github.com/repos/titanrain/ScreensView/releases/latest";
+    "https://api.github.com/repos/TheTitanrain/ScreensView/releases/latest";
 ```
 
 Если Viewer был запущен с `--connections-file`, этот CLI-аргумент пробрасывается через auto-update restart: после установки новой версии приложение снова откроется с тем же override-файлом.

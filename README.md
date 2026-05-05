@@ -237,11 +237,11 @@ Choose a computer -> **Manage Computers** -> Viewer stops the service, replaces 
 
 ### Viewer (auto-update)
 
-On startup, Viewer checks GitHub Releases. If a new version exists, Viewer offers an update. The same check is available manually from the **About** window through **Check for updates**. The repository URL used by `ScreensView.Viewer/Services/ViewerUpdateService.cs` is:
+On startup, Viewer checks GitHub Releases. If a new version exists, Viewer offers an update. The same check is available manually from the **About** window through **Check for updates**. The repository hyperlink in the **About** window opens <https://github.com/TheTitanrain/ScreensView>. The repository URL used by `ScreensView.Viewer/Services/ViewerUpdateService.cs` is:
 
 ```csharp
 private const string GitHubReleasesUrl =
-    "https://api.github.com/repos/titanrain/ScreensView/releases/latest";
+    "https://api.github.com/repos/TheTitanrain/ScreensView/releases/latest";
 ```
 
 If Viewer was launched with `--connections-file`, that CLI argument is forwarded through the auto-update restart: after the new version installs, the application re-opens with the same override file.

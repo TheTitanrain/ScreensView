@@ -19,7 +19,7 @@ public partial class AboutWindow : Window
 
         CopyrightText.Text = "© 2025 titanrain";
 
-        GitHubLink.NavigateUri = new Uri("https://github.com/titanrain/ScreensView");
+        GitHubLink.NavigateUri = new Uri("https://github.com/TheTitanrain/ScreensView");
         DonateLink.NavigateUri = new Uri("https://donatr.ee/titanrain");
     }
 
