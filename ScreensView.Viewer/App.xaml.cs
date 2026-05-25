@@ -50,6 +50,7 @@ public partial class App : Application
         });
 
         var poller = new ScreenshotPollerService(http, new WpfUiDispatcher());
+        var telegramService = new TelegramNotificationService(http, logService);
         viewModel = new MainViewModel(
             startup.Storage!,
             poller,
@@ -62,7 +63,9 @@ public partial class App : Application
                 else
                     MessageBox.Show(mainWindow, message, title, MessageBoxButton.OK, MessageBoxImage.Error);
             },
-            log: logService);
+            log: logService,
+            agentHttp: http,
+            telegramService: telegramService);
 
         mainWindow = new MainWindow(viewModel, workflow);
         MainWindow = mainWindow;

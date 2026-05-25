@@ -72,4 +72,8 @@ public class ViewerSettings
     public string ConnectionsFilePasswordEncrypted { get; set; } = string.Empty;
     public string Language { get; set; } = "auto"; // "auto" | "ru" | "en"
     public bool MinimizeToTrayOnClose { get; set; } = true;
+    public bool TelegramEnabled { get; set; } = false;
+    public string TelegramBotToken { get; set; } = string.Empty;
+    public string TelegramChatId { get; set; } = string.Empty;
+    public List<string> TelegramScheduleTimes { get; set; } = [];
 }

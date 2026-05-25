@@ -15,6 +15,7 @@ public partial class SettingsWindow : Window
         _vm = vm;
         _workflow = workflow;
         DataContext = _vm;
+        TelegramTokenBox.Password = _vm.TelegramBotToken;
         RefreshConnectionsSourceUi();
     }
 
@@ -35,6 +36,9 @@ public partial class SettingsWindow : Window
 
         RefreshConnectionsSourceUi();
     }
+
+    private void TelegramTokenBox_PasswordChanged(object sender, RoutedEventArgs e)
+        => _vm.TelegramBotToken = TelegramTokenBox.Password;
 
     private void RefreshConnectionsSourceUi()
     {

@@ -65,6 +65,20 @@
     <sys:String x:Key="Str.Settings.ConnectionsFile">Connections file...</sys:String>
     <sys:String x:Key="Str.Settings.UseLocal">Use local file</sys:String>
     <sys:String x:Key="Str.Settings.Close">Close</sys:String>
+    <sys:String x:Key="Str.Settings.Telegram">Telegram notifications</sys:String>
+    <sys:String x:Key="Str.Settings.Telegram.Desc">Sends screenshots of online computers to Telegram on schedule.</sys:String>
+    <sys:String x:Key="Str.Settings.TelegramEnable">Enable Telegram notifications</sys:String>
+    <sys:String x:Key="Str.Settings.TelegramToken">Bot token:</sys:String>
+    <sys:String x:Key="Str.Settings.TelegramChatId">Chat ID:</sys:String>
+    <sys:String x:Key="Str.Settings.TelegramSchedule">Send times (HH:mm):</sys:String>
+    <sys:String x:Key="Str.Settings.TelegramAdd">Add</sys:String>
+    <sys:String x:Key="Str.Settings.TelegramRemove">Remove selected</sys:String>
+    <sys:String x:Key="Str.Settings.TelegramSendNow">Send now</sys:String>
+    <sys:String x:Key="Str.Telegram.Sending">Sending...</sys:String>
+    <sys:String x:Key="Str.Telegram.SentOk">Sent: {0} photo(s)</sys:String>
+    <sys:String x:Key="Str.Telegram.NoOnline">No online computers</sys:String>
+    <sys:String x:Key="Str.Telegram.NoScreenshot">No screenshot</sys:String>
+    <sys:String x:Key="Str.Telegram.Error">Error: {0}</sys:String>
 
     <!-- ── AboutWindow ── -->
     <sys:String x:Key="Str.WindowTitle.About">About</sys:String>

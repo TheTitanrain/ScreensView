@@ -65,6 +65,20 @@
     <sys:String x:Key="Str.Settings.ConnectionsFile">Файл подключений...</sys:String>
     <sys:String x:Key="Str.Settings.UseLocal">Использовать локальный файл</sys:String>
     <sys:String x:Key="Str.Settings.Close">Закрыть</sys:String>
+    <sys:String x:Key="Str.Settings.Telegram">Уведомления в Telegram</sys:String>
+    <sys:String x:Key="Str.Settings.Telegram.Desc">Отправляет скриншоты онлайн-компьютеров в Telegram по расписанию.</sys:String>
+    <sys:String x:Key="Str.Settings.TelegramEnable">Включить уведомления в Telegram</sys:String>
+    <sys:String x:Key="Str.Settings.TelegramToken">Токен бота:</sys:String>
+    <sys:String x:Key="Str.Settings.TelegramChatId">Chat ID:</sys:String>
+    <sys:String x:Key="Str.Settings.TelegramSchedule">Время отправки (ЧЧ:мм):</sys:String>
+    <sys:String x:Key="Str.Settings.TelegramAdd">Добавить</sys:String>
+    <sys:String x:Key="Str.Settings.TelegramRemove">Удалить выбранное</sys:String>
+    <sys:String x:Key="Str.Settings.TelegramSendNow">Отправить сейчас</sys:String>
+    <sys:String x:Key="Str.Telegram.Sending">Отправка...</sys:String>
+    <sys:String x:Key="Str.Telegram.SentOk">Отправлено: {0} фото</sys:String>
+    <sys:String x:Key="Str.Telegram.NoOnline">Нет онлайн-компьютеров</sys:String>
+    <sys:String x:Key="Str.Telegram.NoScreenshot">Нет скриншота</sys:String>
+    <sys:String x:Key="Str.Telegram.Error">Ошибка: {0}</sys:String>
 
     <!-- ── AboutWindow ── -->
     <sys:String x:Key="Str.WindowTitle.About">О программе</sys:String>

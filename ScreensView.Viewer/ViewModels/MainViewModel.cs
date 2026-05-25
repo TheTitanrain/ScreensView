@@ -29,6 +29,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
     private readonly IModelDownloadService _downloadService;
     private readonly ILlmInferenceService _inferenceService;
     private readonly ILlamaServerBinaryService _binaryService;
+    private readonly ITelegramNotificationService _telegramService;
     private readonly CancellationTokenSource _appCts = new();
     private string? _modelLoadErrorResourceKey;
     private int _llmValidationVersion;
@@ -46,6 +47,12 @@ public partial class MainViewModel : ObservableObject, IDisposable
     [ObservableProperty] private string _selectedBackend = "cpu";
     [ObservableProperty] private string _language = "ru";
     [ObservableProperty] private bool _minimizeToTrayOnClose = true;
+    [ObservableProperty] private bool _telegramEnabled;
+    [ObservableProperty] private string _telegramBotToken = string.Empty;
+    [ObservableProperty] private string _telegramChatId = string.Empty;
+    [ObservableProperty] private string _telegramSendStatus = string.Empty;
+
+    public ObservableCollection<string> TelegramScheduleTimes { get; } = [];
 
     public CancellationToken AppToken => _appCts.Token;
 
@@ -64,7 +71,9 @@ public partial class MainViewModel : ObservableObject, IDisposable
         IModelDownloadService? downloadService = null,
         ILlmInferenceService? inferenceService = null,
         ILlamaServerBinaryService? binaryService = null,
-        IViewerLogService? log = null)
+        IViewerLogService? log = null,
+        AgentHttpClient? agentHttp = null,
+        ITelegramNotificationService? telegramService = null)
     {
         _uiDispatcher = System.Windows.Threading.Dispatcher.CurrentDispatcher;
         _storage = storage;
@@ -118,6 +127,16 @@ public partial class MainViewModel : ObservableObject, IDisposable
 
         if (_isLlmEnabled && _downloadService.IsModelReady)
             BeginTryStartLlmService("startup");
+
+        _telegramEnabled = _viewerSettings.TelegramEnabled;
+        _telegramBotToken = _viewerSettings.TelegramBotToken;
+        _telegramChatId = _viewerSettings.TelegramChatId;
+        foreach (var t in _viewerSettings.TelegramScheduleTimes)
+            TelegramScheduleTimes.Add(t);
+        _telegramService = telegramService ?? new TelegramNotificationService(agentHttp, _log);
+        _telegramService.UpdateSettings(_telegramBotToken, _telegramChatId, [.. TelegramScheduleTimes]);
+        if (_telegramEnabled)
+            _telegramService.Start(Computers);
     }
 
     [RelayCommand]
@@ -367,6 +386,69 @@ public partial class MainViewModel : ObservableObject, IDisposable
         }
     }
 
+    partial void OnTelegramEnabledChanged(bool value)
+    {
+        _viewerSettings.TelegramEnabled = value;
+        _viewerSettingsService.Save(_viewerSettings);
+        if (value)
+            _telegramService.Start(Computers);
+        else
+            _telegramService.Stop();
+    }
+
+    partial void OnTelegramBotTokenChanged(string value)
+    {
+        _viewerSettings.TelegramBotToken = value;
+        _viewerSettingsService.Save(_viewerSettings);
+        _telegramService.UpdateSettings(value, TelegramChatId, [.. TelegramScheduleTimes]);
+    }
+
+    partial void OnTelegramChatIdChanged(string value)
+    {
+        _viewerSettings.TelegramChatId = value;
+        _viewerSettingsService.Save(_viewerSettings);
+        _telegramService.UpdateSettings(TelegramBotToken, value, [.. TelegramScheduleTimes]);
+    }
+
+    [RelayCommand]
+    private void AddTelegramScheduleTime(string time)
+    {
+        if (string.IsNullOrWhiteSpace(time))
+            return;
+        if (!System.Text.RegularExpressions.Regex.IsMatch(time, @"^\d{2}:\d{2}$"))
+            return;
+        if (TelegramScheduleTimes.Contains(time))
+            return;
+
+        TelegramScheduleTimes.Add(time);
+        SaveTelegramSchedule();
+    }
+
+    [RelayCommand]
+    private void RemoveTelegramScheduleTime(string? time)
+    {
+        if (time is null)
+            return;
+
+        TelegramScheduleTimes.Remove(time);
+        SaveTelegramSchedule();
+    }
+
+    [RelayCommand(AllowConcurrentExecutions = false)]
+    private async Task SendTelegramNowAsync(CancellationToken ct)
+    {
+        TelegramSendStatus = LocalizationService.Get("Str.Telegram.Sending");
+        var result = await _telegramService.SendNowAsync(Computers, ct);
+        TelegramSendStatus = result;
+    }
+
+    private void SaveTelegramSchedule()
+    {
+        _viewerSettings.TelegramScheduleTimes = [.. TelegramScheduleTimes];
+        _viewerSettingsService.Save(_viewerSettings);
+        _telegramService.UpdateSettings(TelegramBotToken, TelegramChatId, [.. TelegramScheduleTimes]);
+    }
+
     public void AddComputer(ComputerConfig config)
     {
         Computers.Add(new ComputerViewModel(config));
@@ -465,6 +547,7 @@ public partial class MainViewModel : ObservableObject, IDisposable
         InvalidateLlmValidation();
         _poller.Dispose();
         _llmCheckService.Stop();
+        _telegramService.Stop();
         _inferenceService.Reset();
         _appCts.Cancel();
         _appCts.Dispose();
