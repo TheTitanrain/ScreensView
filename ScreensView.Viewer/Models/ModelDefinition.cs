@@ -40,6 +40,11 @@ public record ModelDefinition(
             "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf",
             "Qwen3.5-9B-mmproj-F16.gguf",
             "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/mmproj-F16.gguf"),
+        new("qwopus3.5-9b-coder-q4", "Qwopus3.5-9B Coder Q4_K_M (~5.6 + 0.9 GB) [experimental]",
+            "Qwopus3.5-9B-coder-Exp-Q4_K_M.gguf",
+            "https://huggingface.co/Jackrong/Qwopus3.5-9B-Coder-GGUF/resolve/main/Qwopus3.5-9B-coder-Exp-Q4_K_M.gguf",
+            "Qwopus3.5-9B-mmproj-F32.gguf",
+            "https://huggingface.co/Jackrong/Qwopus3.5-9B-Coder-GGUF/resolve/main/mmproj-F32.gguf"),
     ];
 
     public static ModelDefinition Default => Available[0];

@@ -12,7 +12,8 @@ internal sealed record LlamaServerLaunchProfile(
     {
         var fileName = Path.GetFileName(modelPath);
         var usesDynamicVisionTokens =
-            fileName.Contains("qwen", StringComparison.OrdinalIgnoreCase);
+            fileName.Contains("qwen", StringComparison.OrdinalIgnoreCase)
+            || fileName.Contains("qwopus", StringComparison.OrdinalIgnoreCase);
 
         return new LlamaServerLaunchProfile(
             ParallelSlots: 1,

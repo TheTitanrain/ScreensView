@@ -43,6 +43,17 @@ public class LlamaServerProcessServiceTests
     }
 
     [Fact]
+    public void BuildArgs_ForQwopusModel_AddsImageMaxTokens()
+    {
+        var args = InvokeBuildArgs(
+            @"C:\models\Qwopus3.5-9B-coder-Exp-Q4_K_M.gguf",
+            @"C:\models\Qwopus3.5-9B-mmproj-F32.gguf",
+            9669);
+
+        Assert.Contains("--image-max-tokens 512", args);
+    }
+
+    [Fact]
     public void FindFreePort_ReturnedPortCanBeReboundImmediately()
     {
         var port = InvokeFindFreePort();

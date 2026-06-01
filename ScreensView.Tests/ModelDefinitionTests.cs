@@ -70,4 +70,20 @@ public class ModelDefinitionTests
             "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/mmproj-F16.gguf",
             qwen.ProjectorDownloadUrl);
     }
+
+    [Fact]
+    public void Available_ContainsQwopus35_9BCoderModel()
+    {
+        var model = Assert.Single(ModelDefinition.Available, m => m.Id == "qwopus3.5-9b-coder-q4");
+
+        Assert.Equal("Qwopus3.5-9B Coder Q4_K_M (~5.6 + 0.9 GB) [experimental]", model.DisplayName);
+        Assert.Equal("Qwopus3.5-9B-coder-Exp-Q4_K_M.gguf", model.FileName);
+        Assert.Equal(
+            "https://huggingface.co/Jackrong/Qwopus3.5-9B-Coder-GGUF/resolve/main/Qwopus3.5-9B-coder-Exp-Q4_K_M.gguf",
+            model.DownloadUrl);
+        Assert.Equal("Qwopus3.5-9B-mmproj-F32.gguf", model.ProjectorFileName);
+        Assert.Equal(
+            "https://huggingface.co/Jackrong/Qwopus3.5-9B-Coder-GGUF/resolve/main/mmproj-F32.gguf",
+            model.ProjectorDownloadUrl);
+    }
 }
