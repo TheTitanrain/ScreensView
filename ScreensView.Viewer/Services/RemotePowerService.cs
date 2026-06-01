@@ -1,34 +1,46 @@
-using System.Management;
+using System.Diagnostics;
 
 namespace ScreensView.Viewer.Services;
 
 internal static class RemotePowerService
 {
     public static Task RestartAsync(string host, string? username, string? password) =>
-        Win32ShutdownAsync(host, username, password, flags: 6);
+        RunShutdownAsync(host, username, password, restart: true);
 
     public static Task ShutdownAsync(string host, string? username, string? password) =>
-        Win32ShutdownAsync(host, username, password, flags: 12);
+        RunShutdownAsync(host, username, password, restart: false);
 
-    private static Task Win32ShutdownAsync(string host, string? username, string? password, int flags) =>
+    private static Task RunShutdownAsync(string host, string? username, string? password, bool restart) =>
         Task.Run(() =>
         {
-            var options = username != null
-                ? new ConnectionOptions
-                  {
-                      Username = username,
-                      Password = password,
-                      Impersonation = ImpersonationLevel.Impersonate,
-                      Authentication = AuthenticationLevel.PacketPrivacy
-                  }
-                : new ConnectionOptions();
+            bool hasCredentials = !string.IsNullOrEmpty(username);
+            if (hasCredentials)
+                RunCommand("net", $@"use \\{host}\ipc$ /user:{username} {password}");
 
-            var scope = new ManagementScope($@"\\{host}\root\cimv2", options);
-            scope.Connect();
-
-            using var searcher = new ManagementObjectSearcher(scope, new SelectQuery("Win32_OperatingSystem"));
-            foreach (ManagementObject os in searcher.Get())
-            using (os)
-                os.InvokeMethod("Win32Shutdown", new object[] { flags, 0 });
+            try
+            {
+                string flag = restart ? "/r" : "/s";
+                RunCommand("shutdown", $@"{flag} /m \\{host} /t 0 /f");
+            }
+            finally
+            {
+                if (hasCredentials)
+                    RunCommand("net", $@"use \\{host}\ipc$ /delete", throwOnError: false);
+            }
         });
+
+    private static void RunCommand(string exe, string args, bool throwOnError = true)
+    {
+        var psi = new ProcessStartInfo(exe, args)
+        {
+            UseShellExecute = false,
+            CreateNoWindow = true,
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+        };
+        using var p = Process.Start(psi)!;
+        p.WaitForExit();
+        if (throwOnError && p.ExitCode != 0)
+            throw new InvalidOperationException(p.StandardError.ReadToEnd().Trim());
+    }
 }
