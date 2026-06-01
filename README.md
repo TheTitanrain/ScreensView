@@ -162,7 +162,7 @@ dotnet run --project ScreensView.Viewer -- --connections-file "C:\Shared\connect
 Viewer can locally compare a screenshot with the expected screen description.
 
 1. Open **Settings** and enable **Screen analysis**.
-2. On first use, pick a model and click **Download**. The default is a compatible `LLaVA v1.5 7B`. Other entries such as `Gemma 4 E2B`, `Qwen3.5-0.8B`, `Qwen3.5-9B`, and other GGUF variants can also appear in Settings.
+2. On first use, pick a model and click **Download**. The default is a compatible `LLaVA v1.5 7B`. Other entries such as `Gemma 4 E2B`, `Qwen3.5-0.8B`, `Qwen3.5-9B`, `Qwopus3.5-9B Coder`, and other GGUF variants can also appear in Settings.
 3. If the selected backend is `CUDA (NVIDIA)`, Viewer downloads two separate archives from the `llama.cpp` release: the main `llama-...-bin-win-cuda-12...zip` containing `llama-server.exe` and a separate `cudart-llama-...-bin-win-cuda-12...zip` archive containing the CUDA runtime DLLs. If the backend status shows `Not downloaded` or `Partially downloaded`, use **Download backend** in Settings to repair the local binaries.
 4. Open **Edit** for the computer and fill in **Screen description**.
 
