@@ -54,4 +54,20 @@ public class ModelDefinitionTests
         Assert.Equal("Qwen3.5-0.8B-mmproj-F16.gguf", qwen08b.ProjectorFileName);
         Assert.NotEqual(qwen2b.ProjectorFileName, qwen08b.ProjectorFileName);
     }
+
+    [Fact]
+    public void Available_ContainsQwen35_9BModel()
+    {
+        var qwen = Assert.Single(ModelDefinition.Available, model => model.Id == "qwen3.5-9b-q4");
+
+        Assert.Equal("Qwen3.5-9B Q4_K_M (~5.7 + 0.9 GB)", qwen.DisplayName);
+        Assert.Equal("Qwen3.5-9B-Q4_K_M.gguf", qwen.FileName);
+        Assert.Equal(
+            "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/Qwen3.5-9B-Q4_K_M.gguf",
+            qwen.DownloadUrl);
+        Assert.Equal("Qwen3.5-9B-mmproj-F16.gguf", qwen.ProjectorFileName);
+        Assert.Equal(
+            "https://huggingface.co/unsloth/Qwen3.5-9B-GGUF/resolve/main/mmproj-F16.gguf",
+            qwen.ProjectorDownloadUrl);
+    }
 }
