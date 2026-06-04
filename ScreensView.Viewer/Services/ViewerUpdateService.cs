@@ -5,6 +5,7 @@ using System.Net.Http.Json;
 using System.Reflection;
 using System.Security.Cryptography;
 using System.Text;
+using System.Text.Json.Serialization;
 using System.Windows;
 
 namespace ScreensView.Viewer.Services;
@@ -175,6 +176,9 @@ public class ViewerUpdateService
     private static Version GetCurrentVersion()
         => Assembly.GetExecutingAssembly().GetName().Version ?? new Version(0, 0);
 
+    internal static ReleaseMetadata? ParseReleaseJson(string json)
+        => ToReleaseMetadata(System.Text.Json.JsonSerializer.Deserialize<GitHubRelease>(json));
+
     private static ReleaseMetadata? ToReleaseMetadata(GitHubRelease? release)
     {
         if (release == null)
@@ -333,13 +337,19 @@ public class ViewerUpdateService
 
     private class GitHubRelease
     {
+        [JsonPropertyName("tag_name")]
         public string TagName { get; set; } = string.Empty;
+
+        [JsonPropertyName("assets")]
         public List<GitHubAsset>? Assets { get; set; }
     }
 
     private class GitHubAsset
     {
+        [JsonPropertyName("name")]
         public string Name { get; set; } = string.Empty;
+
+        [JsonPropertyName("browser_download_url")]
         public string BrowserDownloadUrl { get; set; } = string.Empty;
     }
 }

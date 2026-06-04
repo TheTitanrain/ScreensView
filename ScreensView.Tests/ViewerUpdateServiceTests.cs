@@ -157,6 +157,29 @@ public class ViewerUpdateServiceTests
     }
 
     [Fact]
+    public void ParseReleaseJson_GitHubSnakeCasePayload_MapsTagExeAndChecksum()
+    {
+        const string json = """
+        {
+          "tag_name": "v1.4.0",
+          "assets": [
+            { "name": "ScreensView.exe",
+              "browser_download_url": "https://example.invalid/ScreensView.exe" },
+            { "name": "checksums.sha256.txt",
+              "browser_download_url": "https://example.invalid/checksums.sha256.txt" }
+          ]
+        }
+        """;
+
+        var release = ViewerUpdateService.ParseReleaseJson(json);
+
+        Assert.NotNull(release);
+        Assert.Equal("v1.4.0", release!.TagName);
+        Assert.Equal("https://example.invalid/ScreensView.exe", release.DownloadUrl);
+        Assert.Equal("https://example.invalid/checksums.sha256.txt", release.ChecksumUrl);
+    }
+
+    [Fact]
     public void GetPostUpdateRelaunchArguments_StripsInternalUpdateArgumentsAndPreservesConnectionsFile()
     {
         var args = new[]
