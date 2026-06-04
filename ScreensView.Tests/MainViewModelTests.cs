@@ -51,6 +51,21 @@ public class MainViewModelTests : IDisposable
     }
 
     [Fact]
+    public void Constructor_WhenSavedModelIdMissingFromCatalog_NormalizesToDefaultAndPersists()
+    {
+        // Persist a SelectedModelId that is not in the (built-in) catalog.
+        var realSettings = new ViewerSettingsService(_settingsFile);
+        var stored = realSettings.Load();
+        stored.SelectedModelId = "removed-model-xyz";
+        realSettings.Save(stored);
+
+        using var vm = CreateVm(realSettings, new FakeAutostartService(initialValue: false));
+
+        Assert.Equal(ModelDefinition.Default.Id, vm.SelectedModel.Id);
+        Assert.Equal(ModelDefinition.Default.Id, realSettings.Load().SelectedModelId);
+    }
+
+    [Fact]
     public void IsAutostartEnabled_WhenEnabled_UpdatesSystemAndPersistsSetting()
     {
         var settings = new FakeViewerSettingsService(initialValue: false);

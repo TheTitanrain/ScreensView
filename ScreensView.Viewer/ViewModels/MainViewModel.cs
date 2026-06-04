@@ -100,6 +100,13 @@ public partial class MainViewModel : ObservableObject, IDisposable
         _isLlmEnabled = _viewerSettings.LlmEnabled;
         _selectedModel = ModelDefinition.Available.FirstOrDefault(m => m.Id == _viewerSettings.SelectedModelId)
                          ?? ModelDefinition.Default;
+        // Normalize a stale SelectedModelId (model removed/renamed in models.json) so the persisted
+        // settings stay consistent with the model the UI actually shows.
+        if (_selectedModel.Id != _viewerSettings.SelectedModelId)
+        {
+            _viewerSettings.SelectedModelId = _selectedModel.Id;
+            _viewerSettingsService.Save(_viewerSettings);
+        }
         _selectedBackend = _viewerSettings.LlamaServerBackend;
 
         _downloadService = downloadService ?? new ModelDownloadService();

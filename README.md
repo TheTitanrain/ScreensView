@@ -192,6 +192,30 @@ If a screenshot exactly matches one of the last 16 already analyzed frames for t
 During screen analysis, `viewer.log` writes the outcome per computer and separate events such as `CacheHit`, `CacheMiss`, `SkipStaleScreenshot`, `Timeout`, and `Cancelled`.
 For LLM debugging, `viewer.log` also writes `LlmInferenceService.RawResponseMismatch`, `LlmInferenceService.RawResponseEmptyExplanation`, and `LlmInferenceService.RawResponseParseError` with the raw model response and the normalized string after stripping `<think>...</think>`.
 
+#### Adding or editing models (`models.json`)
+
+The model list in Settings is driven by a plain JSON file at `%AppData%\ScreensView\models.json`. On first run Viewer seeds it with the built-in models, so you have a working template to copy and edit. Restart Viewer to apply changes.
+
+The file is a JSON array; each entry has these fields:
+
+```json
+[
+  {
+    "Id": "my-model-q4",
+    "DisplayName": "My Model Q4 (~3 GB)",
+    "FileName": "my-model-Q4_K_M.gguf",
+    "DownloadUrl": "https://huggingface.co/.../my-model-Q4_K_M.gguf",
+    "ProjectorFileName": "my-model-mmproj-F16.gguf",
+    "ProjectorDownloadUrl": "https://huggingface.co/.../mmproj-F16.gguf"
+  }
+]
+```
+
+- `ProjectorFileName` / `ProjectorDownloadUrl` are optional, but must be present together or not at all (a vision model needs an mmproj projector; a text-only model has neither).
+- The file is **merged** with the built-ins: an entry whose `Id` matches a built-in overrides it (handy for changing a name or mirror URL); a new `Id` is added to the list. New built-in models from future Viewer versions still appear automatically. A built-in cannot be deleted via the file, only overridden.
+- Validation rules — invalid entries are skipped and the rest are kept: `FileName`/`ProjectorFileName` must be a bare file name (no path separators, no `..`, not rooted); `DownloadUrl`/`ProjectorDownloadUrl` must be absolute `http`/`https` URLs; two models may not share the same local file name.
+- If the file is missing, empty, or malformed, Viewer falls back to the built-in catalog and never fails to start. A malformed file is left untouched so you can fix it.
+
 ## Remote Agent Installation and Maintenance
 
 The **Manage Computers** window provides:

@@ -16,6 +16,11 @@ public partial class App : Application
         var settingsService = new ViewerSettingsService();
         LocalizationService.Apply(settingsService.Load().Language ?? "auto");
         var logService = new ViewerLogService();
+
+        // Load the user-editable model catalog before any view model or window is created.
+        // {x:Static ModelDefinition.Available} in SettingsWindow is not a live binding, so this
+        // must run first. LoadOrSeed never throws — a bad file falls back to the built-in catalog.
+        Models.ModelDefinition.Initialize(new ModelCatalogService(logService).LoadOrSeed());
         var controller = new ConnectionsStorageController(
             settingsService,
             () => new ComputerStorageService(),

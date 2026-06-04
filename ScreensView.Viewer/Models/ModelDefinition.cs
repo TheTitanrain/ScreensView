@@ -8,7 +8,11 @@ public record ModelDefinition(
     string? ProjectorFileName,
     string? ProjectorDownloadUrl)
 {
-    public static IReadOnlyList<ModelDefinition> Available { get; } =
+    /// <summary>Stable id of the default model — independent of list position.</summary>
+    public const string DefaultModelId = "llava-v1.5-7b-q4";
+
+    /// <summary>The compiled-in catalog. Always the fallback when no user file is present.</summary>
+    public static IReadOnlyList<ModelDefinition> BuiltIn { get; } =
     [
         new("llava-v1.5-7b-q4", "LLaVA v1.5 7B Q4_K_M (~4.1 + 0.6 GB)",
             "llava-v1.5-7b-Q4_K_M.gguf",
@@ -47,5 +51,37 @@ public record ModelDefinition(
             "https://huggingface.co/Jackrong/Qwopus3.5-9B-Coder-GGUF/resolve/main/mmproj-F32.gguf"),
     ];
 
-    public static ModelDefinition Default => Available[0];
+    private static IReadOnlyList<ModelDefinition> _available = BuiltIn;
+    private static bool _initialized;
+
+    /// <summary>
+    /// The active catalog shown in the UI. Defaults to <see cref="BuiltIn"/> until
+    /// <see cref="Initialize"/> is called once at startup. Getter-only — production code
+    /// cannot swap the list at runtime.
+    /// </summary>
+    public static IReadOnlyList<ModelDefinition> Available => _available;
+
+    /// <summary>
+    /// One-time catalog initialization. Idempotent — the first call wins, later calls are ignored.
+    /// Called from <c>App.OnStartup</c> before any view model or window is constructed.
+    /// </summary>
+    internal static void Initialize(IReadOnlyList<ModelDefinition> catalog)
+    {
+        if (_initialized)
+            return;
+
+        _available = catalog is { Count: > 0 } ? catalog : BuiltIn;
+        _initialized = true;
+    }
+
+    /// <summary>Test-only: restore the un-initialized state so static reads don't leak between tests.</summary>
+    internal static void ResetForTests()
+    {
+        _available = BuiltIn;
+        _initialized = false;
+    }
+
+    /// <summary>The default model, pinned by <see cref="DefaultModelId"/>, falling back to the first entry.</summary>
+    public static ModelDefinition Default =>
+        Available.FirstOrDefault(m => m.Id == DefaultModelId) ?? Available[0];
 }
